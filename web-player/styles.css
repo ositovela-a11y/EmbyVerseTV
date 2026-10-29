@@ -174,3 +174,4 @@ small { display: block; color: var(--muted); font-size: .82rem; }
   .two { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation-duration: 3s !important; } }
+.welcome .add { width: 100%; max-width: 560px; }

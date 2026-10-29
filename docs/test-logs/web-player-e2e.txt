@@ -1,6 +1,8 @@
-✔  Pantalla de bienvenida
+✔  Pantalla de entrada (Xtream por defecto)
+✔  Xtream: servidor inexistente da un error comprensible
+✔  Xtream: pegar enlace get.php rellena los campos
 ✔  Error comprensible con URL inexistente
-✔  Añadir lista M3U por URL
+✔  Entrar con lista M3U por URL
 ✔  Filtrar por categoría
 ✔  Reproducir canal y cambiar de canal
 ✔  Navegación con flechas (mando)
@@ -9,5 +11,4 @@
 ✔  Favoritos
 ✔  Persistencia al recargar
 ✔  Vista en teléfono
-
-11/11 pasos correctos
+13/13 pasos correctos

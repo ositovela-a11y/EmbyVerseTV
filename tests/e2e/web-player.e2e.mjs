@@ -13,17 +13,33 @@ const browser = await pw.chromium.launch({ args: ['--autoplay-policy=no-user-ges
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 const errors = []; page.on('pageerror', (e) => errors.push(e.message));
 
-await step('Pantalla de bienvenida', async () => { await page.goto(BASE); await page.getByText('Añadir mi primera fuente').waitFor(); await page.screenshot({ path: `${OUT}/01-bienvenida.png` }); });
+await step('Pantalla de entrada (Xtream por defecto)', async () => {
+  await page.goto(BASE); await page.getByText('Entrar a EmbyVerse').waitFor();
+  await page.locator('#f-user').waitFor(); await page.locator('#f-pass').waitFor();
+  await page.screenshot({ path: `${OUT}/01-entrada.png` });
+});
+await step('Xtream: servidor inexistente da un error comprensible', async () => {
+  await page.locator('#f-loc').fill(`${BASE}/servidor-falso`);
+  await page.locator('#f-user').fill('ana'); await page.locator('#f-pass').fill('secreta');
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+  await page.locator('#f-err', { hasText: /No se encontró|Xtream/ }).waitFor();
+  if (!(await page.getByText('Entrar a EmbyVerse').isVisible())) throw new Error('salió de la pantalla de entrada');
+});
+await step('Xtream: pegar enlace get.php rellena los campos', async () => {
+  await page.locator('#f-loc').fill('http://servidor.example.com:8080/get.php?username=luis&password=abc123&type=m3u_plus');
+  if (await page.locator('#f-user').inputValue() !== 'luis') throw new Error('usuario no extraído');
+  if (await page.locator('#f-pass').inputValue() !== 'abc123') throw new Error('contraseña no extraída');
+});
 await step('Error comprensible con URL inexistente', async () => {
-  await page.getByText('Añadir mi primera fuente').click();
+  await page.locator('.seg input[value=url]').check();
   await page.locator('#f-loc').fill(`${BASE}/no-existe.m3u`);
-  await page.getByRole('button', { name: 'Probar y guardar' }).click();
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await page.getByText('No se encontró nada en esa dirección (HTTP 404).').waitFor();
 });
-await step('Añadir lista M3U por URL', async () => {
+await step('Entrar con lista M3U por URL', async () => {
   await page.locator('#f-name').fill('Lista de prueba');
   await page.locator('#f-loc').fill(`${BASE}/test.m3u`);
-  await page.getByRole('button', { name: 'Probar y guardar' }).click();
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await page.getByText('3 canales, 1 películas, 1 series').waitFor();
   await page.locator('.card').first().waitFor();
   await page.screenshot({ path: `${OUT}/02-tv-en-vivo.png` });

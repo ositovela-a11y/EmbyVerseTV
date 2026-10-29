@@ -270,12 +270,13 @@ function render() {
 function renderWelcome() {
   view.innerHTML = `
     <section class="welcome">
-      <h1>Tu universo de entretenimiento, en el navegador</h1>
-      <p>Añade tu lista M3U o tu proveedor Xtream. Todo se guarda solo en este navegador.</p>
-      <button class="btn primary" data-act="goto-sources" data-focus>Añadir mi primera fuente</button>
+      <h1>Entrar a EmbyVerse</h1>
+      <p>Entra con los datos de tu proveedor: servidor Xtream Codes con usuario y contraseña, o el enlace de tu lista M3U.</p>
+      ${addForm('Tus datos de acceso', 'Entrar')}
       <button class="btn" data-act="demo" data-focus>Probar con la lista de demostración</button>
-      <p class="fine">La lista de demostración usa películas abiertas de la Blender Foundation (licencia CC BY) y streams de prueba públicos.</p>
+      <p class="fine">Los datos se guardan solo en este navegador. La lista de demostración usa películas abiertas de la Blender Foundation (CC BY) y streams de prueba públicos.</p>
     </section>`;
+  wireForm();
   focusFirst();
 }
 
@@ -344,6 +345,39 @@ function renderFavorites() {
   view.innerHTML = groups || '<p class="empty">Aún no tienes favoritos. Abre un canal, película o serie y pulsa ♥.</p>';
 }
 
+function addForm(title, button) {
+  return `
+      <form id="add" class="add" autocomplete="off">
+        <h2>${title}</h2>
+        <div class="seg" role="radiogroup" aria-label="Tipo de fuente">
+          ${[['xtream', 'Xtream Codes'], ['url', 'Lista M3U (URL)'], ['file', 'Archivo M3U']].map(([v, l]) => `<label><input type="radio" name="type" value="${v}" ${(state.formType || 'xtream') === v ? 'checked' : ''} data-focus><span>${l}</span></label>`).join('')}
+        </div>
+        <label class="field">Nombre<input id="f-name" name="name" maxlength="40" placeholder="Mi proveedor" data-focus></label>
+        <div class="t-url t-xtream">
+          <label class="field"><span class="t-url">URL de la lista</span><span class="t-xtream">Servidor (o pega el enlace get.php completo)</span><input id="f-loc" name="location" inputmode="url" placeholder="https://" data-focus></label>
+        </div>
+        <label class="field t-file">Archivo .m3u / .m3u8<input id="f-file" name="file" type="file" accept=".m3u,.m3u8,audio/x-mpegurl,application/vnd.apple.mpegurl,text/plain" data-focus></label>
+        <div class="two t-xtream">
+          <label class="field">Usuario<input id="f-user" name="username" data-focus></label>
+          <label class="field">Contraseña<input id="f-pass" name="password" type="password" data-focus></label>
+        </div>
+        <p class="fine">${pageIsHttps ? 'Esta página es segura (https), así que el navegador solo permite listas, servidores y canales https://. Para proveedores http:// usa la app Android.' : ''} Usa solo listas y servicios a los que tengas derecho de acceso.</p>
+        <p class="err" id="f-err" hidden></p>
+        <button class="btn primary" data-focus>${button}</button>
+      </form>`;
+}
+
+function wireForm() {
+  const form = $('#add');
+  const sync = () => { const t = form.type.value; form.dataset.type = t; state.formType = t; };
+  form.addEventListener('change', sync); sync();
+  $('#f-loc').addEventListener('input', (e) => {
+    const c = parseCredentialUrl(e.target.value);
+    if (c && form.type.value === 'xtream') { e.target.value = c.location; $('#f-user').value = c.username; $('#f-pass').value = c.password; }
+  });
+  form.addEventListener('submit', onAddSource);
+}
+
 function renderSources() {
   view.innerHTML = `
     <section class="sources">
@@ -361,34 +395,10 @@ function renderSources() {
             <button class="btn danger" data-act="delete" data-sid="${esc(s.id)}" data-focus>Eliminar</button>
           </div>
         </article>`).join('')}
-      <form id="add" class="add" autocomplete="off">
-        <h2>Añadir fuente</h2>
-        <div class="seg" role="radiogroup" aria-label="Tipo de fuente">
-          ${[['url', 'Lista M3U (URL)'], ['file', 'Archivo M3U'], ['xtream', 'Xtream Codes']].map(([v, l]) => `<label><input type="radio" name="type" value="${v}" ${(state.formType || 'url') === v ? 'checked' : ''} data-focus><span>${l}</span></label>`).join('')}
-        </div>
-        <label class="field">Nombre<input id="f-name" name="name" maxlength="40" placeholder="Mi proveedor" data-focus></label>
-        <div class="t-url t-xtream">
-          <label class="field"><span class="t-url">URL de la lista</span><span class="t-xtream">Servidor (o pega el enlace get.php completo)</span><input id="f-loc" name="location" inputmode="url" placeholder="https://" data-focus></label>
-        </div>
-        <label class="field t-file">Archivo .m3u / .m3u8<input id="f-file" name="file" type="file" accept=".m3u,.m3u8,audio/x-mpegurl,application/vnd.apple.mpegurl,text/plain" data-focus></label>
-        <div class="two t-xtream">
-          <label class="field">Usuario<input id="f-user" name="username" data-focus></label>
-          <label class="field">Contraseña<input id="f-pass" name="password" type="password" data-focus></label>
-        </div>
-        <p class="fine">${pageIsHttps ? 'Esta página es segura (https), así que el navegador solo permite listas, servidores y canales https://. Para proveedores http:// usa la app Android.' : ''} Usa solo listas y servicios a los que tengas derecho de acceso.</p>
-        <p class="err" id="f-err" hidden></p>
-        <button class="btn primary" data-focus>Probar y guardar</button>
-      </form>
+      ${addForm('Añadir fuente', 'Probar y guardar')}
       <p class="fine">Las fuentes, contraseñas, favoritos y el progreso se guardan solo en este navegador.</p>
     </section>`;
-  const form = $('#add');
-  const sync = () => { const t = form.type.value; form.dataset.type = t; state.formType = t; };
-  form.addEventListener('change', sync); sync();
-  $('#f-loc').addEventListener('input', (e) => {
-    const c = parseCredentialUrl(e.target.value);
-    if (c && form.type.value === 'xtream') { e.target.value = c.location; $('#f-user').value = c.username; $('#f-pass').value = c.password; }
-  });
-  form.addEventListener('submit', onAddSource);
+  wireForm();
 }
 
 async function onAddSource(e) {
@@ -410,14 +420,14 @@ async function onAddSource(e) {
       if (insecureOnHttps(src.location)) throw new UserError(MIXED_MSG);
       src.name ||= (() => { try { return new URL(src.location).hostname; } catch { return 'Fuente'; } })();
     }
-    btn.disabled = true; btn.textContent = 'Probando conexión…'; show('');
+    btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = 'Conectando…'; show('');
     state.sources.push(src); saveSources();
     const ok = await syncSource(src);
-    if (!ok) { const m = src.lastError; state.sources = state.sources.filter((s) => s !== src); saveSources(); idb.del('file:' + src.id); state.tab = 'sources'; render(); $('#f-err').textContent = m; $('#f-err').hidden = false; return; }
+    if (!ok) { const m = src.lastError; state.sources = state.sources.filter((s) => s !== src); saveSources(); idb.del('file:' + src.id); if (state.sources.length) state.tab = 'sources'; render(); $('#f-err').textContent = m; $('#f-err').hidden = false; return; }
     if (!src.password) delete src.password;
     toast(`«${src.name}» añadida: ${src.counts[0]} canales, ${src.counts[1]} películas, ${src.counts[2]} series`);
     state.tab = src.counts[0] ? 'live' : src.counts[1] ? 'movies' : 'series'; state.category = null; render(); focusFirst();
-  } catch (ex) { show(ex instanceof UserError ? ex.message : 'No se pudo añadir la fuente.'); btn.disabled = false; btn.textContent = 'Probar y guardar'; }
+  } catch (ex) { show(ex instanceof UserError ? ex.message : 'No se pudo añadir la fuente.'); btn.disabled = false; btn.textContent = btn.dataset.label || 'Entrar'; }
 }
 
 async function renderSeries(d) {
