@@ -39,9 +39,15 @@ jobs:
         if: failure()
         working-directory: android-app
         run: |
-          grep -E "^e: |error:|What went wrong|FAILURE|Could not|> " build.log | head -60 > errors.txt || true
-          { echo '## Errores de compilación'; echo '```'; cat errors.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          head -40 errors.txt | while IFS= read -r line; do echo "::error::${line//%/%25}"; done
+          { grep -E '^e: ' build.log | head -40
+            awk '/What went wrong:/{f=1} /\* Try:/{f=0} f' build.log | head -40
+            grep -E 'error:|Unresolved|FAILED' build.log | grep -v '^e: ' | head -20; } > errors.txt || true
+          { echo '## Errores'; echo '```'; cat errors.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          # Máximo 10 anotaciones por paso: se agrupan de 6 en 6 líneas.
+          split -l 6 errors.txt chunk_ || true
+          for f in $(ls chunk_* 2>/dev/null | head -10); do
+            msg=$(sed 's/%/%25/g' "$f" | awk 'BEGIN{ORS="%0A"} {print}'); echo "::error::$msg"
+          done
       - name: Publicar APK
         if: success()
         env: { GH_TOKEN: '${{ github.token }}' }
