@@ -1,0 +1,28 @@
+# Dependencias y compilados
+node_modules/
+dist/
+build/
+.gradle/
+android-app/**/build/
+*.apk
+*.aab
+*.class
+
+# Datos y secretos (NUNCA versionar)
+backend/data/
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+!.env.example
+android-app/local.properties
+android-app/keystore.properties
+*.jks
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+captures/
+!android-app/app/embyverse-debug.keystore

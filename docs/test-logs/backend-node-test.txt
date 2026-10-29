@@ -1,0 +1,62 @@
+
+> embyverse-backend@1.0.0 test
+> npm run build && node --disable-warning=ExperimentalWarning --test --test-reporter=spec "dist/test/**/*.test.js"
+
+
+> embyverse-backend@1.0.0 build
+> tsc -p tsconfig.json
+
+▶ API del panel y configuración remota
+  ✔ salud, cabeceras de seguridad y nada publicado al inicio (6.037777ms)
+  ✔ autenticación: credenciales incorrectas, cookie segura y CSRF obligatorio (103.697167ms)
+  ✔ bloqueo temporal tras 5 intentos fallidos (195.677369ms)
+  ✔ permisos verificados en el servidor por rol (13.92628ms)
+  ✔ publicación de un cambio de diseño y entrega a la app con ETag (11.212232ms)
+  ✔ configuración inválida: se guarda el borrador pero no se publica (8.286732ms)
+  ✔ biblioteca de imágenes: tipos reales, tamaño y banners publicados (42.286038ms)
+  ✔ logotipos: solo variantes aprobadas por un propietario (21.132409ms)
+  ✔ historial, recuperar borrador y revertir una publicación defectuosa (13.815439ms)
+  ✔ conflicto si otro administrador publicó mientras se editaba (12.970763ms)
+  ✔ apps antiguas reciben la última versión compatible (9.849215ms)
+  ✔ gestión de usuarios y registro de auditoría (39.523934ms)
+  ✔ cerrar sesión invalida la cookie (65.37626ms)
+  ✔ sirve el panel con respaldo SPA y no expone archivos fuera de la carpeta (5.524217ms)
+  ✔ protección contra abuso: límite de peticiones a la API pública (75.595652ms)
+✔ API del panel y configuración remota (942.134379ms)
+▶ validación de configuración (mismos fixtures que la app Kotlin)
+  ✔ la configuración predeterminada es válida y se reproduce idéntica (1.464653ms)
+  ✔ acepta valid/asset-logo-and-banners.json (0.672067ms)
+  ✔ acepta valid/future-section-type.json (0.253642ms)
+  ✔ acepta valid/minimal.json (0.299843ms)
+  ✔ rechaza invalid/bad-color.json (0.312405ms)
+  ✔ rechaza invalid/bad-enum.json (0.177346ms)
+  ✔ rechaza invalid/banner-dates-reversed.json (0.336498ms)
+  ✔ rechaza invalid/duplicate-section-id.json (0.540785ms)
+  ✔ rechaza invalid/external-route.json (0.294663ms)
+  ✔ rechaza invalid/hero-layout-misuse.json (0.39518ms)
+  ✔ rechaza invalid/http-image.json (0.165093ms)
+  ✔ rechaza invalid/locked-unknown-section.json (0.182933ms)
+  ✔ rechaza invalid/missing-schema.json (0.166704ms)
+  ✔ rechaza invalid/not-object.json (0.134254ms)
+  ✔ rechaza invalid/radius-out-of-range.json (0.141619ms)
+  ✔ rechaza invalid/schema-too-new.json (0.086591ms)
+  ✔ rechaza invalid/script-injection-text.json (0.117517ms)
+  ✔ rechaza invalid/string-number.json (1.082254ms)
+  ✔ tipos de sección futuros: aviso y se omiten al resolver (0.3805ms)
+  ✔ fechas ISO con zona horaria (0.067805ms)
+  ✔ rechaza configuraciones demasiado grandes (0.247256ms)
+✔ validación de configuración (mismos fixtures que la app Kotlin) (8.880618ms)
+▶ resolución de preferencias de usuario (misma lógica que ConfigResolver.kt)
+  ✔ tema y acento solo si están permitidos (0.320476ms)
+  ✔ ocultar y reordenar respeta las secciones bloqueadas (0.120166ms)
+  ✔ banners por ventana de publicación (0.383074ms)
+  ✔ contraste legible (0.056278ms)
+✔ resolución de preferencias de usuario (misma lógica que ConfigResolver.kt) (0.978456ms)
+ℹ tests 40
+ℹ suites 3
+ℹ pass 40
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1162.863803

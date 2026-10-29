@@ -1,0 +1,34 @@
+﻿#EXTM3U url-tvg="https://epg.example.com/guide.xml.gz,https://epg2.example.com/g.xml" x-tvg-url="https://epg.example.com/guide.xml.gz"
+#EXTINF:-1 tvg-id="demo.news" tvg-name="Demo News" tvg-logo="https://img.example.com/news.png" tvg-chno="5" group-title="Noticias, Internacional",Demo News HD
+https://streams.example.com/live/news/index.m3u8
+#EXTINF:-1 tvg-id='demo.sports' tvg-logo='https://img.example.com/sports.png' group-title='Deportes',Demo Sports, Canal 2
+#EXTVLCOPT:http-user-agent=EmbyVerseTest/1.0
+#EXTVLCOPT:http-referrer=https://ref.example.com/
+http://streams.example.com:8080/sports.ts
+#EXTINF:-1,Canal sin atributos
+#EXTGRP:Variedades
+https://streams.example.com/variedades.m3u8
+#EXTINF:-1 tvg-id="dup",Duplicado (misma URL que Demo News)
+https://streams.example.com/live/news/index.m3u8
+#EXTINF:-1 group-title="Local",Ruta relativa
+relativo/canal.ts
+#EXTINF:-1 group-title="Malo",Esquema no permitido
+file:///etc/passwd
+#EXTINF:7200 tvg-logo="https://img.example.com/blender.jpg" group-title="Películas",Big Buck Bunny (2008)
+https://media.example.com/movie/user/pass/1001.mp4
+#EXTINF:-1 group-title="VOD Cine",Sintel 2010
+https://media.example.com/vod/sintel.mkv
+#EXTINF:-1 group-title="Series Animadas",Elephants Dream S01E01 El comienzo
+https://media.example.com/series/user/pass/2001.mkv
+#EXTINF:-1 group-title="Series Animadas",Elephants Dream S01E02
+https://media.example.com/series/user/pass/2002.mkv
+#EXTINF:-1 group-title="Series Animadas",Elephants Dream S02 E01 - Regreso
+https://media.example.com/series/user/pass/2003.mkv
+#EXTINF:-1 group-title="Series",Tears of Steel 1x03
+https://media.example.com/tos/1x03.mp4
+#EXTINF:-1 tvg-type="movie",Película por atributo
+https://media.example.com/stream?id=9
+#EXTINF:-1 group-title="Deportes 24/7",Partido S01E01 en directo
+https://streams.example.com/match.m3u8
+# comentario suelto
+https://huerfana.example.com/sin-extinf.ts

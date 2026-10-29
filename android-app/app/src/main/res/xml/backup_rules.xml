@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copia de seguridad (Android ≤ 11). Nunca se copian credenciales cifradas: la clave del Keystore no viaja. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="ev_secure_credentials.xml" />
+    <exclude domain="database" path="." />
+    <exclude domain="file" path="." />
+</full-backup-content>

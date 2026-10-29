@@ -1,0 +1,4 @@
+#EXTINF:-1 group-title="A",Uno
+http://x.example.com/1.ts
+#EXTINF:-1 group-title="A",Dos
+http://x.example.com/2.ts

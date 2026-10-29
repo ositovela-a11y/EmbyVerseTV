@@ -1,0 +1,1 @@
+{ "schemaVersion": 1, "version": 1, "banners": [ { "id": "x", "placement": "hero", "title": "Sin TLS", "imageUrl": "http://cdn.example.com/a.png" } ] }

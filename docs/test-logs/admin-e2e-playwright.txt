@@ -1,0 +1,21 @@
+✔  Pantalla de acceso y credenciales incorrectas
+✔  Inicio de sesión
+✔  Seleccionar sección desde la vista previa
+✔  Cambiar a cuadrícula y tamaño grande
+✔  Deshacer y rehacer
+✔  Editar color principal con aviso de contraste
+✔  Vista previa en tableta y Android TV
+✔  Crear banner promocional con imagen subida
+✔  Guardar borrador
+✔  Bloquear publicación con configuración inválida
+✔  Publicar versión
+✔  La API pública entrega el diseño publicado a la app
+✔  Historial de versiones
+✔  Biblioteca de recursos
+✔  Panel adaptable en teléfono
+Errores de consola: [
+  'Failed to load resource: the server responded with a status of 401 (Unauthorized)',
+  'Failed to load resource: the server responded with a status of 401 (Unauthorized)'
+]
+
+15/15 pasos correctos

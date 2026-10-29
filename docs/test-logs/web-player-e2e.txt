@@ -1,0 +1,13 @@
+✔  Pantalla de bienvenida
+✔  Error comprensible con URL inexistente
+✔  Añadir lista M3U por URL
+✔  Filtrar por categoría
+✔  Reproducir canal y cambiar de canal
+✔  Navegación con flechas (mando)
+✔  Película: progreso y Continuar viendo
+✔  Serie con episodios
+✔  Favoritos
+✔  Persistencia al recargar
+✔  Vista en teléfono
+
+11/11 pasos correctos

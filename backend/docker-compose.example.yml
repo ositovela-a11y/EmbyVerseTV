@@ -1,0 +1,18 @@
+# Ejemplo de despliegue con HTTPS automático (Caddy + Let's Encrypt).
+# 1) Apunta el DNS de config.tu-dominio.com a tu servidor. 2) Ajusta .env. 3) docker compose up -d
+services:
+  embyverse:
+    build: { context: .., dockerfile: backend/Dockerfile }
+    env_file: .env
+    environment: { DATA_DIR: /data, TRUST_PROXY: "true" }
+    volumes: [ "embyverse-data:/data" ]
+    restart: unless-stopped
+  caddy:
+    image: caddy:2
+    ports: [ "80:80", "443:443" ]
+    command: caddy reverse-proxy --from config.tu-dominio.com --to embyverse:8080
+    volumes: [ "caddy-data:/data" ]
+    restart: unless-stopped
+volumes:
+  embyverse-data:
+  caddy-data:

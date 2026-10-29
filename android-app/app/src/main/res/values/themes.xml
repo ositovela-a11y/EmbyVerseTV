@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema base (los colores reales los aplica Compose a partir de la configuración remota). -->
+    <style name="Theme.EmbyVerse" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/ev_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="colorPrimary">@color/ev_primary</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <!-- Splash del sistema (Android 12+ y compatibilidad en versiones anteriores). -->
+    <style name="Theme.EmbyVerse.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/ev_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.EmbyVerse</item>
+    </style>
+
+    <style name="Theme.EmbyVerse.Player" parent="Theme.EmbyVerse">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+</resources>

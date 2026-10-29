@@ -1,0 +1,9 @@
+{ "schemaVersion": 1, "version": 12, "minAppVersionCode": 1,
+  "brand": { "appName": "EmbyVerse Plus", "logo": { "variant": "asset", "url": "https://cdn.example.com/assets/logo-v2.webp" } },
+  "theme": { "palette": { "primary": "#22D3EE", "background": "#FF000000" }, "shape": { "cardRadius": 0 }, "typography": { "family": "inter", "scale": 1.2 } },
+  "banners": [
+    { "id": "promo1", "placement": "promo", "title": "Nuevo diseño", "imageUrl": "https://cdn.example.com/b1.webp", "action": { "route": "movies" },
+      "startsAt": "2026-10-01T00:00:00Z", "endsAt": "2026-12-31T23:59:59-06:00" },
+    { "id": "hero1", "placement": "hero", "title": "Destacado", "action": { "route": null } }
+  ],
+  "texts": { "home.greeting": "Bienvenido" } }

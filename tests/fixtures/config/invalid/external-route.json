@@ -1,0 +1,1 @@
+{ "schemaVersion": 1, "version": 1, "banners": [ { "id": "x", "placement": "promo", "title": "Malo", "action": { "route": "https://evil.example.com" } } ] }

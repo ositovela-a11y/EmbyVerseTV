@@ -1,0 +1,7 @@
+# Copia este archivo como local.properties (no se versiona).
+# Android Studio rellena sdk.dir automáticamente.
+sdk.dir=/ruta/a/Android/Sdk
+
+# URL pública HTTPS del backend de EmbyVerse (sirve la configuración visual).
+# Si se deja vacía, la app usa solo el diseño integrado.
+embyverse.configUrl=https://config.tu-dominio.com

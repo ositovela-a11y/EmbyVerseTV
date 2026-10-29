@@ -1,0 +1,7 @@
+{ "_comment": "Un panel más nuevo añade un tipo de sección que esta app no conoce: debe aceptarse y omitirse.",
+  "schemaVersion": 1, "version": 7, "futureField": { "x": 1 },
+  "home": { "sections": [
+    { "id": "hero", "type": "hero_banner", "layout": "hero" },
+    { "id": "scores", "type": "live_sports_scores", "title": "Marcadores" },
+    { "id": "movies", "type": "movies", "title": "Cine", "card": { "aspect": "poster", "size": "l" } }
+  ] } }

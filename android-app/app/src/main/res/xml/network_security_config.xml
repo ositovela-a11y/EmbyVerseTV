@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  - El backend de EmbyVerse (configuración visual) SOLO se usa por HTTPS: ConfigRepository rechaza
+    cualquier otra URL en builds de producción.
+  - Muchos proveedores IPTV sirven listas y streams por HTTP. Como las direcciones las introduce el
+    usuario, se permite tráfico sin cifrar para ellas y la app lo indica en la ficha de la fuente.
+    Si tu despliegue solo usa proveedores HTTPS, cambia cleartextTrafficPermitted a "false".
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

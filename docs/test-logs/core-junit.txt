@@ -1,0 +1,12 @@
+== Compilando core/main
+== Compilando core/test
+android-app/core/src/test/kotlin/com/embyverse/core/TestSupport.kt:28:17: warning: 'constructor(p0: String!): URL' is deprecated. Deprecated in Java.
+        val c = URL(url).openConnection() as HttpURLConnection
+                ^^^
+== Ejecutando JUnit: 8 clases
+JUnit version 4.13.2
+........................................
+Time: 3.355
+
+OK (40 tests)
+

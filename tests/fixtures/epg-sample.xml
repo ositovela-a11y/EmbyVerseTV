@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tv SYSTEM "xmltv.dtd">
+<tv generator-info-name="test">
+  <channel id="demo.news"><display-name lang="es">Demo News</display-name><icon src="https://img.example.com/news.png"/></channel>
+  <channel id="demo.sports"><display-name>Demo &amp; Sports</display-name></channel>
+  <!-- comentario -->
+  <programme start="20261029080000 +0000" stop="20261029090000 +0000" channel="demo.news">
+    <title lang="es">Noticias de la mañana</title><desc>Resumen &lt;diario&gt; &#233;xito</desc>
+  </programme>
+  <programme start="20261029090000 +0100" stop="20261029100000 +0100" channel="demo.news">
+    <title><![CDATA[Entrevista & análisis]]></title>
+  </programme>
+  <programme start="20261029120000 +0000" stop="20261029110000 +0000" channel="demo.news"><title>Rango inválido</title></programme>
+  <programme start="20251029080000 +0000" stop="20251029090000 +0000" channel="demo.news"><title>Fuera de ventana</title></programme>
+  <programme start="20261029080000 -0600" stop="20261029100000 -0600" channel="demo.sports"><title>Partido</title></programme>
+</tv>
