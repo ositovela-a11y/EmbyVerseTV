@@ -8,7 +8,7 @@ Aplicación OTT/IPTV para Android (teléfono, tableta y Android TV) con reproduc
 
 | Carpeta | Qué es | Estado verificado en esta entrega |
 |---|---|---|
-| `android-app/` | Proyecto Android Studio (Kotlin, Compose, Media3, Room, DataStore, WorkManager) | Módulo `:core` **compilado y probado** (40 pruebas JUnit). Módulo `:app` **no compilado aquí** (ver abajo) |
+| `android-app/` | Proyecto Android Studio (Kotlin, Compose, Media3, Room, DataStore, WorkManager) | Módulo `:core` **compilado y probado** (40 pruebas JUnit). Módulo `:app` **compilado en GitHub Actions** (APK publicado); sin probar aún en dispositivo |
 | `backend/` | API Node.js 22 + TypeScript sin dependencias de ejecución (SQLite nativo) | **Compilado y probado** (40 pruebas) |
 | `admin-web/` | Design Studio (React + TypeScript, empaquetado con esbuild) | **Compilado y probado en Chromium** (15 pasos E2E) |
 | `shared/` | `default-config.json`: diseño predeterminado compartido por app, backend y panel | Validado por las tres partes |
@@ -17,7 +17,13 @@ Aplicación OTT/IPTV para Android (teléfono, tableta y Android TV) con reproduc
 | `scripts/` | Generación de marca, sincronización, compilación del APK, empaquetado | — |
 | `assets/` | Logotipo original y variantes derivadas, licencias de tipografías | — |
 
-## Lo que NO se pudo hacer en el entorno de esta entrega
+## Descargas
+
+- **APK (última compilación):** https://github.com/ositovela-a11y/EmbyVerseTV/releases/download/apk-latest/EmbyVerse.apk
+  Se recompila sola con cada cambio en `android-app/` (workflow `APK Android`). Firmada con la clave de depuración del proyecto, para que cada versión se instale encima de la anterior.
+- **EmbyVerse Web:** https://ositovela-a11y.github.io/EmbyVerseTV/ (requiere activar GitHub Pages con la rama `gh-pages`).
+
+## Lo que NO se pudo hacer en el entorno de la primera entrega
 
 El entorno de desarrollo no tenía Android SDK y su red bloqueaba Google Maven, Maven Central y npm. Por eso **no se generó `EmbyVerse-debug.apk`** y el módulo `:app` no se ha compilado. El código de la app está completo; para obtener el APK sigue [docs/BUILD.md](docs/BUILD.md) (resumen abajo). Si Gradle informa errores de compilación en `:app`, son errores reales sin detectar: la sección "Si la compilación falla" de BUILD.md explica cómo reportarlos.
 
