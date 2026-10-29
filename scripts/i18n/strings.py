@@ -13,6 +13,7 @@ S = {
 "action_resume": ("Continuar", "Resume"), "action_retry": ("Reintentar", "Retry"), "action_save": ("Guardar", "Save"), "action_sync": ("Actualizar ahora", "Refresh now"),
 "action_test_connection": ("Probar conexión", "Test connection"), "action_toggle_password": ("Mostrar u ocultar contraseña", "Show or hide password"),
 "action_watch": ("Ver ahora", "Watch now"),
+"action_more_info": ("Más información", "More info"), "hero_featured": ("Destacado", "Featured"),
 "home_greeting": ("Hola", "Hi"), "home_no_sources_title": ("Todavía no hay contenido", "No content yet"),
 "home_no_sources_message": ("Añade una lista M3U o un proveedor IPTV con tu usuario y contraseña para empezar.", "Add an M3U playlist or an IPTV provider with your username and password to get started."),
 "live_empty_title": ("No hay canales", "No channels"), "live_empty_message": ("Revisa tus fuentes o cambia el filtro.", "Check your sources or change the filter."),

@@ -15,6 +15,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.embyverse.app.R
@@ -89,7 +90,12 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     fun attach(ctx: Context) {
         appContext = ctx.applicationContext
         if (player.value == null) {
-            val p = ExoPlayer.Builder(ctx.applicationContext).build().apply {
+            // Arranque rápido: empieza con 1 s de búfer (2 s tras un corte) en lugar de 2,5 s / 5 s.
+            val loadControl = DefaultLoadControl.Builder()
+                .setBufferDurationsMs(15_000, 50_000, 1_000, 2_000)
+                .setPrioritizeTimeOverSizeThresholds(true)
+                .build()
+            val p = ExoPlayer.Builder(ctx.applicationContext).setLoadControl(loadControl).build().apply {
                 addListener(listener)
                 playWhenReady = true
                 trackSelectionParameters = trackSelectionParameters.buildUpon()

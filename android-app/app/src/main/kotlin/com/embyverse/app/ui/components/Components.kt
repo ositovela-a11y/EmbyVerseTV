@@ -44,6 +44,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,6 +65,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import coil3.compose.SubcomposeAsyncImage
 import com.embyverse.app.R
 import com.embyverse.app.data.repo.MediaCard
@@ -136,17 +140,30 @@ fun cardWidth(aspect: CardAspect, size: CardSize, tv: Boolean): Dp {
     return (base * size.scale).dp
 }
 
+/** Color de respaldo estable por título: el hueco de una portada sin imagen nunca se ve vacío. */
+fun fallbackBrush(seed: String, surface: Color): Brush {
+    val h = ((seed.hashCode() % 360) + 360) % 360
+    return Brush.linearGradient(listOf(Color.hsv(h.toFloat(), 0.55f, 0.32f), Color.hsv(((h + 60) % 360).toFloat(), 0.6f, 0.12f), surface))
+}
+
+/**
+ * Imagen de contenido. Usa AsyncImage (mucho más rápida en listas que SubcomposeAsyncImage):
+ * el fondo de respaldo se dibuja debajo y la imagen aparece encima cuando carga.
+ */
 @Composable
-fun MediaImage(url: String?, kind: ContentKind, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop) {
+fun MediaImage(url: String?, kind: ContentKind, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop, fallbackText: String? = null) {
     val t = LocalEmby.current
-    val placeholder: @Composable () -> Unit = {
-        Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(t.surfaceVariant, t.surface))), contentAlignment = Alignment.Center) {
-            Icon(if (kind == ContentKind.LIVE) Icons.Rounded.LiveTv else Icons.Rounded.Movie, null, tint = t.textSecondary.copy(alpha = 0.6f), modifier = Modifier.size(32.dp))
+    var failed by remember(url) { mutableStateOf(url.isNullOrBlank()) }
+    Box(modifier.background(if (kind == ContentKind.LIVE) Brush.linearGradient(listOf(t.surfaceVariant, t.surface)) else fallbackBrush(fallbackText ?: url ?: "", t.surface))) {
+        if (failed) {
+            if (fallbackText != null && kind != ContentKind.LIVE) Text(fallbackText, style = MaterialTheme.typography.titleSmall, color = Color.White.copy(alpha = 0.9f),
+                maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.BottomStart).padding(10.dp))
+            else Icon(if (kind == ContentKind.LIVE) Icons.Rounded.LiveTv else Icons.Rounded.Movie, null, tint = t.textSecondary.copy(alpha = 0.55f),
+                modifier = Modifier.align(Alignment.Center).size(30.dp))
+        } else {
+            AsyncImage(model = url, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = contentScale, onError = { failed = true })
         }
     }
-    if (url.isNullOrBlank()) { Box(modifier) { placeholder() }; return }
-    SubcomposeAsyncImage(model = url, contentDescription = null, modifier = modifier, contentScale = contentScale,
-        loading = { placeholder() }, error = { placeholder() })
 }
 
 /** Tarjeta de contenido (póster, apaisada o cuadrada) con título, subtítulo y progreso opcional. */
@@ -154,20 +171,22 @@ fun MediaImage(url: String?, kind: ContentKind, modifier: Modifier = Modifier, c
 fun MediaCardView(card: MediaCard, aspect: CardAspect, size: CardSize, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val t = LocalEmby.current
     val w = cardWidth(aspect, size, t.device.isTv)
+    val live = card.ref.kind == ContentKind.LIVE
     Column(modifier.width(w)) {
-        FocusableSurface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(aspect.ratio)) { _ ->
-            val fit = card.ref.kind == ContentKind.LIVE
-            Box(Modifier.fillMaxSize().background(t.surfaceVariant)) {
-                MediaImage(card.imageUrl, card.ref.kind, Modifier.fillMaxSize().then(if (fit) Modifier.padding(14.dp) else Modifier),
-                    if (fit) ContentScale.Fit else ContentScale.Crop)
+        FocusableSurface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(aspect.ratio), focusScale = 1.07f) { focused ->
+            Box(Modifier.fillMaxSize().border(1.dp, if (focused) Color.Transparent else Color.White.copy(alpha = 0.07f), RoundedCornerShape(t.cardRadius))) {
+                MediaImage(card.imageUrl, card.ref.kind, Modifier.fillMaxSize().then(if (live) Modifier.padding(horizontal = 18.dp, vertical = 12.dp) else Modifier),
+                    if (live) ContentScale.Fit else ContentScale.Crop, fallbackText = card.title)
+                if (!live) Box(Modifier.fillMaxWidth().fillMaxHeight(0.35f).align(Alignment.BottomCenter)
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.45f)))))
                 card.progress?.let { p ->
-                    LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth().height(4.dp).align(Alignment.BottomCenter),
-                        color = t.primary, trackColor = Color.Black.copy(alpha = 0.5f), drawStopIndicator = {})
+                    LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth().height(3.dp).align(Alignment.BottomCenter),
+                        color = t.primary, trackColor = Color.White.copy(alpha = 0.18f), drawStopIndicator = {}, gapSize = 0.dp)
                 }
             }
         }
-        Spacer(Modifier.height(6.dp))
-        Text(card.title, style = MaterialTheme.typography.titleSmall, color = t.onBackground, maxLines = if (aspect == CardAspect.POSTER) 2 else 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(8.dp))
+        Text(card.title, style = MaterialTheme.typography.titleSmall, color = t.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
         card.subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = t.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
     }
 }

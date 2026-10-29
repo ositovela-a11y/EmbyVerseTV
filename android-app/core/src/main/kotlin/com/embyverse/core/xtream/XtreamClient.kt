@@ -23,6 +23,8 @@ import com.embyverse.core.util.objects
 import com.embyverse.core.util.parseDurationSeconds
 import com.embyverse.core.util.splitGenres
 import com.embyverse.core.util.str
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -151,7 +153,10 @@ class XtreamClient(
     /** Detecta qué secciones ofrece el proveedor (las que fallan no se consideran disponibles). */
     suspend fun detectCapabilities(c: XtreamCredentials): XtreamCapabilities {
         suspend fun probe(action: String) = runCatching { getJson(api(c, action)) is JsonArray }.getOrDefault(false)
-        return XtreamCapabilities(probe("get_live_categories"), probe("get_vod_categories"), probe("get_series_categories"))
+        return coroutineScope {
+            val l = async { probe("get_live_categories") }; val v = async { probe("get_vod_categories") }; val sr = async { probe("get_series_categories") }
+            XtreamCapabilities(l.await(), v.await(), sr.await())
+        }
     }
 
     private suspend fun categories(c: XtreamCredentials, action: String): Map<String, String> =
@@ -179,67 +184,76 @@ class XtreamClient(
         account: XtreamAccount,
         preferred: LiveFormat = LiveFormat.TS,
     ): Catalog {
-        val caps = detectCapabilities(c)
-        if (!caps.live && !caps.vod && !caps.series) throw SourceException(SourceError.Empty)
-        val warnings = ArrayList<String>()
         val format = pickFormat(account.allowedOutputFormats, preferred)
-        val cats = ArrayList<Category>()
 
-        val live = if (caps.live) runCatching {
-            val names = categories(c, "get_live_categories")
-            names.forEach { (id, n) -> cats += Category(sourceId, ContentKind.LIVE, id, n) }
-            getJson(api(c, "get_live_streams")).objects().mapNotNull { o ->
-                val id = o.str("stream_id") ?: return@mapNotNull null
-                LiveChannel(
-                    sourceId = sourceId, providerId = id, name = o.str("name") ?: "Canal $id",
-                    streamUrl = liveUrl(c, id, format),
-                    logoUrl = o.str("stream_icon")?.takeIf { UrlSafety.isHttpUrl(it) },
-                    categoryName = o.str("category_id")?.let { names[it] },
-                    epgChannelId = o.str("epg_channel_id"), number = o.int("num"),
-                    catchupDays = if (o.bool("tv_archive") == true) o.int("tv_archive_duration") ?: 0 else 0,
-                )
-            }.distinctBy { it.providerId }
-        }.getOrElse { warnings += "No se pudieron cargar los canales en vivo: ${(it as? SourceException)?.error?.userMessage ?: it.javaClass.simpleName}"; emptyList() }
-        else emptyList()
+        // Las tres secciones (y dentro de cada una, categorías y contenido) se piden EN PARALELO:
+        // de ~10 peticiones seguidas se pasa a 2 "rondas", lo que reduce mucho la primera carga.
+        // Si las categorías de una sección fallan, el proveedor no la ofrece y se omite (igual que antes).
+        class Part<T>(val items: List<T>, val cats: List<Category>, val warning: String?, val available: Boolean)
+        suspend fun <T> section(kind: ContentKind, catAction: String, action: String, label: String, map: (JsonObject, Map<String, String>) -> T?, id: (T) -> String): Part<T> =
+            coroutineScope {
+                val namesD = async { runCatching { categories(c, catAction) } }
+                val streamsD = async { runCatching { getJson(api(c, action)) } }
+                val names = namesD.await().getOrElse { streamsD.cancel(); return@coroutineScope Part(emptyList(), emptyList(), null, false) }
+                val streams = streamsD.await().getOrElse {
+                    return@coroutineScope Part(emptyList(), emptyList(),
+                        "No se pudieron cargar $label: ${(it as? SourceException)?.error?.userMessage ?: it.javaClass.simpleName}", true)
+                }
+                val items = streams.objects().mapNotNull { map(it, names) }.distinctBy(id)
+                Part(items, names.map { (cid, n) -> Category(sourceId, kind, cid, n) }, null, true)
+            }
 
-        val movies = if (caps.vod) runCatching {
-            val names = categories(c, "get_vod_categories")
-            names.forEach { (id, n) -> cats += Category(sourceId, ContentKind.MOVIE, id, n) }
-            getJson(api(c, "get_vod_streams")).objects().mapNotNull { o ->
-                val id = o.str("stream_id") ?: return@mapNotNull null
-                val ext = o.str("container_extension")
-                Movie(
-                    sourceId = sourceId, providerId = id, title = o.str("name") ?: "Película $id",
-                    streamUrl = movieUrl(c, id, ext),
-                    posterUrl = o.str("stream_icon")?.takeIf { UrlSafety.isHttpUrl(it) },
-                    categoryName = o.str("category_id")?.let { names[it] },
-                    plot = o.str("plot"), year = o.int("year"),
-                    rating = o.double("rating")?.takeIf { it in 0.0..10.0 },
-                    genres = splitGenres(o.str("genre")),
-                    addedAtEpochSeconds = o.long("added"), containerExtension = ext,
-                )
-            }.distinctBy { it.providerId }
-        }.getOrElse { warnings += "No se pudieron cargar las películas: ${(it as? SourceException)?.error?.userMessage ?: it.javaClass.simpleName}"; emptyList() }
-        else emptyList()
-
-        val series = if (caps.series) runCatching {
-            val names = categories(c, "get_series_categories")
-            names.forEach { (id, n) -> cats += Category(sourceId, ContentKind.SERIES, id, n) }
-            getJson(api(c, "get_series")).objects().mapNotNull { o ->
-                val id = o.str("series_id") ?: return@mapNotNull null
-                Series(
-                    sourceId = sourceId, providerId = id, title = o.str("name") ?: "Serie $id",
-                    posterUrl = o.str("cover")?.takeIf { UrlSafety.isHttpUrl(it) },
-                    backdropUrl = o.firstString("backdrop_path")?.takeIf { UrlSafety.isHttpUrl(it) },
-                    categoryName = o.str("category_id")?.let { names[it] },
-                    plot = o.str("plot"), year = (o.str("releaseDate") ?: o.str("release_date"))?.take(4)?.toIntOrNull(),
-                    rating = o.double("rating")?.takeIf { it in 0.0..10.0 },
-                    genres = splitGenres(o.str("genre")),
-                    addedAtEpochSeconds = o.long("last_modified"),
-                )
-            }.distinctBy { it.providerId }
-        }.getOrElse { warnings += "No se pudieron cargar las series: ${(it as? SourceException)?.error?.userMessage ?: it.javaClass.simpleName}"; emptyList() }
-        else emptyList()
+        val (liveP, movieP, seriesP) = coroutineScope {
+            val l = async {
+                section(ContentKind.LIVE, "get_live_categories", "get_live_streams", "los canales en vivo", { o, names ->
+                    val id = o.str("stream_id") ?: return@section null
+                    LiveChannel(
+                        sourceId = sourceId, providerId = id, name = o.str("name") ?: "Canal $id",
+                        streamUrl = liveUrl(c, id, format),
+                        logoUrl = o.str("stream_icon")?.takeIf { UrlSafety.isHttpUrl(it) },
+                        categoryName = o.str("category_id")?.let { names[it] },
+                        epgChannelId = o.str("epg_channel_id"), number = o.int("num"),
+                        catchupDays = if (o.bool("tv_archive") == true) o.int("tv_archive_duration") ?: 0 else 0,
+                    )
+                }, { it.providerId })
+            }
+            val m = async {
+                section(ContentKind.MOVIE, "get_vod_categories", "get_vod_streams", "las películas", { o, names ->
+                    val id = o.str("stream_id") ?: return@section null
+                    val ext = o.str("container_extension")
+                    Movie(
+                        sourceId = sourceId, providerId = id, title = o.str("name") ?: "Película $id",
+                        streamUrl = movieUrl(c, id, ext),
+                        posterUrl = o.str("stream_icon")?.takeIf { UrlSafety.isHttpUrl(it) },
+                        categoryName = o.str("category_id")?.let { names[it] },
+                        plot = o.str("plot"), year = o.int("year"),
+                        rating = o.double("rating")?.takeIf { it in 0.0..10.0 },
+                        genres = splitGenres(o.str("genre")),
+                        addedAtEpochSeconds = o.long("added"), containerExtension = ext,
+                    )
+                }, { it.providerId })
+            }
+            val sr = async {
+                section(ContentKind.SERIES, "get_series_categories", "get_series", "las series", { o, names ->
+                    val id = o.str("series_id") ?: return@section null
+                    Series(
+                        sourceId = sourceId, providerId = id, title = o.str("name") ?: "Serie $id",
+                        posterUrl = o.str("cover")?.takeIf { UrlSafety.isHttpUrl(it) },
+                        backdropUrl = o.firstString("backdrop_path")?.takeIf { UrlSafety.isHttpUrl(it) },
+                        categoryName = o.str("category_id")?.let { names[it] },
+                        plot = o.str("plot"), year = (o.str("releaseDate") ?: o.str("release_date"))?.take(4)?.toIntOrNull(),
+                        rating = o.double("rating")?.takeIf { it in 0.0..10.0 },
+                        genres = splitGenres(o.str("genre")),
+                        addedAtEpochSeconds = o.long("last_modified"),
+                    )
+                }, { it.providerId })
+            }
+            Triple(l.await(), m.await(), sr.await())
+        }
+        if (!liveP.available && !movieP.available && !seriesP.available) throw SourceException(SourceError.Empty)
+        val live = liveP.items; val movies = movieP.items; val series = seriesP.items
+        val cats = liveP.cats + movieP.cats + seriesP.cats
+        val warnings = listOfNotNull(liveP.warning, movieP.warning, seriesP.warning)
 
         val catalog = Catalog(sourceId, live, movies, series, cats, epgUrl = xmltvUrl(c), warnings = warnings)
         if (catalog.isEmpty) throw SourceException(SourceError.Empty)

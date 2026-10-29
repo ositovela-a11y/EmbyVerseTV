@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -30,6 +31,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -119,7 +121,7 @@ class Navigator(private val nav: NavHostController, private val openPlayer: (Ite
 fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String?) {
     val nav = rememberNavController()
     val context = LocalContext.current
-    val navigator = Navigator(nav) { ref, ctx -> PlayerActivity.start(context, ref, ctx) }
+    val navigator = remember(nav, context) { Navigator(nav) { ref, ctx -> PlayerActivity.start(context, ref, ctx) } }
     val t = LocalEmby.current
     val backStack by nav.currentBackStackEntryAsState()
     val current = backStack?.destination?.route?.substringBefore('?')
@@ -157,38 +159,40 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
         }
     }
 
-    when {
-        !showNav -> host(Modifier.fillMaxSize())
-        style == NavStyle.SIDE_RAIL -> Row(Modifier.fillMaxSize()) {
-            NavigationRail(containerColor = t.surface.copy(alpha = 0.92f), modifier = Modifier.statusBarsPadding(), header = {
-                BrandLogo(if (logoVariant == LogoVariant.ASSET) logoVariant else LogoVariant.BUNDLED_PLANET, logoUrl, Modifier.padding(top = 12.dp).size(52.dp))
-                Spacer(Modifier.height(12.dp))
-            }) {
-                TOP.forEach { d ->
-                    NavigationRailItem(
-                        selected = current == d.route, onClick = { navigator.goTop(d.route) },
-                        icon = { Icon(d.icon, null) }, label = if (t.navShowLabels) ({ Text(stringResource(d.label)) }) else null,
-                        colors = NavigationRailItemDefaults.colors(selectedIconColor = t.buttonText, indicatorColor = t.primary,
-                            unselectedIconColor = t.textSecondary, selectedTextColor = t.onBackground, unselectedTextColor = t.textSecondary),
-                    )
+    // IMPORTANTE: el NavHost se compone SIEMPRE en el mismo lugar. Antes cambiaba de rama al
+    // ocultar el menú (fichas de película/serie, ajustes…), Compose lo recreaba y la navegación
+    // volvía al inicio: por eso películas y series "no abrían". Ahora solo se muestran u ocultan
+    // las barras alrededor del contenido.
+    val rail = showNav && style == NavStyle.SIDE_RAIL
+    val tabs = showNav && style == NavStyle.TOP_TABS
+    val bottom = showNav && style != NavStyle.SIDE_RAIL && style != NavStyle.TOP_TABS
+    Row(Modifier.fillMaxSize()) {
+        if (rail) NavigationRail(containerColor = t.surface.copy(alpha = 0.94f), modifier = Modifier.statusBarsPadding(), header = {
+            BrandLogo(if (logoVariant == LogoVariant.ASSET) logoVariant else LogoVariant.BUNDLED_PLANET, logoUrl, Modifier.padding(top = 12.dp).size(52.dp))
+            Spacer(Modifier.height(12.dp))
+        }) {
+            TOP.forEach { d ->
+                NavigationRailItem(
+                    selected = current == d.route, onClick = { navigator.goTop(d.route) },
+                    icon = { Icon(d.icon, null) }, label = if (t.navShowLabels) ({ Text(stringResource(d.label)) }) else null,
+                    colors = NavigationRailItemDefaults.colors(selectedIconColor = t.buttonText, indicatorColor = t.primary,
+                        unselectedIconColor = t.textSecondary, selectedTextColor = t.onBackground, unselectedTextColor = t.textSecondary),
+                )
+            }
+        }
+        Column(Modifier.weight(1f).fillMaxSize()) {
+            if (tabs) {
+                val idx = TOP.indexOfFirst { it.route == current }.coerceAtLeast(0)
+                PrimaryTabRow(selectedTabIndex = idx, containerColor = t.surface, contentColor = t.onBackground, modifier = Modifier.statusBarsPadding()) {
+                    TOP.forEachIndexed { i, d ->
+                        Tab(selected = i == idx, onClick = { navigator.goTop(d.route) }, icon = { Icon(d.icon, null) },
+                            text = if (t.navShowLabels) ({ Text(stringResource(d.label), maxLines = 1) }) else null,
+                            selectedContentColor = t.primary, unselectedContentColor = t.textSecondary)
+                    }
                 }
             }
-            Box(Modifier.weight(1f)) { host(Modifier.fillMaxSize()) }
-        }
-        style == NavStyle.TOP_TABS -> Column(Modifier.fillMaxSize()) {
-            val idx = TOP.indexOfFirst { it.route == current }.coerceAtLeast(0)
-            PrimaryTabRow(selectedTabIndex = idx, containerColor = t.surface, contentColor = t.onBackground, modifier = Modifier.statusBarsPadding()) {
-                TOP.forEachIndexed { i, d ->
-                    Tab(selected = i == idx, onClick = { navigator.goTop(d.route) }, icon = { Icon(d.icon, null) },
-                        text = if (t.navShowLabels) ({ Text(stringResource(d.label), maxLines = 1) }) else null,
-                        selectedContentColor = t.primary, unselectedContentColor = t.textSecondary)
-                }
-            }
-            Box(Modifier.weight(1f)) { host(Modifier.fillMaxSize()) }
-        }
-        else -> Column(Modifier.fillMaxSize()) {
-            Box(Modifier.weight(1f)) { host(Modifier.fillMaxSize()) }
-            NavigationBar(containerColor = t.surface.copy(alpha = 0.96f), modifier = Modifier.navigationBarsPadding(), windowInsets = androidx.compose.foundation.layout.WindowInsets(0)) {
+            Box(Modifier.weight(1f).fillMaxWidth()) { host(Modifier.fillMaxSize()) }
+            if (bottom) NavigationBar(containerColor = t.surface.copy(alpha = 0.97f), modifier = Modifier.navigationBarsPadding(), windowInsets = androidx.compose.foundation.layout.WindowInsets(0)) {
                 TOP.forEach { d ->
                     NavigationBarItem(
                         selected = current == d.route, onClick = { navigator.goTop(d.route) },

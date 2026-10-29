@@ -153,37 +153,49 @@ private fun HomeHeader(s: HomeUiState, nav: Navigator) {
 private fun HeroCarousel(items: List<HeroItem>, nav: Navigator) {
     val t = LocalEmby.current
     val pager = rememberPagerState { items.size }
-    val height = when { t.device.isTv -> 340.dp; t.device.width != com.embyverse.app.ui.theme.WidthClass.COMPACT -> 300.dp; else -> 220.dp }
+    val cfgW = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
+    // Banner a todo lo ancho, proporción cinematográfica.
+    val height = when { t.device.isTv -> 380.dp; cfgW >= 600 -> 340.dp; else -> 300.dp }
     LaunchedEffect(items.size) {
         while (items.size > 1) {
-            delay(7_000)
+            delay(8_000)
             if (!pager.isScrollInProgress) pager.animateScrollToPage((pager.currentPage + 1) % items.size)
         }
     }
-    Column {
-        HorizontalPager(pager, contentPadding = PaddingValues(horizontal = t.screenPadding), pageSpacing = t.cardGap, modifier = Modifier.fillMaxWidth().height(height)) { page ->
+    Box(Modifier.fillMaxWidth().height(height)) {
+        HorizontalPager(pager, modifier = Modifier.fillMaxSize()) { page ->
             val h = items[page]
             val open = { if (h.item != null) nav.openItem(h.item) else h.route?.let(nav::appRoute) ?: Unit }
-            FocusableSurface(onClick = { open() }, modifier = Modifier.fillMaxSize(), shape = RoundedCornerShape(t.bannerRadius), focusScale = 1.02f) { _ ->
-                Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(t.secondary.copy(alpha = 0.45f), t.surface, t.primary.copy(alpha = 0.25f))))) {
-                    if (h.imageUrl != null) MediaImage(h.imageUrl, ContentKind.MOVIE, Modifier.fillMaxSize())
-                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, t.background.copy(alpha = 0.55f), t.background.copy(alpha = 0.95f)))))
-                    Column(Modifier.align(Alignment.BottomStart).padding(20.dp).fillMaxWidth(if (t.device.isTv) 0.55f else 0.9f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(h.title, style = MaterialTheme.typography.headlineSmall, color = t.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        h.subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = t.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis) }
-                        Spacer(Modifier.height(4.dp))
-                        if (h.item != null || h.route != null) EmbyButton(
-                            stringResource(if (h.item != null) R.string.action_watch else if (h.route == com.embyverse.core.config.AppRoute.SOURCES) R.string.action_add_source else R.string.action_open),
-                            onClick = { open() }, icon = if (h.item != null) Icons.Rounded.PlayArrow else if (h.route == com.embyverse.core.config.AppRoute.SOURCES) Icons.Rounded.Add else null,
+            Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(t.secondary.copy(alpha = 0.55f), t.surface, t.primary.copy(alpha = 0.3f))))) {
+                if (h.imageUrl != null) MediaImage(h.imageUrl, ContentKind.MOVIE, Modifier.fillMaxSize(), fallbackText = null)
+                // Degradados: oscurece la izquierda (texto) y funde abajo con el fondo de la app.
+                Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(t.background.copy(alpha = 0.92f), t.background.copy(alpha = 0.55f), Color.Transparent))))
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to t.background)))
+                Column(
+                    Modifier.align(Alignment.BottomStart).padding(start = t.screenPadding, end = t.screenPadding, bottom = 28.dp)
+                        .fillMaxWidth(if (t.device.isTv || cfgW >= 600) 0.5f else 0.92f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    if (h.item != null) Text(stringResource(R.string.hero_featured), style = MaterialTheme.typography.labelLarge, color = t.primary)
+                    Text(h.title, style = MaterialTheme.typography.displaySmall, color = t.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    h.subtitle?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = t.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                    Spacer(Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        if (h.item != null) {
+                            EmbyButton(stringResource(R.string.action_watch), onClick = { nav.play(h.item) }, icon = Icons.Rounded.PlayArrow)
+                            EmbyButton(stringResource(R.string.action_more_info), onClick = { open() }, secondary = true)
+                        } else if (h.route != null) EmbyButton(
+                            stringResource(if (h.route == com.embyverse.core.config.AppRoute.SOURCES) R.string.action_add_source else R.string.action_open),
+                            onClick = { open() }, icon = if (h.route == com.embyverse.core.config.AppRoute.SOURCES) Icons.Rounded.Add else null,
                         )
                     }
                 }
             }
         }
-        if (items.size > 1) Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.Center) {
+        if (items.size > 1) Row(Modifier.align(Alignment.BottomEnd).padding(end = t.screenPadding, bottom = 32.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             repeat(items.size) { i ->
-                Box(Modifier.padding(3.dp).size(width = if (i == pager.currentPage) 18.dp else 6.dp, height = 6.dp).clip(CircleShape)
-                    .background(if (i == pager.currentPage) t.primary else t.textSecondary.copy(alpha = 0.4f)))
+                Box(Modifier.size(width = if (i == pager.currentPage) 22.dp else 6.dp, height = 6.dp).clip(CircleShape)
+                    .background(if (i == pager.currentPage) t.primary else Color.White.copy(alpha = 0.35f)))
             }
         }
     }

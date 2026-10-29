@@ -18,6 +18,7 @@
     <string name="action_delete">Eliminar</string>
     <string name="action_edit">Editar</string>
     <string name="action_favorite">Añadir a favoritos</string>
+    <string name="action_more_info">Más información</string>
     <string name="action_move_down">Bajar</string>
     <string name="action_move_up">Subir</string>
     <string name="action_open">Abrir</string>
@@ -61,6 +62,7 @@
     <string name="filter_all">Todos</string>
     <string name="filter_favorites">Favoritos</string>
     <string name="filter_history">Historial</string>
+    <string name="hero_featured">Destacado</string>
     <string name="history_clear">Borrar historial de este perfil</string>
     <string name="history_title">Historial</string>
     <string name="home_greeting">Hola</string>
