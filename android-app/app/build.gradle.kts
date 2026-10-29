@@ -23,7 +23,7 @@ val hasReleaseSigning = listOf("storeFile", "storePassword", "keyAlias", "keyPas
 
 android {
     namespace = "com.embyverse.app"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.embyverse.app"

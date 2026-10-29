@@ -18,16 +18,16 @@ jobs:
       - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: '17' }
       - uses: gradle/actions/setup-gradle@v4
-      - name: Instalar Android SDK 37
+      - name: Instalar Android SDK 36
         run: |
           set +o pipefail
           SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           [ -x "$SDKM" ] || SDKM="$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | tail -1)"
           echo "ANDROID_HOME=$ANDROID_HOME  sdkmanager=$SDKM"
           (yes || true) | "$SDKM" --licenses > /dev/null 2>&1 || true
-          "$SDKM" --install "platforms;android-37" "build-tools;36.0.0" 2>&1 | tail -5
+          "$SDKM" --install "platforms;android-36" "build-tools;36.0.0" 2>&1 | tail -5
           ls "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools"
-          test -d "$ANDROID_HOME/platforms/android-37" || { echo "::error::No se pudo instalar platforms;android-37"; "$SDKM" --list 2>/dev/null | grep -E 'platforms;android-3[5-9]' | head; exit 1; }
+          test -d "$ANDROID_HOME/platforms/android-36" || { echo "::error::No se pudo instalar platforms;android-36"; "$SDKM" --list 2>/dev/null | grep -E 'platforms;android-3[5-9]' | head; exit 1; }
       - name: Pruebas del núcleo y compilación
         id: build
         working-directory: android-app

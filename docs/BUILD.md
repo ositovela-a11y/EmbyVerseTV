@@ -6,7 +6,7 @@
 |---|---|
 | Android Studio | Una versión que soporte Android Gradle Plugin 9.4 (2026.x) |
 | JDK | 17 o superior (el incluido en Android Studio sirve) |
-| Android SDK | Plataforma 37 (compileSdk), Build Tools 36 |
+| Android SDK | Plataforma 36 (compileSdk), Build Tools 36 |
 | Node.js (backend y panel) | 22.13 o superior |
 
 Versiones de dependencias (`android-app/gradle/libs.versions.toml`), comprobadas en las notas oficiales el 29-oct-2026: AGP 9.4.0 (requiere Gradle 9.6.0, fijado en el wrapper), Kotlin 2.4.21, KSP 2.3.12, Compose BOM 2026.09.00, Media3 1.11.1, Room 2.8.5, Activity 1.13.0, Core 1.19.1, Lifecycle 2.11.0, Navigation 2.10.2, DataStore 1.3.0. OkHttp 5.1.0, Coil 3.3.0, WorkManager 2.10.5 y coroutines 1.10.2 son versiones estables conocidas, pero no son necesariamente las últimas.

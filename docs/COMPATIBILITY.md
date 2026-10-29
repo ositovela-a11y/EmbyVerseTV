@@ -5,7 +5,7 @@
 | | Valor |
 |---|---|
 | Android mínimo | 7.0 (API 24) — muchos TV Box económicos usan 7.1 |
-| Android objetivo | API 36; compilado contra API 37 |
+| Android objetivo | API 36; compilado contra API 36 |
 | Dispositivos | Teléfonos, tabletas, Android TV / Google TV / TV Box con mando (navegación por foco, banner de TV, `LEANBACK_LAUNCHER`) |
 | Navegación | Táctil y D-pad. En TV y pantallas ≥ 840 dp, menú lateral |
 | Idiomas | Español (predeterminado) e inglés; selector por app (Android 13+ también desde Ajustes del sistema) |
