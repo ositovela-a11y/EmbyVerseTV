@@ -75,6 +75,8 @@ data class MovieEntity(
     val position: Int,
     val fingerprint: Int,
     val detailsLoaded: Boolean = false,
+    /** Tráiler (YouTube) que trae la ficha del proveedor, si lo tiene. */
+    @ColumnInfo(defaultValue = "NULL") val trailer: String? = null,
 )
 
 @Entity(

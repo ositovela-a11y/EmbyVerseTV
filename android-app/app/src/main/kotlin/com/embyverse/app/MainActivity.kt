@@ -1,6 +1,9 @@
 package com.embyverse.app
 
 import android.os.Bundle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.launch
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -36,14 +39,47 @@ import kotlinx.coroutines.flow.map
 class MainActivity : AppCompatActivity() {
     private val repeatGate = com.embyverse.app.ui.KeyRepeatGate()
 
-    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean =
-        if (repeatGate.shouldDrop(event)) true else super.dispatchKeyEvent(event)
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        onUserInput()
+        return if (repeatGate.shouldDrop(event)) true else super.dispatchKeyEvent(event)
+    }
+
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean { onUserInput(); return super.dispatchTouchEvent(ev) }
+
+    // ---- Pantalla encendida en los menús ----
+    // Android TV activa el protector de pantalla (o apaga la TV) tras unos minutos sin tocar el control.
+    // En la app la pantalla se mantiene encendida hasta [awakeMs] después de la última pulsación
+    // (Ajustes › Reproducción); al reproducir, el reproductor la mantiene encendida siempre.
+    private var lastInput = android.os.SystemClock.uptimeMillis()
+    private var awakeMs = 120 * 60_000L
+
+    private fun onUserInput() {
+        lastInput = android.os.SystemClock.uptimeMillis()
+        window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
+    private fun startAwakeWatcher(container: com.embyverse.app.di.AppContainer) {
+        lifecycleScope.launch {
+            container.prefs.playback.collect { awakeMs = if (it.menuAwakeMinutes < 0) Long.MAX_VALUE else it.menuAwakeMinutes * 60_000L }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                while (true) {
+                    kotlinx.coroutines.delay(30_000)
+                    if (android.os.SystemClock.uptimeMillis() - lastInput > awakeMs)
+                        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val container = (application as EmbyVerseApp).container
+        startAwakeWatcher(container)
         setContent {
             CompositionLocalProvider(LocalAppContainer provides container) {
                 val config by container.config.config.collectAsStateWithLifecycle()
@@ -78,6 +114,22 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                     crash?.let { report -> CrashDialog(report) { crash = null } }
+                    // Mensaje del administrador / vendedor (una vez por dispositivo, mientras esté vigente).
+                    if (splashDone && crash == null) {
+                        val seen by container.prefs.seenNotices.collectAsStateWithLifecycle(initialValue = null)
+                        val now = System.currentTimeMillis() / 1000
+                        val notice = seen?.let { s -> config.messages.firstOrNull { it.isActive(now) && it.id !in s } }
+                        val scope = androidx.compose.runtime.rememberCoroutineScope()
+                        notice?.let { n ->
+                            androidx.compose.material3.AlertDialog(
+                                onDismissRequest = { scope.launch { container.prefs.markNoticeSeen(n.id) } },
+                                title = { androidx.compose.material3.Text(n.title) },
+                                text = { androidx.compose.material3.Text(n.body) },
+                                confirmButton = { androidx.compose.material3.TextButton(onClick = { scope.launch { container.prefs.markNoticeSeen(n.id) } }) {
+                                    androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.action_ok)) } },
+                            )
+                        }
+                    }
                 } }
             }
         }

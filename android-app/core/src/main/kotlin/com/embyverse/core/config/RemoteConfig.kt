@@ -18,6 +18,8 @@ data class RemoteConfig(
     val sections: List<SectionSpec> = DEFAULT_SECTIONS,
     val banners: List<Banner> = emptyList(),
     val texts: Map<String, String> = emptyMap(),
+    /** Mensajes emergentes del administrador (o del vendedor) para los clientes. */
+    val messages: List<Notice> = emptyList(),
 ) {
     fun text(key: String, fallback: String) = texts[key] ?: fallback
 
@@ -142,6 +144,11 @@ enum class AppRoute(val wire: String) {
 }
 
 enum class BannerPlacement(val wire: String) { HERO("hero"), PROMO("promo") }
+
+/** Mensaje emergente: se muestra una sola vez por dispositivo mientras esté vigente. */
+data class Notice(val id: String, val title: String, val body: String, val startsAtEpoch: Long? = null, val endsAtEpoch: Long? = null) {
+    fun isActive(nowEpoch: Long) = (startsAtEpoch == null || nowEpoch >= startsAtEpoch) && (endsAtEpoch == null || nowEpoch < endsAtEpoch)
+}
 
 data class Banner(
     val id: String,

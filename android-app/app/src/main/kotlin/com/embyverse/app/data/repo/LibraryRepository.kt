@@ -26,13 +26,19 @@ data class SearchResults(
     val series: List<SeriesEntity> = emptyList(),
 ) { val isEmpty get() = channels.isEmpty() && movies.isEmpty() && series.isEmpty() }
 
-class CatalogRepository(private val db: EmbyDatabase) {
-    fun channels(category: String?, limit: Int = 5000) = db.channels().observe(category, limit)
-    fun movies(category: String?, limit: Int = 5000) = db.movies().observe(category, limit)
-    fun series(category: String?, limit: Int = 5000) = db.series().observe(category, limit)
-    fun recentMovies(limit: Int) = db.movies().observeRecent(limit)
-    fun recentSeries(limit: Int) = db.series().observeRecent(limit)
-    fun categories(kind: ContentKind) = db.categories().observeNames(kind.name)
+class CatalogRepository(private val db: EmbyDatabase, private val hidden: Flow<Set<String>> = kotlinx.coroutines.flow.flowOf(emptySet())) {
+    /** Quita lo que el control parental del perfil activo oculta. */
+    private fun <T> Flow<List<T>>.visible(category: (T) -> String?): Flow<List<T>> =
+        kotlinx.coroutines.flow.combine(this, hidden) { l, h -> if (h.isEmpty()) l else l.filter { category(it) !in h } }
+
+    fun channels(category: String?, limit: Int = 5000) = db.channels().observe(category, limit).visible { it.category }
+    fun movies(category: String?, limit: Int = 5000) = db.movies().observe(category, limit).visible { it.category }
+    fun series(category: String?, limit: Int = 5000) = db.series().observe(category, limit).visible { it.category }
+    fun recentMovies(limit: Int) = db.movies().observeRecent(limit).visible { it.category }
+    fun recentSeries(limit: Int) = db.series().observeRecent(limit).visible { it.category }
+    fun categories(kind: ContentKind) = kotlinx.coroutines.flow.combine(db.categories().observeNames(kind.name), hidden) { l, h -> if (h.isEmpty()) l else l.filter { it !in h } }
+    fun hiddenNow(): Flow<Set<String>> = hidden
+    fun eventCandidates() = db.channels().observeEventCandidates().visible { it.category }
     fun movie(sourceId: String, id: String) = db.movies().observeOne(sourceId, id)
     fun seriesOne(sourceId: String, id: String) = db.series().observeOne(sourceId, id)
     fun episodes(sourceId: String, seriesId: String) = db.episodes().observeForSeries(sourceId, seriesId)
@@ -41,7 +47,9 @@ class CatalogRepository(private val db: EmbyDatabase) {
     suspend fun search(query: String, limit: Int = 60): SearchResults {
         val q = M3uCatalogBuilder.normalize(query)
         if (q.length < 2) return SearchResults()
-        return SearchResults(db.channels().search(q, limit), db.movies().search(q, limit), db.series().search(q, limit))
+        val h = hidden.first()
+        return SearchResults(db.channels().search(q, limit).filter { it.category !in h }, db.movies().search(q, limit).filter { it.category !in h },
+            db.series().search(q, limit).filter { it.category !in h })
     }
 
     suspend fun recommendations(history: List<ProgressEntity>, favorites: List<FavoriteEntity>, limit: Int): List<RecItem> {
@@ -67,7 +75,8 @@ class CatalogRepository(private val db: EmbyDatabase) {
 
     suspend fun cardsFor(recs: List<RecItem>): List<MediaCard> = recs.mapNotNull { r ->
         val (kind, src, id) = r.key.split('|', limit = 3)
-        if (kind == "MOVIE") db.movies().get(src, id)?.toCard() else db.series().get(src, id)?.toCard()
+        val h = hidden.first()
+        if (kind == "MOVIE") db.movies().get(src, id)?.takeIf { it.category !in h }?.toCard() else db.series().get(src, id)?.takeIf { it.category !in h }?.toCard()
     }
 }
 

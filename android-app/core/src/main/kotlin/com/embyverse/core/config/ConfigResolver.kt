@@ -23,8 +23,11 @@ object ConfigResolver {
 
     fun theme(config: RemoteConfig, prefs: UserAppearance): ThemeSpec {
         val uc = config.userCustomization
-        var palette = config.theme.palette
-        if (uc.allowThemeSelection && prefs.themeId != null) {
+        // Tema de estilo completo (Cristal, Cine Rojo…): cambia colores, fondo, esquinas y botones.
+        val style = if (uc.allowThemeSelection) STYLE_THEMES.firstOrNull { it.id == prefs.themeId } else null
+        val base = style?.transform?.invoke(config.theme) ?: config.theme
+        var palette = base.palette
+        if (style == null && uc.allowThemeSelection && prefs.themeId != null) {
             config.themes.firstOrNull { it.id == prefs.themeId }?.let { palette = palette.merge(it.palette) }
         }
         val accent = prefs.accentColor
@@ -32,7 +35,7 @@ object ConfigResolver {
             palette = palette.copy(primary = accent, buttonBackground = accent, focusRing = accent,
                 onPrimary = readableOn(accent), buttonText = readableOn(accent))
         }
-        return config.theme.copy(palette = palette)
+        return base.copy(palette = palette)
     }
 
     fun sections(config: RemoteConfig, prefs: UserAppearance): List<SectionSpec> {

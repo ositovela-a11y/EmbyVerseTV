@@ -104,7 +104,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
             if (isLive) {
                 val cat = context?.takeIf { it != "restart" }
                 listCategory.value = cat
-                channels.value = c.database.channels().listForZapping(cat)
+                channels.value = visible(c.database.channels().listForZapping(cat))
                 zapList = channels.value
                 launch { categories.value = c.catalog.categories(ContentKind.LIVE).first() }
             }
@@ -155,6 +155,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         if (np == null) { error.value = PlayerUiError.Message(R.string.player_error_not_found); buffering.value = false; return }
         ref = np.ref
         nowPlaying.value = np
+        computeUpNext(np)
         retries = 0; altIndex = -1; forcedMime = null; originalUrl = null
         resumeFrom = when {
             np.ref.kind == ContentKind.LIVE -> null
@@ -236,6 +237,12 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
 
     private var categoryJob: Job? = null
 
+    /** El control parental del perfil también aplica a la lista de canales del reproductor. */
+    private suspend fun visible(list: List<ChannelEntity>): List<ChannelEntity> {
+        val h = c.parental.hidden.first()
+        return if (h.isEmpty()) list else list.filter { it.category !in h }
+    }
+
     /** ◀ ▶ dentro de la lista de canales: carpeta anterior / siguiente (Todos, Entretenimiento, Premium…). */
     fun shiftListCategory(delta: Int) {
         val options = listOf<String?>(null) + categories.value
@@ -246,7 +253,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         categoryJob?.cancel()
         categoryJob = viewModelScope.launch {
             delay(120) // si se pulsa varias veces seguidas solo se consulta la última carpeta
-            channels.value = c.database.channels().listForZapping(target)
+            channels.value = visible(c.database.channels().listForZapping(target))
         }
     }
 
@@ -333,17 +340,33 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         viewModelScope.launch { c.library.saveProgress(np.ref, np.title, np.imageUrl, pos, dur, np.seriesId, np.season, np.episode) }
     }
 
+    /** Siguiente episodio (para la cuenta regresiva al final del actual). */
+    val upNext = MutableStateFlow<Pair<ItemRef, String>?>(null)
+    val upNextCancelled = MutableStateFlow(false)
+    val autoplayNext get() = prefs.autoplayNextEpisode
+
+    private suspend fun computeUpNext(np: NowPlaying) {
+        upNextCancelled.value = false
+        if (np.ref.kind != ContentKind.EPISODE || np.seriesId == null) { upNext.value = null; return }
+        val eps = c.database.episodes().forSeries(np.ref.sourceId, np.seriesId)
+        val next = eps.getOrNull(eps.indexOfFirst { it.providerId == np.ref.id } + 1)
+        upNext.value = next?.let { ItemRef(ContentKind.EPISODE, it.sourceId, it.providerId) to "T${it.season} · E${it.episode} — ${it.title}" }
+    }
+
+    fun cancelUpNext() { upNextCancelled.value = true }
+    fun playUpNext() { val n = upNext.value?.first ?: return; upNext.value = null; viewModelScope.launch { load(n) } }
+
     private fun onEnded() {
         val np = nowPlaying.value ?: return
         saveProgress()
+        // Terminó la cuenta regresiva: sigue el próximo episodio sin esperar más.
+        if (upNext.value != null && prefs.autoplayNextEpisode && !upNextCancelled.value) { playUpNext(); return }
         if (np.ref.kind != ContentKind.EPISODE || np.seriesId == null) return
         viewModelScope.launch {
             val eps = c.database.episodes().forSeries(np.ref.sourceId, np.seriesId)
             val idx = eps.indexOfFirst { it.providerId == np.ref.id }
             val next = eps.getOrNull(idx + 1) ?: return@launch
-            val nextRef = ItemRef(ContentKind.EPISODE, next.sourceId, next.providerId)
-            nextEpisode.value = nextRef
-            if (prefs.autoplayNextEpisode) { delay(5_000); if (nextEpisode.value == nextRef) playNext() }
+            nextEpisode.value = ItemRef(ContentKind.EPISODE, next.sourceId, next.providerId)
         }
     }
 

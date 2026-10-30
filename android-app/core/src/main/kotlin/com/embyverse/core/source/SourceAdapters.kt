@@ -105,7 +105,7 @@ class XtreamSourceAdapter(
     override suspend fun sync(spec: SourceSpec, password: String?, onSection: SectionSink?): Outcome<Catalog> = classify {
         val c = creds(spec, password)
         val account = client.authenticate(c)
-        val catalog = client.loadCatalog(spec.id, c, account, liveFormat(), onSection)
+        val catalog = client.loadCatalog(spec.id, c, account, liveFormat(), onSection).copy(expiresAtEpochSeconds = account.expiresAtEpochSeconds)
         if (spec.epgUrl != null) catalog.copy(epgUrl = spec.epgUrl) else catalog
     }
 }

@@ -167,6 +167,13 @@ class SmokeFlowTest {
             compose.onNodeWithTag("nav_live", useUnmergedTree = true).performClick()
             waitTag("channel", 30_000)
             shot("05-tv-en-vivo")
+            // Guía de TV en cuadrícula.
+            compose.onNodeWithTag("open_guide", useUnmergedTree = true).performClick()
+            waitTag("guide_cell", 20_000)
+            Thread.sleep(800); shot("05b-guia-tv")
+            log("Guía de TV: cuadrícula con programación")
+            back()
+            waitTag("channel", 20_000)
             // Primer toque: vista previa dentro de la pantalla. Segundo toque: pantalla completa.
             PlaybackProbe.reset()
             var tp = System.currentTimeMillis()
@@ -222,6 +229,44 @@ class SmokeFlowTest {
             log("Reproductor: OK abre audio y subtítulos")
             back(); back()
             log("Recorrido completo sin cierres · ${memory()}")
+        }
+    }
+
+    /** Control parental POR PERFIL: lo que bloquea un perfil no afecta a otro; el PIN desbloquea solo ese perfil. */
+    @Test fun e_controlParentalPorPerfil() = runBlocking {
+        val c = app.container
+        val cats = c.database.categories().observeNames("LIVE").first()
+        assertTrue("hay carpetas de TV", cats.isNotEmpty())
+        val blocked = cats.first()
+        val p1 = c.prefs.activeProfile()
+        val p2 = c.library.createProfile("Prueba niños", 0xFF22D3EE.toInt())
+        try {
+            c.prefs.updateLock(p1) { it.copy(pin = "1234", blocked = setOf(blocked)) }
+            val v1 = c.catalog.channels(null, 5000).first()
+            assertTrue("perfil 1 no ve la carpeta bloqueada", v1.none { it.category == blocked })
+            assertTrue("perfil 1 no ve la carpeta en la lista", blocked !in c.catalog.categories(com.embyverse.core.model.ContentKind.LIVE).first())
+            c.prefs.setActiveProfile(p2)
+            val v2 = c.catalog.channels(null, 5000).first()
+            assertTrue("perfil 2 SÍ ve la carpeta (bloqueo independiente)", v2.any { it.category == blocked })
+            c.prefs.setActiveProfile(p1)
+            assertTrue("PIN incorrecto no desbloquea", !c.parental.unlock("0000"))
+            assertTrue("PIN correcto desbloquea", c.parental.unlock("1234"))
+            assertTrue("desbloqueado: vuelve a verse", c.catalog.channels(null, 5000).first().any { it.category == blocked })
+            c.parental.relock()
+            log("Control parental por perfil: bloqueo independiente y desbloqueo con PIN")
+            // Eventos de hoy y temas de estilo.
+            val events = com.embyverse.app.data.repo.Events.today(c.catalog.eventCandidates().first())
+            log("Eventos de hoy detectados: ${events.size}")
+            val cfg = c.config.config.value
+            com.embyverse.core.config.STYLE_THEMES.forEach { st ->
+                val th = com.embyverse.core.config.ConfigResolver.theme(cfg, com.embyverse.core.config.UserAppearance(themeId = st.id))
+                assertTrue("tema ${st.name} aplicado", th.palette.primary == st.transform(cfg.theme).palette.primary)
+            }
+            log("Temas de estilo: ${com.embyverse.core.config.STYLE_THEMES.size} temas aplicables")
+        } finally {
+            c.prefs.updateLock(p1) { com.embyverse.app.data.prefs.ProfileLock() }
+            c.prefs.setActiveProfile(p1)
+            runCatching { c.library.deleteProfile(p2) }
         }
     }
 

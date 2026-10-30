@@ -376,7 +376,18 @@ class XtreamClient(
             backdropUrl = info.firstString("backdrop_path")?.takeIf { UrlSafety.isHttpUrl(it) } ?: movie.backdropUrl,
             posterUrl = movie.posterUrl ?: info.str("movie_image")?.takeIf { UrlSafety.isHttpUrl(it) },
             year = movie.year ?: (info.str("releasedate") ?: info.str("release_date"))?.take(4)?.toIntOrNull(),
+            trailer = trailerUrl(info.str("youtube_trailer") ?: info.str("trailer")),
         )
+    }
+
+    /** El proveedor suele dar solo el identificador de YouTube; se convierte en enlace. */
+    private fun trailerUrl(raw: String?): String? {
+        val v = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        return when {
+            UrlSafety.isHttpUrl(v) -> v
+            Regex("^[A-Za-z0-9_-]{6,20}$").matches(v) -> "https://www.youtube.com/watch?v=$v"
+            else -> null
+        }
     }
 
     /** EPG corta de un canal. Los títulos vienen en Base64 en la mayoría de paneles. */

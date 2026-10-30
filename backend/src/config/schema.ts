@@ -70,6 +70,15 @@ export interface Banner {
   endsAt?: string | null;
 }
 
+/** Mensaje emergente para los clientes (aviso de mantenimiento, promoción…). Se muestra una vez. */
+export interface Notice {
+  id: string;
+  title: string;
+  body: string;
+  startsAt?: string | null;
+  endsAt?: string | null;
+}
+
 export interface RemoteConfig {
   schemaVersion: number;
   version: number;
@@ -99,6 +108,8 @@ export interface RemoteConfig {
   home: { sections: SectionSpec[] };
   banners: Banner[];
   texts: Record<string, string>;
+  /** Opcional: las apps anteriores lo ignoran (campo desconocido). */
+  messages?: Notice[];
 }
 
 export interface ParseResult {
@@ -425,6 +436,30 @@ export function parseConfig(input: unknown, base: RemoteConfig): ParseResult {
     });
   }
 
+  // messages (mensajes emergentes)
+  let messages: Notice[] = b.messages ?? [];
+  const ma = v.arr(r, 'messages', '$');
+  if (ma) {
+    if (ma.length > 10) v.err('$.messages', 'máximo 10 mensajes');
+    const ids = new Set<string>();
+    messages = [];
+    ma.forEach((el, i) => {
+      const p = `$.messages[${i}]`;
+      if (!isObj(el)) { v.err(p, 'debe ser un objeto'); return; }
+      const id = v.str(el, 'id', p, 1, 32);
+      if (id === undefined) { v.err(`${p}.id`, 'es obligatorio'); return; }
+      if (!ID.test(id)) v.err(`${p}.id`, 'solo a-z, 0-9, _ y -');
+      if (ids.has(id)) v.err(`${p}.id`, `duplicado '${id}'`); ids.add(id);
+      const title = v.str(el, 'title', p, 1, 80) ?? '';
+      if (!title) v.err(`${p}.title`, 'es obligatorio');
+      const body = v.str(el, 'body', p, 1, 400) ?? '';
+      if (!body) v.err(`${p}.body`, 'es obligatorio');
+      const s = v.iso(el, 'startsAt', p), e = v.iso(el, 'endsAt', p);
+      if (s && e && e.epoch <= s.epoch) v.err(`${p}.endsAt`, 'debe ser posterior a startsAt');
+      messages.push({ id, title, body, startsAt: s?.raw ?? null, endsAt: e?.raw ?? null });
+    });
+  }
+
   // texts
   let texts = b.texts;
   const tx = v.obj(r, 'texts', '$');
@@ -443,6 +478,6 @@ export function parseConfig(input: unknown, base: RemoteConfig): ParseResult {
   return {
     ok: true, errors: [], warnings: v.warnings,
     config: { schemaVersion: schema ?? 1, version, publishedAt, minAppVersionCode: minApp, brand, theme, themes,
-      userCustomization: uc, home: { sections }, banners, texts },
+      userCustomization: uc, home: { sections }, banners, texts, ...(messages.length ? { messages } : {}) },
   };
 }

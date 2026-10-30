@@ -61,6 +61,8 @@ data class Movie(
     val addedAtEpochSeconds: Long? = null,
     val containerExtension: String? = null,
     val headers: StreamHeaders = StreamHeaders(),
+    /** Tráiler (URL de YouTube) si el proveedor lo informa. */
+    val trailer: String? = null,
 )
 
 data class Episode(
@@ -105,6 +107,8 @@ data class Catalog(
     val categories: List<Category> = emptyList(),
     val epgUrl: String? = null,
     val warnings: List<String> = emptyList(),
+    /** Fecha de vencimiento de la cuenta (Xtream), si el proveedor la informa. */
+    val expiresAtEpochSeconds: Long? = null,
 ) {
     val isEmpty get() = live.isEmpty() && movies.isEmpty() && series.isEmpty()
 }

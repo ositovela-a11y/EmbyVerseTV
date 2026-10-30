@@ -97,6 +97,7 @@ class VodViewModel(private val c: AppContainer, private val kind: ContentKind) :
 
     private val items = category.flatMapLatest { cat ->
         (if (kind == ContentKind.MOVIE) c.database.movies().observeCards(cat, 5000) else c.database.series().observeCards(cat, 5000))
+            .let { f -> kotlinx.coroutines.flow.combine(f, c.parental.hidden) { l, h -> if (h.isEmpty()) l else l.filter { it.category !in h } } }
             .map { l -> l.map { it.searchKey to it.toCard(kind) } }
     }
 

@@ -178,6 +178,7 @@ class SourceRepository(
                     }
                     val detectedEpg = if (spec.type == SourceType.XTREAM) null else c.epgUrl
                     db.sources().setSynced(spec.id, System.currentTimeMillis(), c.live.size, c.movies.size, c.series.size, detectedEpg)
+                    if (spec.type == SourceType.XTREAM) prefs.setSourceExpiry(spec.id, c.expiresAtEpochSeconds)
                 }
                 Log.i(TAG, "sincronización completa en ${System.currentTimeMillis() - t0} ms")
                 when (done) {
@@ -305,7 +306,7 @@ class SourceRepository(
             val d = r.value
             db.movies().upsert(listOf(m.copy(plot = d.plot, genres = d.genres.joinToString("|"), rating = d.rating,
                 durationSeconds = d.durationSeconds, backdropUrl = d.backdropUrl, posterUrl = d.posterUrl, year = d.year,
-                detailsLoaded = true)))
+                trailer = d.trailer, detailsLoaded = true)))
         }
     }
 

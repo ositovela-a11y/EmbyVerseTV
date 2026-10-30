@@ -50,6 +50,10 @@ data class HomeUiState(
     val content: Map<SectionType, List<MediaCard>> = emptyMap(),
     val hero: List<HeroItem> = emptyList(),
     val promos: List<Banner> = emptyList(),
+    /** Partidos y eventos de hoy detectados en los nombres de los canales. */
+    val events: List<com.embyverse.app.data.repo.LiveEvent> = emptyList(),
+    /** Vencimiento más próximo de las cuentas del proveedor (segundos), para avisar a tiempo. */
+    val expiresAt: Long? = null,
     val profileName: String? = null,
     val hasSources: Boolean = true,
     val loading: Boolean = true,
@@ -121,8 +125,11 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
 
     val state: StateFlow<HomeUiState> = combine(
         combine(c.config.config, appearance, minuteTicker) { cfg, app, now -> Triple(cfg, ConfigResolver.sections(cfg, app), now) },
-        lists, combine(recent, novedades) { r, n -> r to n }, recommended, combine(profileName, c.sources.sources) { n, s -> n to s.isNotEmpty() },
-    ) { (cfg, sections, now), base, (rec, news), recs, (name, hasSources) ->
+        lists, combine(recent, novedades) { r, n -> r to n }, recommended,
+        combine(profileName, combine(c.sources.sources, c.prefs.sourceExpiries) { s, e -> s.isNotEmpty() to e.filterKeys { k -> s.any { it.id == k } }.values.minOrNull() },
+            c.catalog.eventCandidates().map { com.embyverse.app.data.repo.Events.today(it) }) { n, s, e -> Triple(n, s, e) },
+    ) { (cfg, sections, now), base, (rec, news), recs, (name, srcInfo, events) ->
+        val (hasSources, expiresAt) = srcInfo
         val content = base + mapOf(SectionType.RECENTLY_ADDED to rec, SectionType.RECOMMENDED to recs)
         // El banner de bienvenida («Añadir fuente») sobra cuando ya hay listas: se muestran las novedades.
         val heroBanners = ConfigResolver.banners(cfg, BannerPlacement.HERO, now)
@@ -135,7 +142,7 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
             // Banners del Design Studio primero y después las novedades de tus listas.
             hero = heroBanners + featured,
             promos = ConfigResolver.banners(cfg, BannerPlacement.PROMO, now),
-            profileName = name, hasSources = hasSources, loading = false,
+            profileName = name, hasSources = hasSources, loading = false, events = events, expiresAt = expiresAt,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 

@@ -42,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -147,6 +148,9 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit) {
             }
         }
 
+        // Episodios: «Saltar intro» al inicio y cuenta regresiva del siguiente al final.
+        if (!vm.isLive) EpisodeExtras(vm, player, np?.ref?.kind == ContentKind.EPISODE, Modifier.align(Alignment.BottomEnd))
+
         // Siguiente episodio.
         next?.let {
             EmbyButton(stringResource(R.string.player_next_episode), { vm.playNext() }, icon = Icons.Rounded.SkipNext,
@@ -165,4 +169,44 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit) {
         }
     }
     LaunchedEffect(np?.ref) { if (!vm.isLive) vm.controlsVisible.value = false }
+}
+
+
+@Composable
+private fun EpisodeExtras(vm: PlayerViewModel, player: androidx.media3.exoplayer.ExoPlayer?, isEpisode: Boolean, modifier: Modifier) {
+    val t = LocalEmby.current
+    val upNext by vm.upNext.collectAsStateWithLifecycle()
+    val cancelled by vm.upNextCancelled.collectAsStateWithLifecycle()
+    var pos by androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+    var dur by androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+    var introSkipped by androidx.compose.runtime.remember(upNext) { androidx.compose.runtime.mutableStateOf(false) }
+    LaunchedEffect(player) {
+        while (player != null) {
+            pos = player.currentPosition
+            dur = player.duration.takeIf { it > 0 } ?: 0L
+            kotlinx.coroutines.delay(500)
+        }
+    }
+    val remaining = if (dur > 0) (dur - pos) / 1000 else Long.MAX_VALUE
+    Column(modifier.padding(32.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (isEpisode && !introSkipped && pos in 8_000L..300_000L && dur > 600_000L) {
+            EmbyButton(stringResource(R.string.player_skip_intro), { player?.seekTo(pos + 85_000); introSkipped = true }, secondary = true,
+                modifier = Modifier.testTag("skip_intro"))
+        }
+        val n = upNext
+        if (n != null && !cancelled && vm.autoplayNext && remaining <= 20) {
+            val focus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
+            LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+            Column(Modifier.widthIn(max = 380.dp).background(t.surface.copy(alpha = 0.95f), RoundedCornerShape(t.cardRadius)).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.player_up_next_in, remaining.coerceAtLeast(0)), style = MaterialTheme.typography.labelLarge, color = t.primary)
+                Text(n.second, style = MaterialTheme.typography.titleMedium, color = t.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    EmbyButton(stringResource(R.string.action_watch), { vm.playUpNext() }, icon = Icons.Rounded.SkipNext,
+                        modifier = Modifier.focusRequester(focus))
+                    EmbyButton(stringResource(R.string.action_cancel), { vm.cancelUpNext() }, secondary = true)
+                }
+            }
+        }
+    }
 }

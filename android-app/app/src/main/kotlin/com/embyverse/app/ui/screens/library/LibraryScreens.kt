@@ -34,6 +34,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.CalendarViewWeek
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.LiveTv
@@ -83,6 +84,7 @@ import com.embyverse.core.config.CardAspect
 import com.embyverse.core.config.CardSize
 import com.embyverse.core.model.ContentKind
 import java.text.DateFormat
+import kotlinx.coroutines.launch
 import java.util.Date
 
 @Composable
@@ -150,7 +152,7 @@ private fun FolderColumn(folders: List<Folder>, selected: String, onSelect: (Str
             FocusableSurface(onClick = { pending = null; onSelect(f.key) }, focusScale = 1f,
                 modifier = Modifier.fillMaxWidth().testTag("folder")
                     .then(if (isSel) Modifier.focusRequester(restore) else Modifier)
-                    .onFocusChanged { if (it.isFocused) pending = f.key }) { focused ->
+                    .onFocusChanged { if (it.isFocused && f.key != KEY_LOCK) pending = f.key }) { focused ->
                 Row(Modifier.fillMaxWidth().background(when { focused -> t.primary.copy(alpha = 0.28f); isSel -> t.surfaceVariant; else -> Color.Transparent })
                     .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(width = 3.dp, height = 18.dp).background(if (isSel) t.primary else Color.Transparent))
@@ -167,6 +169,31 @@ private fun FolderColumn(folders: List<Folder>, selected: String, onSelect: (Str
 private const val KEY_ALL = "\u0000all"
 private const val KEY_FAV = "\u0000fav"
 private const val KEY_HIST = "\u0000hist"
+private const val KEY_LOCK = "\u0000lock"
+
+/**
+ * Entrada de control parental al final de las carpetas: desbloquear con el PIN del perfil
+ * (o volver a bloquear). Devuelve la carpeta extra y el manejador; dibuja el diálogo de PIN.
+ */
+@Composable
+private fun rememberParentalFolder(): Pair<Folder?, () -> Unit> {
+    val c = LocalAppContainer.current
+    val statusFlow = remember { c.parental.status }
+    val status by statusFlow.collectAsStateWithLifecycle(initialValue = com.embyverse.app.data.repo.ParentalControl.Status.OFF)
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var ask by remember { mutableStateOf(false) }
+    if (ask) com.embyverse.app.ui.components.PinDialog(stringResource(R.string.parental_unlock), stringResource(R.string.parental_unlock_sub),
+        onDismiss = { ask = false }) { pin -> c.parental.unlock(pin).also { if (it) ask = false } }
+    val folder = when (status) {
+        com.embyverse.app.data.repo.ParentalControl.Status.LOCKED -> Folder(KEY_LOCK, "🔒 " + stringResource(R.string.parental_unlock))
+        com.embyverse.app.data.repo.ParentalControl.Status.UNLOCKED -> Folder(KEY_LOCK, "🔓 " + stringResource(R.string.parental_relock))
+        else -> null
+    }
+    return folder to {
+        if (status == com.embyverse.app.data.repo.ParentalControl.Status.LOCKED) ask = true
+        else scope.launch { c.parental.relock() }
+    }
+}
 
 // ------------------------------------------------------------------ TV EN VIVO
 /**
@@ -205,12 +232,14 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
     val allLabel = stringResource(R.string.category_all)
     val favLabel = stringResource(R.string.filter_favorites)
     val histLabel = stringResource(R.string.filter_history)
-    val folders = remember(s.categories, allLabel) {
-        listOf(Folder(KEY_FAV, "♥ $favLabel"), Folder(KEY_HIST, "⟲ $histLabel"), Folder(KEY_ALL, allLabel)) + s.categories.map { Folder(it, it) }
+    val (lockFolder, onLockFolder) = rememberParentalFolder()
+    val folders = remember(s.categories, allLabel, lockFolder) {
+        listOf(Folder(KEY_FAV, "♥ $favLabel"), Folder(KEY_HIST, "⟲ $histLabel"), Folder(KEY_ALL, allLabel)) + s.categories.map { Folder(it, it) } + listOfNotNull(lockFolder)
     }
     val selectedFolder = when (s.filter) { LiveFilter.FAVORITES -> KEY_FAV; LiveFilter.HISTORY -> KEY_HIST; else -> s.category ?: KEY_ALL }
     val onFolder: (String) -> Unit = { k ->
         when (k) {
+            KEY_LOCK -> onLockFolder()
             KEY_FAV -> vm.setFilter(LiveFilter.FAVORITES)
             KEY_HIST -> vm.setFilter(LiveFilter.HISTORY)
             else -> { vm.setFilter(LiveFilter.ALL); vm.setCategory(if (k == KEY_ALL) null else k) }
@@ -222,10 +251,17 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
         if (t.device.isTv) {
             Row(Modifier.statusBarsPadding().padding(end = t.screenPadding), verticalAlignment = Alignment.CenterVertically) {
                 ScreenTitle(stringResource(R.string.nav_live), Modifier.weight(1f))
+                com.embyverse.app.ui.components.EmbyButton(stringResource(R.string.guide_title), { nav.go(Routes.GUIDE) }, icon = Icons.Rounded.CalendarViewWeek, secondary = true)
+                Spacer(Modifier.width(12.dp))
                 SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_channels), Modifier.width(360.dp))
             }
         } else {
-            ScreenTitle(stringResource(R.string.nav_live))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ScreenTitle(stringResource(R.string.nav_live), Modifier.weight(1f))
+                IconButton(onClick = { nav.go(Routes.GUIDE) }, modifier = Modifier.statusBarsPadding().padding(end = 8.dp).testTag("open_guide")) {
+                    Icon(Icons.Rounded.CalendarViewWeek, stringResource(R.string.guide_title), tint = t.onBackground)
+                }
+            }
             SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_channels),
                 Modifier.fillMaxWidth().padding(horizontal = t.screenPadding))
             FolderRow(folders, selectedFolder, onFolder)
@@ -449,9 +485,10 @@ private fun VodScreen(nav: Navigator, kind: ContentKind) {
     val title = stringResource(if (kind == ContentKind.MOVIE) R.string.nav_movies else R.string.nav_series)
     Column(Modifier.fillMaxSize()) {
         val allLabel = stringResource(R.string.category_all)
-        val folders = remember(s.categories, allLabel) { listOf(Folder(KEY_ALL, allLabel)) + s.categories.map { Folder(it, it) } }
+        val (lockFolder, onLockFolder) = rememberParentalFolder()
+        val folders = remember(s.categories, allLabel, lockFolder) { listOf(Folder(KEY_ALL, allLabel)) + s.categories.map { Folder(it, it) } + listOfNotNull(lockFolder) }
         val selectedFolder = s.category ?: KEY_ALL
-        val onFolder: (String) -> Unit = { k -> vm.setCategory(if (k == KEY_ALL) null else k) }
+        val onFolder: (String) -> Unit = { k -> if (k == KEY_LOCK) onLockFolder() else vm.setCategory(if (k == KEY_ALL) null else k) }
         if (t.device.isTv) {
             val sp by vm.spotlight.collectAsStateWithLifecycle()
             Box(Modifier.fillMaxWidth().height(210.dp)) {
@@ -462,10 +499,10 @@ private fun VodScreen(nav: Navigator, kind: ContentKind) {
         } else {
             ScreenTitle(title)
             SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_in, title), Modifier.fillMaxWidth().padding(horizontal = t.screenPadding))
-            if (s.categories.isNotEmpty()) FolderRow(folders, selectedFolder, onFolder)
+            if (folders.size > 1) FolderRow(folders, selectedFolder, onFolder)
         }
         Row(Modifier.fillMaxSize()) {
-            if (t.device.isTv && s.categories.isNotEmpty()) FolderColumn(folders, selectedFolder, onFolder, Modifier.width(210.dp).fillMaxHeight())
+            if (t.device.isTv && folders.size > 1) FolderColumn(folders, selectedFolder, onFolder, Modifier.width(210.dp).fillMaxHeight())
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 when {
                     s.loading -> LoadingBox()
