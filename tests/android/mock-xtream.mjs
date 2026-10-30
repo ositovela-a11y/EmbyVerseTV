@@ -44,14 +44,15 @@ const series = Array.from({ length: N_SERIES }, (_, i) => ({
 function seriesInfo(id) {
   const n = +id;
   const ep = (season, e, eid) => ({ id: String(eid), episode_num: e, title: `Episodio ${e}`, container_extension: 'mp4', season,
-    info: n % 4 === 0 ? [] : { duration_secs: 1500, duration: '00:25:00', plot: 'Capítulo', movie_image: n % 2 ? `http://HOST/img/e${eid}.png` : '' } });
+    info: n % 4 === 0 ? [] : { duration_secs: 1500, duration: '00:25:00', plot: 'Capítulo. ' + 'Texto de sinopsis realista del episodio. '.repeat(12), movie_image: n % 2 ? `http://HOST/img/e${eid}.png` : '', bitrate: 2500, video: { codec_name: 'h264', width: 1920, height: 1080 }, audio: { codec_name: 'aac', channels: 2 } } });
   // Formatos distintos según el panel: objeto por temporada, array de arrays, temporadas vacías, ids repetidos.
   if (n % 5 === 0) return { info: [], episodes: [[ep(1, 1, n * 100 + 1), ep(1, 2, n * 100 + 2)], [ep(2, 1, n * 100 + 3)]] };
   if (n % 7 === 0) return { info: { name: `Serie ${n}` }, episodes: [] };
   const episodes = {};
   for (let s = 1; s <= 3; s++) episodes[String(s)] = Array.from({ length: 10 }, (_, e) => ep(s, e + 1, n * 100 + s * 10 + e));
   if (n % 3 === 0) episodes['1'].push(ep(1, 10, n * 100 + 19)); // episodio repetido
-  return { seasons: [], info: { name: `Serie ${n}`, plot: 'Trama' }, episodes };
+  // Como en paneles reales, la respuesta pesa decenas de KB (no cabe en el primer bloque de red).
+  return { seasons: [1, 2, 3].map((x) => ({ season_number: x, name: `Temporada ${x}`, overview: 'Resumen '.repeat(40) })), info: { name: `Serie ${n}`, plot: 'Trama '.repeat(80), cast: 'Actor, '.repeat(40) }, episodes };
 }
 
 const cache = {};
@@ -93,7 +94,7 @@ createServer((req, res) => {
       case 'get_series': return json(body('ss', () => series, host));
       case 'get_vod_info': {
         const id = +u.searchParams.get('vod_id');
-        return json(JSON.stringify(id % 3 === 0 ? { info: [], movie_data: { stream_id: id } } : { info: { plot: `Sinopsis completa ${id}`, genre: 'Acción', duration_secs: 5400, rating: '7.5', backdrop_path: [`${host}/img/b.png`] }, movie_data: { stream_id: id } }));
+        return json(JSON.stringify(id % 3 === 0 ? { info: [], movie_data: { stream_id: id } } : { info: { plot: `Sinopsis completa ${id}. ` + 'Descripción larga. '.repeat(120), cast: 'Actor, '.repeat(60), genre: 'Acción', duration_secs: 5400, rating: '7.5', backdrop_path: [`${host}/img/b.png`] }, movie_data: { stream_id: id } }));
       }
       case 'get_series_info': return json(JSON.stringify(seriesInfo(u.searchParams.get('series_id'))));
       case 'get_short_epg': return json('{"epg_listings":[]}');
