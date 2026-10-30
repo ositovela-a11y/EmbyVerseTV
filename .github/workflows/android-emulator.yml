@@ -1,0 +1,74 @@
+name: Prueba en emulador Android
+# Instala la app en un emulador Android, la conecta a un proveedor simulado GRANDE
+# (tests/android/mock-xtream.mjs) y recorre películas, series y canales reproduciendo.
+on:
+  workflow_dispatch:
+    inputs:
+      heap:
+        description: 'Memoria máxima por app del emulador (simula un teléfono modesto)'
+        default: '256M'
+  push:
+    branches: [main]
+    paths: ['android-app/**', 'tests/android/**', '.github/workflows/android-emulator.yml']
+concurrency: { group: emulator, cancel-in-progress: true }
+jobs:
+  emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: 17 }
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - name: Activar KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: SDK (plataforma 37)
+        run: |
+          set +o pipefail
+          SDK=$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
+          yes | $SDK --licenses > /dev/null || true
+          $SDK --install "platforms;android-37.0" "build-tools;36.0.0" > /dev/null || $SDK --install "platforms;android-37" > /dev/null || true
+      - name: Compilar app y pruebas
+        working-directory: android-app
+        run: ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Proveedor simulado
+        run: |
+          nohup node tests/android/mock-xtream.mjs 8800 > mock.log 2>&1 &
+          sleep 3; curl -sf "http://localhost:8800/player_api.php?username=user&password=pass" > /dev/null && echo "proveedor listo"
+      - name: Emulador y recorrido
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          ram-size: 3072M
+          heap-size: ${{ github.event.inputs.heap || '256M' }}
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            adb install -r android-app/app/build/outputs/apk/debug/app-debug.apk
+            adb install -r android-app/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb logcat -c
+            (adb logcat -v time > logcat.txt &)
+            adb shell am instrument -w -r -e class com.embyverse.app.SmokeFlowTest -e mockBase http://10.0.2.2:8800 com.embyverse.app.debug.test/androidx.test.runner.AndroidJUnitRunner | tee instrument.txt
+            sleep 2
+            adb shell getprop dalvik.vm.heapgrowthlimit; adb shell getprop dalvik.vm.heapsize
+      - name: Resultado
+        if: always()
+        run: |
+          grep -h "EVTEST" logcat.txt | sed 's/^.*EVTEST[^:]*: //' | while read -r l; do echo "::notice::$l"; done || true
+          grep -A25 "FATAL EXCEPTION\|OutOfMemoryError\|ANR in" logcat.txt | head -80 | sed 's/^/::error::/' || true
+          grep -E "FAILURES|OK \(|Process crashed|shortMsg|INSTRUMENTATION_FAILED|Error in|AssertionError|Exception" instrument.txt | head -20 | sed 's/^/::warning::/' || true
+          grep -q "^OK (" instrument.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: emulador-registros
+          path: |
+            logcat.txt
+            instrument.txt
+            mock.log

@@ -39,6 +39,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -243,7 +244,7 @@ fun SeriesDetailScreen(nav: Navigator, sid: String, id: String) {
 @Composable
 private fun EpisodeRow(ep: EpisodeEntity, p: ProgressEntity?, onPlay: () -> Unit) {
     val t = LocalEmby.current
-    FocusableSurface(onClick = onPlay, modifier = Modifier.fillMaxWidth().padding(horizontal = t.screenPadding), focusScale = 1.02f) { focused ->
+    FocusableSurface(onClick = onPlay, modifier = Modifier.fillMaxWidth().padding(horizontal = t.screenPadding).testTag("episode"), focusScale = 1.02f) { focused ->
         Row(Modifier.fillMaxWidth().background(if (focused) t.surfaceVariant else t.surface.copy(alpha = 0.7f)).padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.width(if (t.device.isTv) 200.dp else 132.dp).aspectRatio(16f / 9f).background(t.surfaceVariant, RoundedCornerShape(t.cardRadius))) {
                 MediaImage(ep.thumbnailUrl, ContentKind.EPISODE, Modifier.fillMaxSize())

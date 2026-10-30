@@ -70,6 +70,7 @@ import com.embyverse.core.config.LogoVariant
 import com.embyverse.core.config.NavStyle
 import com.embyverse.core.model.ContentKind
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 
 object Routes {
     const val HOME = "home"; const val LIVE = "live"; const val MOVIES = "movies"; const val SERIES = "series"
@@ -173,6 +174,7 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
         }) {
             TOP.forEach { d ->
                 NavigationRailItem(
+                    modifier = Modifier.testTag("nav_${d.route}"),
                     selected = current == d.route, onClick = { navigator.goTop(d.route) },
                     icon = { Icon(d.icon, null) }, label = if (t.navShowLabels) ({ Text(stringResource(d.label)) }) else null,
                     colors = NavigationRailItemDefaults.colors(selectedIconColor = t.buttonText, indicatorColor = t.primary,
@@ -185,7 +187,7 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
                 val idx = TOP.indexOfFirst { it.route == current }.coerceAtLeast(0)
                 PrimaryTabRow(selectedTabIndex = idx, containerColor = t.surface, contentColor = t.onBackground, modifier = Modifier.statusBarsPadding()) {
                     TOP.forEachIndexed { i, d ->
-                        Tab(selected = i == idx, onClick = { navigator.goTop(d.route) }, icon = { Icon(d.icon, null) },
+                        Tab(modifier = Modifier.testTag("nav_${d.route}"), selected = i == idx, onClick = { navigator.goTop(d.route) }, icon = { Icon(d.icon, null) },
                             text = if (t.navShowLabels) ({ Text(stringResource(d.label), maxLines = 1) }) else null,
                             selectedContentColor = t.primary, unselectedContentColor = t.textSecondary)
                     }
@@ -195,6 +197,7 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
             if (bottom) NavigationBar(containerColor = t.surface.copy(alpha = 0.97f), modifier = Modifier.navigationBarsPadding(), windowInsets = androidx.compose.foundation.layout.WindowInsets(0)) {
                 TOP.forEach { d ->
                     NavigationBarItem(
+                        modifier = Modifier.testTag("nav_${d.route}"),
                         selected = current == d.route, onClick = { navigator.goTop(d.route) },
                         icon = { Icon(d.icon, null) }, label = if (t.navShowLabels) ({ Text(stringResource(d.label), maxLines = 1) }) else null,
                         alwaysShowLabel = false,

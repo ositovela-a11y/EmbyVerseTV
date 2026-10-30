@@ -49,6 +49,13 @@ data class NowPlaying(
     val episode: Int? = null,
 )
 
+/** Estado observable del reproductor para las pruebas en dispositivo (sin datos personales). */
+object PlaybackProbe {
+    @Volatile var readyCount = 0
+    @Volatile var lastError: String? = null
+    fun reset() { readyCount = 0; lastError = null }
+}
+
 sealed interface PlayerUiError {
     val messageRes: Int
     data class Message(override val messageRes: Int, val detail: String? = null) : PlayerUiError
@@ -255,12 +262,13 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     private val listener = object : Player.Listener {
         override fun onPlaybackStateChanged(state: Int) {
             buffering.value = state == Player.STATE_BUFFERING || state == Player.STATE_IDLE && error.value == null
-            if (state == Player.STATE_READY) { retries = 0; error.value = null }
+            if (state == Player.STATE_READY) { retries = 0; error.value = null; PlaybackProbe.readyCount++ }
             if (state == Player.STATE_ENDED) { buffering.value = false; onEnded() }
         }
 
         override fun onPlayerError(e: PlaybackException) {
             buffering.value = false
+            PlaybackProbe.lastError = e.errorCodeName
             val p = player.value
             if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW && p != null) {
                 p.seekToDefaultPosition(); p.prepare(); return

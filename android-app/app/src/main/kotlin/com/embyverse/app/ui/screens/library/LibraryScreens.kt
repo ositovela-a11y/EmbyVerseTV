@@ -44,6 +44,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -145,7 +146,7 @@ private fun ChannelListItem(row: ChannelRow, onFocus: () -> Unit, onPlay: () -> 
     val t = LocalEmby.current
     val ch = row.channel
     Row(verticalAlignment = Alignment.CenterVertically) {
-        FocusableSurface(onClick = onPlay, modifier = Modifier.weight(1f).onFocusChanged { if (it.isFocused) onFocus() }, focusScale = 1.02f) { focused ->
+        FocusableSurface(onClick = onPlay, modifier = Modifier.weight(1f).testTag("channel").onFocusChanged { if (it.isFocused) onFocus() }, focusScale = 1.02f) { focused ->
             Row(Modifier.fillMaxWidth().background(if (focused) t.surfaceVariant else t.surface.copy(alpha = 0.7f)).padding(10.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 ch.number?.let { Text("$it", style = MaterialTheme.typography.labelMedium, color = t.textSecondary, modifier = Modifier.width(36.dp)) }
@@ -206,7 +207,7 @@ private fun VodScreen(nav: Navigator, kind: ContentKind) {
                 stringResource(R.string.vod_empty_title), stringResource(R.string.vod_empty_message))
             else -> {
                 val minW = cardWidth(CardAspect.POSTER, CardSize.M, t.device.isTv)
-                LazyVerticalGrid(GridCells.Adaptive(minW), Modifier.fillMaxSize(),
+                LazyVerticalGrid(GridCells.Adaptive(minW), Modifier.fillMaxSize().testTag("grid"),
                     contentPadding = PaddingValues(t.screenPadding), horizontalArrangement = Arrangement.spacedBy(t.cardGap), verticalArrangement = Arrangement.spacedBy(t.cardGap + 6.dp)) {
                     items(s.cards, key = { "${it.ref.sourceId}|${it.ref.id}" }) { c ->
                         MediaCardView(c, CardAspect.POSTER, CardSize.M, { nav.openItem(c.ref) })

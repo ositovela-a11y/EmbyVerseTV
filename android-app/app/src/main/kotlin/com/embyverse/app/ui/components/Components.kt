@@ -49,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
@@ -173,7 +174,7 @@ fun MediaCardView(card: MediaCard, aspect: CardAspect, size: CardSize, onClick: 
     val w = cardWidth(aspect, size, t.device.isTv)
     val live = card.ref.kind == ContentKind.LIVE
     Column(modifier.width(w)) {
-        FocusableSurface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(aspect.ratio), focusScale = 1.07f) { focused ->
+        FocusableSurface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(aspect.ratio).testTag("card:${card.ref.kind}:${card.ref.id}"), focusScale = 1.07f) { focused ->
             Box(Modifier.fillMaxSize().border(1.dp, if (focused) Color.Transparent else Color.White.copy(alpha = 0.07f), RoundedCornerShape(t.cardRadius))) {
                 MediaImage(card.imageUrl, card.ref.kind, Modifier.fillMaxSize().then(if (live) Modifier.padding(horizontal = 18.dp, vertical = 12.dp) else Modifier),
                     if (live) ContentScale.Fit else ContentScale.Crop, fallbackText = card.title)
