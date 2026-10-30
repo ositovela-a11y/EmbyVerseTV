@@ -69,13 +69,23 @@ android {
             versionNameSuffix = "-debug"
         }
         release {
+            // APK optimizado (R8, sin modo depuración): Compose y el reproductor van mucho más rápidos que en "debug".
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Sin keystore.properties el APK release queda SIN firmar (no se inventa ninguna firma).
-            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            } else {
+                // Sin clave de producción se firma con la clave del proyecto y se conserva el mismo
+                // identificador que los APK anteriores: se instala ENCIMA sin perder cuentas ni favoritos.
+                signingConfig = signingConfigs.getByName("debug")
+                applicationIdSuffix = ".debug"
+            }
         }
     }
+
+    // Las pruebas en emulador pueden correr sobre el APK optimizado (-Pembyverse.testRelease=true).
+    if (project.findProperty("embyverse.testRelease") == "true") testBuildType = "release"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -136,6 +146,8 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.work.runtime)
+    // Instala los perfiles de arranque que traen Compose y Media3: primeras pantallas y listas más fluidas.
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

@@ -190,6 +190,27 @@ class SmokeFlowTest {
             }
             shot("07-lista-en-reproductor")
             log("Reproductor: ◀ abre la lista de canales sin salir")
+            // ▶ dentro de la lista: siguiente carpeta.
+            fun folderName() = compose.onNodeWithTag("channel_list_folder", useUnmergedTree = true).fetchSemanticsNode()
+                .config.getOrNull(SemanticsProperties.Text)?.joinToString().orEmpty()
+            val before = folderName()
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_RIGHT)
+            compose.waitUntil(5_000) { folderName() != before }
+            Thread.sleep(600)
+            log("Reproductor: ▶ cambia de carpeta en la lista ($before → ${folderName()})")
+            shot("08-lista-otra-carpeta")
+            back()
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("channel_list", useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
+            // OK con el video limpio: opciones de audio y subtítulos.
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_CENTER)
+            Thread.sleep(400)
+            if (compose.onAllNodesWithTag("player_options_panel", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+                InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_CENTER)
+            try { waitTag("player_options_panel", 10_000) } catch (e: Throwable) {
+                throw AssertionError("OK no abrió las opciones; última tecla: ${PlaybackProbe.lastKey}", e)
+            }
+            Thread.sleep(500); shot("09-opciones-audio-subtitulos")
+            log("Reproductor: OK abre audio y subtítulos")
             back(); back()
             log("Recorrido completo sin cierres · ${memory()}")
         }

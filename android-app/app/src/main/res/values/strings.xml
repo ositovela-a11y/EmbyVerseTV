@@ -66,6 +66,8 @@
     <string name="filter_all">Todos</string>
     <string name="filter_favorites">Favoritos</string>
     <string name="filter_history">Historial</string>
+    <string name="folder_empty_message">No hay canales aquí. Prueba otra carpeta.</string>
+    <string name="folder_empty_title">Carpeta vacía</string>
     <string name="hero_featured">Destacado</string>
     <string name="hero_new_movie">Nueva película</string>
     <string name="hero_new_series">Nueva serie</string>
@@ -93,6 +95,12 @@
     <string name="onboarding_title">Configura tu primera fuente</string>
     <string name="onboarding_use_existing">Usar mis %1$d fuentes guardadas</string>
     <string name="optional">Opcional</string>
+    <string name="options_audio">Audio</string>
+    <string name="options_audio_default">Audio original del canal.</string>
+    <string name="options_audio_single">Solo hay una pista de audio.</string>
+    <string name="options_subtitles">Subtítulos</string>
+    <string name="options_subtitles_none">Este contenido no trae subtítulos.</string>
+    <string name="options_subtitles_off">Desactivados</string>
     <string name="playback_audio_lang">Idioma de audio preferido</string>
     <string name="playback_autoplay_next">Reproducir el siguiente episodio automáticamente</string>
     <string name="playback_live_format">Formato de TV en vivo (Xtream)</string>
@@ -104,7 +112,7 @@
     <string name="playback_subtitles">Activar subtítulos por defecto</string>
     <string name="playback_title">Reproducción</string>
     <string name="player_channels">Canales</string>
-    <string name="player_channels_hint">OK o ◀ Canales    ▲▼ Cambiar canal</string>
+    <string name="player_channels_hint">◀ Canales    ▲▼ Cambiar canal    OK Audio y subtítulos</string>
     <string name="player_error_drm">Este contenido está protegido con DRM y no se puede reproducir aquí.</string>
     <string name="player_error_forbidden">El proveedor denegó el acceso (credenciales o límite de conexiones).</string>
     <string name="player_error_format">El formato de este stream no es compatible con el dispositivo.</string>
@@ -112,7 +120,9 @@
     <string name="player_error_network">Problema de red. Comprueba tu conexión.</string>
     <string name="player_error_not_found">El contenido ya no está disponible en el proveedor.</string>
     <string name="player_error_server">El servidor del proveedor tiene un problema. Inténtalo más tarde.</string>
+    <string name="player_folder_hint">◀ ▶ Cambiar carpeta</string>
     <string name="player_next_episode">Siguiente episodio</string>
+    <string name="player_options">Audio y subtítulos</string>
     <string name="preview_error">No se pudo cargar la vista previa de este canal.</string>
     <string name="preview_fullscreen">OK: pantalla completa</string>
     <string name="preview_hint">Pulsa OK en un canal para verlo aquí. Otra vez OK: pantalla completa.</string>
@@ -183,6 +193,7 @@
     <string name="source_url">URL de la lista M3U/M3U8</string>
     <string name="source_user_agent">User-Agent personalizado</string>
     <string name="source_username">Usuario</string>
+    <string name="splash_loading">Preparando tu contenido…</string>
     <string name="support_default">Contacta con quien te proporcionó la aplicación.</string>
     <string name="support_title">Soporte</string>
     <string name="vod_empty_message">Tus fuentes no incluyen contenido en esta sección o el filtro no tiene resultados.</string>

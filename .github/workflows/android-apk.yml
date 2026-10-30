@@ -68,7 +68,7 @@ jobs:
         run: |
           set -o pipefail
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace ${{ matrix.slug == '' && ':core:test' || '' }} :app:assembleDebug 2>&1 | tee build.log
+          ./gradlew --no-daemon --stacktrace ${{ matrix.slug == '' && ':core:test' || '' }} :app:assembleRelease 2>&1 | tee build.log
       - name: Mostrar errores de compilación
         if: failure()
         working-directory: android-app
@@ -86,8 +86,8 @@ jobs:
         if: success()
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
-          cp android-app/app/build/outputs/apk/debug/app-debug.apk "${{ matrix.asset }}"
-          NOTES="APK de prueba compilado desde ${GITHUB_SHA::7} el $(date -u '+%Y-%m-%d %H:%M UTC'). Firmado con la clave de depuración del proyecto."
+          cp android-app/app/build/outputs/apk/release/app-release.apk "${{ matrix.asset }}"
+          NOTES="APK optimizado compilado desde ${GITHUB_SHA::7} el $(date -u '+%Y-%m-%d %H:%M UTC'). Firmado con la clave de depuración del proyecto."
           gh release view apk-latest >/dev/null 2>&1 || gh release create apk-latest --title "EmbyVerse (última compilación)" --notes "$NOTES" --latest
           if [ -z "${{ matrix.slug }}" ]; then gh release edit apk-latest --notes "$NOTES"; fi
           gh release upload apk-latest "${{ matrix.asset }}" --clobber

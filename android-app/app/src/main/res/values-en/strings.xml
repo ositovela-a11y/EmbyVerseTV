@@ -65,6 +65,8 @@
     <string name="filter_all">All</string>
     <string name="filter_favorites">Favorites</string>
     <string name="filter_history">History</string>
+    <string name="folder_empty_message">No channels here. Try another folder.</string>
+    <string name="folder_empty_title">Empty folder</string>
     <string name="hero_featured">Featured</string>
     <string name="hero_new_movie">New movie</string>
     <string name="hero_new_series">New series</string>
@@ -92,6 +94,12 @@
     <string name="onboarding_title">Set up your first source</string>
     <string name="onboarding_use_existing">Use my %1$d saved sources</string>
     <string name="optional">Optional</string>
+    <string name="options_audio">Audio</string>
+    <string name="options_audio_default">Original audio.</string>
+    <string name="options_audio_single">Only one audio track.</string>
+    <string name="options_subtitles">Subtitles</string>
+    <string name="options_subtitles_none">No subtitles available.</string>
+    <string name="options_subtitles_off">Off</string>
     <string name="playback_audio_lang">Preferred audio language</string>
     <string name="playback_autoplay_next">Autoplay next episode</string>
     <string name="playback_live_format">Live TV format (Xtream)</string>
@@ -103,7 +111,7 @@
     <string name="playback_subtitles">Enable subtitles by default</string>
     <string name="playback_title">Playback</string>
     <string name="player_channels">Channels</string>
-    <string name="player_channels_hint">OK or ◀ Channels    ▲▼ Change channel</string>
+    <string name="player_channels_hint">◀ Channels    ▲▼ Change channel    OK Audio &amp; subtitles</string>
     <string name="player_error_drm">This content is DRM-protected and cannot be played here.</string>
     <string name="player_error_forbidden">The provider denied access (credentials or connection limit).</string>
     <string name="player_error_format">This stream format is not supported on this device.</string>
@@ -111,7 +119,9 @@
     <string name="player_error_network">Network problem. Check your connection.</string>
     <string name="player_error_not_found">The content is no longer available from the provider.</string>
     <string name="player_error_server">The provider\'s server has a problem. Try again later.</string>
+    <string name="player_folder_hint">◀ ▶ Change folder</string>
     <string name="player_next_episode">Next episode</string>
+    <string name="player_options">Audio &amp; subtitles</string>
     <string name="preview_error">This channel\'s preview could not be loaded.</string>
     <string name="preview_fullscreen">OK: full screen</string>
     <string name="preview_hint">Press OK on a channel to preview it here. Press OK again for full screen.</string>
@@ -182,6 +192,7 @@
     <string name="source_url">M3U/M3U8 playlist URL</string>
     <string name="source_user_agent">Custom User-Agent</string>
     <string name="source_username">Username</string>
+    <string name="splash_loading">Getting things ready…</string>
     <string name="support_default">Contact whoever provided you with the app.</string>
     <string name="support_title">Support</string>
     <string name="vod_empty_message">Your sources have no content in this section or the filter has no results.</string>

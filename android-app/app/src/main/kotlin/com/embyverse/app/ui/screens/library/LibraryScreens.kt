@@ -56,6 +56,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -100,15 +102,68 @@ fun SearchField(value: String, onChange: (String) -> Unit, hint: String, modifie
     )
 }
 
+/** Una carpeta del catálogo (o un filtro como Favoritos / Historial). */
+data class Folder(val key: String, val label: String)
+
+/** Celular: una sola fila de carpetas que se desliza con el dedo; la elegida queda resaltada y visible. */
 @Composable
-private fun CategoryBar(categories: List<String>, selected: String?, onSelect: (String?) -> Unit, leading: @Composable () -> Unit = {}) {
+private fun FolderRow(folders: List<Folder>, selected: String, onSelect: (String) -> Unit) {
     val t = LocalEmby.current
-    LazyRow(contentPadding = PaddingValues(horizontal = t.screenPadding, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        item { leading() }
-        item { CategoryChip(stringResource(R.string.category_all), selected == null) { onSelect(null) } }
-        items(categories, key = { it }) { c -> CategoryChip(c, selected == c) { onSelect(c) } }
+    val state = androidx.compose.foundation.lazy.rememberLazyListState()
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        val i = folders.indexOfFirst { it.key == selected }
+        if (i > 0) state.scrollToItem((i - 1).coerceAtLeast(0))
+    }
+    LazyRow(state = state, contentPadding = PaddingValues(horizontal = t.screenPadding, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(folders, key = { it.key }) { f -> CategoryChip(f.label, selected == f.key) { onSelect(f.key) } }
     }
 }
+
+/**
+ * TV: columna de carpetas a la izquierda. Al bajar con el control la carpeta se abre sola (sin pulsar OK),
+ * ▶ entra a su contenido y ◀ regresa exactamente a la carpeta en la que estabas.
+ */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@Composable
+private fun FolderColumn(folders: List<Folder>, selected: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
+    val t = LocalEmby.current
+    val state = androidx.compose.foundation.lazy.rememberLazyListState()
+    val restore = remember { androidx.compose.ui.focus.FocusRequester() }
+    var pending by remember { mutableStateOf<String?>(null) }
+    // Elegir al enfocar, pero esperando un instante: si se mantiene ▼ pulsado no se carga cada carpeta.
+    androidx.compose.runtime.LaunchedEffect(pending) {
+        val p = pending ?: return@LaunchedEffect
+        kotlinx.coroutines.delay(180)
+        if (p != selected) onSelect(p)
+    }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        val i = folders.indexOfFirst { it.key == selected }
+        if (i > 2) state.scrollToItem(i - 2)
+    }
+    LazyColumn(state = state, modifier = modifier.testTag("folders").focusRestorer(restore),
+        contentPadding = PaddingValues(start = t.screenPadding, end = 8.dp, top = 8.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        items(folders, key = { it.key }, contentType = { 0 }) { f ->
+            val isSel = f.key == selected
+            FocusableSurface(onClick = { pending = null; onSelect(f.key) }, focusScale = 1f,
+                modifier = Modifier.fillMaxWidth().testTag("folder")
+                    .then(if (isSel) Modifier.focusRequester(restore) else Modifier)
+                    .onFocusChanged { if (it.isFocused) pending = f.key }) { focused ->
+                Row(Modifier.fillMaxWidth().background(when { focused -> t.primary.copy(alpha = 0.28f); isSel -> t.surfaceVariant; else -> Color.Transparent })
+                    .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(width = 3.dp, height = 18.dp).background(if (isSel) t.primary else Color.Transparent))
+                    Spacer(Modifier.width(10.dp))
+                    Text(f.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        color = if (isSel || focused) t.onBackground else t.textSecondary,
+                        fontWeight = if (isSel || focused) androidx.compose.ui.text.font.FontWeight.Bold else null)
+                }
+            }
+        }
+    }
+}
+
+private const val KEY_ALL = "\u0000all"
+private const val KEY_FAV = "\u0000fav"
+private const val KEY_HIST = "\u0000hist"
 
 // ------------------------------------------------------------------ TV EN VIVO
 /**
@@ -144,40 +199,67 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
     }
     val onChannel: (ChannelEntity) -> Unit = { ch -> if (preview.isPreviewing(ch)) fullscreen(ch) else preview.play(ch) }
 
-    Column(Modifier.fillMaxSize()) {
-        ScreenTitle(stringResource(R.string.nav_live))
-        SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_channels),
-            Modifier.fillMaxWidth().padding(horizontal = t.screenPadding))
-        Row(Modifier.padding(horizontal = t.screenPadding, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CategoryChip(stringResource(R.string.filter_all), s.filter == LiveFilter.ALL) { vm.setFilter(LiveFilter.ALL) }
-            CategoryChip(stringResource(R.string.filter_favorites), s.filter == LiveFilter.FAVORITES) { vm.setFilter(LiveFilter.FAVORITES) }
-            CategoryChip(stringResource(R.string.filter_history), s.filter == LiveFilter.HISTORY) { vm.setFilter(LiveFilter.HISTORY) }
+    val allLabel = stringResource(R.string.category_all)
+    val favLabel = stringResource(R.string.filter_favorites)
+    val histLabel = stringResource(R.string.filter_history)
+    val folders = remember(s.categories, allLabel) {
+        listOf(Folder(KEY_FAV, "♥ $favLabel"), Folder(KEY_HIST, "⟲ $histLabel"), Folder(KEY_ALL, allLabel)) + s.categories.map { Folder(it, it) }
+    }
+    val selectedFolder = when (s.filter) { LiveFilter.FAVORITES -> KEY_FAV; LiveFilter.HISTORY -> KEY_HIST; else -> s.category ?: KEY_ALL }
+    val onFolder: (String) -> Unit = { k ->
+        when (k) {
+            KEY_FAV -> vm.setFilter(LiveFilter.FAVORITES)
+            KEY_HIST -> vm.setFilter(LiveFilter.HISTORY)
+            else -> { vm.setFilter(LiveFilter.ALL); vm.setCategory(if (k == KEY_ALL) null else k) }
         }
-        if (s.categories.isNotEmpty()) CategoryBar(s.categories, s.category, vm::setCategory)
-        when {
-            s.loading -> LoadingBox()
-            s.rows.isEmpty() -> MessageState(Icons.Rounded.LiveTv, stringResource(R.string.live_empty_title), stringResource(R.string.live_empty_message),
-                stringResource(R.string.nav_sources), { nav.go(Routes.SOURCES) })
-            wide -> Row(Modifier.fillMaxSize()) {
-                ChannelList(s, previewing, vm, onChannel, showFavoriteButton = !t.device.isTv, modifier = Modifier.weight(1f).fillMaxHeight())
-                Column(Modifier.width(if (t.device.isTv) 460.dp else 380.dp).fillMaxHeight().padding(end = t.screenPadding, top = 8.dp, bottom = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    PreviewBox(preview, onFullscreen = fullscreen, modifier = Modifier.fillMaxWidth())
-                    SelectedInfo(vm, previewing, Modifier.fillMaxWidth().weight(1f))
-                }
+    }
+    val listKey = "$selectedFolder|${s.query}"
+
+    Column(Modifier.fillMaxSize()) {
+        if (t.device.isTv) {
+            Row(Modifier.statusBarsPadding().padding(end = t.screenPadding), verticalAlignment = Alignment.CenterVertically) {
+                ScreenTitle(stringResource(R.string.nav_live), Modifier.weight(1f))
+                SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_channels), Modifier.width(360.dp))
             }
-            else -> Column(Modifier.fillMaxSize()) {
-                if (previewing != null) PreviewBox(preview, onFullscreen = fullscreen, modifier = Modifier.fillMaxWidth().padding(horizontal = t.screenPadding, vertical = 6.dp))
-                ChannelList(s, previewing, vm, onChannel, showFavoriteButton = true, modifier = Modifier.fillMaxSize())
+        } else {
+            ScreenTitle(stringResource(R.string.nav_live))
+            SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_channels),
+                Modifier.fillMaxWidth().padding(horizontal = t.screenPadding))
+            FolderRow(folders, selectedFolder, onFolder)
+        }
+        Row(Modifier.fillMaxSize()) {
+            if (t.device.isTv) FolderColumn(folders, selectedFolder, onFolder, Modifier.width(250.dp).fillMaxHeight())
+            Box(Modifier.weight(1f).fillMaxHeight()) {
+                when {
+                    s.loading -> LoadingBox()
+                    s.rows.isEmpty() && s.filter == LiveFilter.ALL && s.category == null && s.query.isEmpty() ->
+                        MessageState(Icons.Rounded.LiveTv, stringResource(R.string.live_empty_title), stringResource(R.string.live_empty_message),
+                            stringResource(R.string.nav_sources), { nav.go(Routes.SOURCES) })
+                    s.rows.isEmpty() -> MessageState(Icons.Rounded.LiveTv, stringResource(R.string.folder_empty_title), stringResource(R.string.folder_empty_message))
+                    wide -> Row(Modifier.fillMaxSize()) {
+                        ChannelList(s, listKey, previewing, vm, onChannel, showFavoriteButton = !t.device.isTv, modifier = Modifier.weight(1f).fillMaxHeight())
+                        Column(Modifier.width(if (t.device.isTv) 420.dp else 360.dp).fillMaxHeight().padding(end = t.screenPadding, top = 8.dp, bottom = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            PreviewBox(preview, onFullscreen = fullscreen, modifier = Modifier.fillMaxWidth())
+                            SelectedInfo(vm, previewing, Modifier.fillMaxWidth().weight(1f))
+                        }
+                    }
+                    else -> Column(Modifier.fillMaxSize()) {
+                        if (previewing != null) PreviewBox(preview, onFullscreen = fullscreen, modifier = Modifier.fillMaxWidth().padding(horizontal = t.screenPadding, vertical = 6.dp))
+                        ChannelList(s, listKey, previewing, vm, onChannel, showFavoriteButton = true, modifier = Modifier.fillMaxSize())
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ChannelList(s: LiveUiState, previewing: ChannelEntity?, vm: LiveViewModel, onChannel: (ChannelEntity) -> Unit, showFavoriteButton: Boolean, modifier: Modifier) {
+private fun ChannelList(s: LiveUiState, listKey: String, previewing: ChannelEntity?, vm: LiveViewModel, onChannel: (ChannelEntity) -> Unit, showFavoriteButton: Boolean, modifier: Modifier) {
     val t = LocalEmby.current
-    LazyColumn(modifier, contentPadding = PaddingValues(horizontal = t.screenPadding, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    // Cada carpeta empieza arriba: la lista no "brinca" a una posición vieja al cambiar de carpeta.
+    val state = androidx.compose.runtime.key(listKey) { androidx.compose.foundation.lazy.rememberLazyListState() }
+    LazyColumn(modifier.testTag("channels"), state = state, contentPadding = PaddingValues(horizontal = t.screenPadding, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         items(s.rows, key = { "${it.channel.sourceId}|${it.channel.providerId}" }, contentType = { 0 }) { row ->
             val ch = row.channel
             ChannelListItem(row, isPreviewing = previewing != null && previewing.sourceId == ch.sourceId && previewing.providerId == ch.providerId,
@@ -192,7 +274,7 @@ private fun ChannelListItem(row: ChannelRow, isPreviewing: Boolean, onFocus: () 
     val ch = row.channel
     Row(verticalAlignment = Alignment.CenterVertically) {
         // Mantener pulsado (OK largo en el mando) = añadir o quitar de favoritos.
-        FocusableSurface(onClick = onPlay, onLongClick = onFavorite, modifier = Modifier.weight(1f).testTag("channel").onFocusChanged { if (it.isFocused) onFocus() }, focusScale = 1.03f) { focused ->
+        FocusableSurface(onClick = onPlay, onLongClick = onFavorite, modifier = Modifier.weight(1f).testTag("channel").onFocusChanged { if (it.isFocused) onFocus() }, focusScale = 1f) { focused ->
             Row(Modifier.fillMaxWidth()
                 .background(when { focused -> t.primary.copy(alpha = 0.22f); isPreviewing -> t.surfaceVariant; else -> t.surface.copy(alpha = 0.7f) })
                 .padding(horizontal = 10.dp, vertical = 8.dp),
@@ -258,7 +340,7 @@ private fun PreviewBox(preview: LivePreview, onFullscreen: (ChannelEntity) -> Un
 /** Guía (ahora y después) del canal enfocado o en vista previa. Lee la selección aquí para no recomponer la lista. */
 @Composable
 private fun SelectedInfo(vm: LiveViewModel, previewing: ChannelEntity?, modifier: Modifier) {
-    val focused by vm.selected.collectAsStateWithLifecycle()
+    val focused by vm.selectedSettled.collectAsStateWithLifecycle()
     val ch = focused ?: previewing ?: return
     EpgPanel(vm, ch, modifier)
 }
@@ -295,19 +377,36 @@ private fun VodScreen(nav: Navigator, kind: ContentKind) {
     var text by rememberSaveable { mutableStateOf("") }
     val title = stringResource(if (kind == ContentKind.MOVIE) R.string.nav_movies else R.string.nav_series)
     Column(Modifier.fillMaxSize()) {
-        ScreenTitle(title)
-        SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_in, title), Modifier.fillMaxWidth().padding(horizontal = t.screenPadding))
-        if (s.categories.isNotEmpty()) CategoryBar(s.categories, s.category, vm::setCategory)
-        when {
-            s.loading -> LoadingBox()
-            s.cards.isEmpty() -> MessageState(if (kind == ContentKind.MOVIE) Icons.Rounded.Theaters else Icons.Rounded.VideoLibrary,
-                stringResource(R.string.vod_empty_title), stringResource(R.string.vod_empty_message))
-            else -> {
-                val minW = cardWidth(CardAspect.POSTER, CardSize.M, t.device.isTv)
-                LazyVerticalGrid(GridCells.Adaptive(minW), Modifier.fillMaxSize().testTag("grid"),
-                    contentPadding = PaddingValues(t.screenPadding), horizontalArrangement = Arrangement.spacedBy(t.cardGap), verticalArrangement = Arrangement.spacedBy(t.cardGap + 6.dp)) {
-                    items(s.cards, key = { "${it.ref.sourceId}|${it.ref.id}" }) { c ->
-                        MediaCardView(c, CardAspect.POSTER, CardSize.M, { nav.openItem(c.ref) })
+        val allLabel = stringResource(R.string.category_all)
+        val folders = remember(s.categories, allLabel) { listOf(Folder(KEY_ALL, allLabel)) + s.categories.map { Folder(it, it) } }
+        val selectedFolder = s.category ?: KEY_ALL
+        val onFolder: (String) -> Unit = { k -> vm.setCategory(if (k == KEY_ALL) null else k) }
+        if (t.device.isTv) {
+            Row(Modifier.statusBarsPadding().padding(end = t.screenPadding), verticalAlignment = Alignment.CenterVertically) {
+                ScreenTitle(title, Modifier.weight(1f))
+                SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_in, title), Modifier.width(360.dp))
+            }
+        } else {
+            ScreenTitle(title)
+            SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_in, title), Modifier.fillMaxWidth().padding(horizontal = t.screenPadding))
+            if (s.categories.isNotEmpty()) FolderRow(folders, selectedFolder, onFolder)
+        }
+        Row(Modifier.fillMaxSize()) {
+            if (t.device.isTv && s.categories.isNotEmpty()) FolderColumn(folders, selectedFolder, onFolder, Modifier.width(250.dp).fillMaxHeight())
+            Box(Modifier.weight(1f).fillMaxHeight()) {
+                when {
+                    s.loading -> LoadingBox()
+                    s.cards.isEmpty() -> MessageState(if (kind == ContentKind.MOVIE) Icons.Rounded.Theaters else Icons.Rounded.VideoLibrary,
+                        stringResource(R.string.vod_empty_title), stringResource(R.string.vod_empty_message))
+                    else -> {
+                        val minW = cardWidth(CardAspect.POSTER, CardSize.M, t.device.isTv)
+                        val gridState = androidx.compose.runtime.key("$selectedFolder|${s.query}") { androidx.compose.foundation.lazy.grid.rememberLazyGridState() }
+                        LazyVerticalGrid(GridCells.Adaptive(minW), Modifier.fillMaxSize().testTag("grid"), state = gridState,
+                            contentPadding = PaddingValues(t.screenPadding), horizontalArrangement = Arrangement.spacedBy(t.cardGap), verticalArrangement = Arrangement.spacedBy(t.cardGap + 6.dp)) {
+                            items(s.cards, key = { "${it.ref.sourceId}|${it.ref.id}" }, contentType = { 0 }) { c ->
+                                MediaCardView(c, CardAspect.POSTER, CardSize.M, { nav.openItem(c.ref) })
+                            }
+                        }
                     }
                 }
             }

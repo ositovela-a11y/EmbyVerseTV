@@ -9,3 +9,8 @@
     public static int v(...);
     public static int d(...);
 }
+
+# El código propio se conserva completo (configuración remota con kotlinx-serialization, pruebas en
+# emulador sobre este mismo APK). R8 sigue optimizando Compose, Media3, OkHttp, Coil y Room.
+-keep class com.embyverse.** { *; }
+-dontwarn org.slf4j.**

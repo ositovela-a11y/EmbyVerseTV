@@ -74,7 +74,7 @@ class PlayerActivity : AppCompatActivity() {
             CompositionLocalProvider(LocalAppContainer provides container) {
                 val config by container.config.config.collectAsStateWithLifecycle()
                 EmbyTheme(ConfigResolver.theme(config, UserAppearance.ORIGINAL)) {
-                    PlayerScreen(vm, onClose = { finish() })
+                    com.embyverse.app.ui.FastScrolling { PlayerScreen(vm, onClose = { finish() }) }
                 }
             }
         }
@@ -83,40 +83,53 @@ class PlayerActivity : AppCompatActivity() {
     override fun onStart() { super.onStart(); vm.attach(this) }
     override fun onStop() { vm.detach(); super.onStop() }
 
-    /** Mando a distancia: CH+/CH- (y arriba/abajo con los controles ocultos) cambian de canal en vivo. */
+    private val repeatGate = com.embyverse.app.ui.KeyRepeatGate()
     /** Teclas ya atendidas en ACTION_DOWN: su ACTION_UP también se consume para que no lleguen al PlayerView. */
     private val consumed = mutableSetOf<Int>()
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         PlaybackProbe.lastKey = "${event.keyCode}/${event.action} live=${vm.isLive} list=${vm.channelListVisible.value} ctl=${vm.controlsVisible.value}"
+        if (repeatGate.shouldDrop(event)) return true
         if (event.action == KeyEvent.ACTION_UP && consumed.remove(event.keyCode)) return true
-        if (event.action == KeyEvent.ACTION_DOWN && vm.isLive && handleLiveKey(event.keyCode)) {
+        if (event.action == KeyEvent.ACTION_DOWN && handleKey(event)) {
             consumed += event.keyCode
             return true
         }
         return super.dispatchKeyEvent(event)
     }
 
-    private fun handleLiveKey(code: Int): Boolean {
+    /**
+     * Mando a distancia:
+     *  - OK (sin nada en pantalla): opciones — audio, subtítulos y, en vivo, lista de canales.
+     *  - ◀ en vivo: lista de canales; dentro de la lista ◀ ▶ cambian de carpeta.
+     *  - ▲▼ / CH± en vivo: canal anterior / siguiente.  MENÚ: opciones.  GUÍA: lista de canales.
+     */
+    private fun handleKey(event: KeyEvent): Boolean {
+        val code = event.keyCode
         val list = vm.channelListVisible.value
+        val opts = vm.optionsVisible.value
         val ctl = vm.controlsVisible.value
+        val idle = !list && !opts && !ctl
+        when (code) {
+            KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SETTINGS, KeyEvent.KEYCODE_CAPTIONS -> { vm.showOptions(!opts); return true }
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER ->
+                if (idle && vm.isLive) { vm.showOptions(true); return true }
+        }
+        if (!vm.isLive) return false
         when (code) {
             KeyEvent.KEYCODE_CHANNEL_UP -> vm.zap(+1)
             KeyEvent.KEYCODE_CHANNEL_DOWN -> vm.zap(-1)
-            KeyEvent.KEYCODE_DPAD_UP -> if (!ctl && !list) vm.zap(-1) else return false
-            KeyEvent.KEYCODE_DPAD_DOWN -> if (!ctl && !list) vm.zap(+1) else return false
-            KeyEvent.KEYCODE_GUIDE, KeyEvent.KEYCODE_MENU -> vm.toggleChannelList()
-            // ◀, u OK con los controles ocultos: lista de canales para elegir otro sin salir.
-            KeyEvent.KEYCODE_DPAD_LEFT -> if (!list) openList() else return false
-            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER ->
-                if (!list && !ctl) openList() else return false
+            KeyEvent.KEYCODE_GUIDE -> vm.toggleChannelList()
+            KeyEvent.KEYCODE_DPAD_UP -> if (idle) vm.zap(-1) else return false
+            KeyEvent.KEYCODE_DPAD_DOWN -> if (idle) vm.zap(+1) else return false
+            KeyEvent.KEYCODE_DPAD_LEFT -> when {
+                list -> vm.shiftListCategory(-1)
+                idle -> vm.openChannelList()
+                else -> return false
+            }
+            KeyEvent.KEYCODE_DPAD_RIGHT -> if (list) vm.shiftListCategory(+1) else return false
             else -> return false
         }
         return true
-    }
-
-    private fun openList() {
-        vm.controlsVisible.value = false
-        if (!vm.channelListVisible.value) vm.toggleChannelList()
     }
 }

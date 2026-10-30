@@ -36,7 +36,7 @@ jobs:
           $SDK --install "platforms;android-37.0" "build-tools;36.0.0" > /dev/null || $SDK --install "platforms;android-37" > /dev/null || true
       - name: Compilar app y pruebas
         working-directory: android-app
-        run: ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
+        run: ./gradlew --no-daemon -Pembyverse.testRelease=true :app:assembleRelease :app:assembleReleaseAndroidTest
       - name: Proveedor simulado
         run: |
           nohup node tests/android/mock-xtream.mjs 8800 > mock.log 2>&1 &
@@ -53,8 +53,8 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
-            adb install -r android-app/app/build/outputs/apk/debug/app-debug.apk
-            adb install -r android-app/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb install -r android-app/app/build/outputs/apk/release/app-release.apk
+            adb install -r android-app/app/build/outputs/apk/androidTest/release/app-release-androidTest.apk
             adb shell settings put secure immersive_mode_confirmations confirmed
             adb shell settings put global hide_error_dialogs 1
             adb logcat -c

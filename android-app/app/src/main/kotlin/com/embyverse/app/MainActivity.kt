@@ -33,6 +33,11 @@ import kotlinx.coroutines.flow.map
  * El diseño se construye a partir de la configuración remota validada + preferencias del perfil.
  */
 class MainActivity : AppCompatActivity() {
+    private val repeatGate = com.embyverse.app.ui.KeyRepeatGate()
+
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean =
+        if (repeatGate.shouldDrop(event)) true else super.dispatchKeyEvent(event)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
@@ -52,7 +57,7 @@ class MainActivity : AppCompatActivity() {
                 var profileChosen by rememberSaveable { mutableStateOf(false) }
                 var crash by remember { mutableStateOf(CrashReport.take(this@MainActivity)) }
 
-                EmbyTheme(theme) {
+                EmbyTheme(theme) { com.embyverse.app.ui.FastScrolling {
                     NebulaBackground(Modifier.fillMaxSize()) {
                         when {
                             !splashDone -> SplashScreen(config.brand) { splashDone = true }
@@ -68,7 +73,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                     crash?.let { report -> CrashDialog(report) { crash = null } }
-                }
+                } }
             }
         }
     }

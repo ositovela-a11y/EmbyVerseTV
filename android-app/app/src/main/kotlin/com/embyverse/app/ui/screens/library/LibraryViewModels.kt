@@ -43,6 +43,8 @@ class LiveViewModel(private val c: AppContainer, initialCategory: String?) : Vie
     private val filter = MutableStateFlow(LiveFilter.ALL)
     private val query = MutableStateFlow("")
     val selected = MutableStateFlow<ChannelEntity?>(null)
+    /** La guía se consulta cuando el foco se detiene, no en cada canal por el que pasa el control. */
+    val selectedSettled = selected.debounce(220).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val channels = category.flatMapLatest { c.catalog.channels(it, 5000) }
     private val favKeys = c.library.favorites().map { l -> l.filter { it.kind == "LIVE" }.map { it.sourceId to it.itemId }.toSet() }

@@ -9,6 +9,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
@@ -49,6 +51,9 @@ object PlaybackProbe {
     fun reset() { readyCount = 0; lastError = null }
 }
 
+/** Pista de audio o subtítulos que se puede elegir en el panel de opciones. */
+data class TrackOption(val key: String, val label: String, val selected: Boolean, internal val group: Tracks.Group?, internal val index: Int)
+
 sealed interface PlayerUiError {
     val messageRes: Int
     data class Message(override val messageRes: Int, val detail: String? = null) : PlayerUiError
@@ -62,7 +67,18 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     val buffering = MutableStateFlow(true)
     val controlsVisible = MutableStateFlow(false)
     val channelListVisible = MutableStateFlow(false)
+    /** Panel de opciones (audio, subtítulos, lista de canales). Se abre con OK en vivo o con MENÚ. */
+    val optionsVisible = MutableStateFlow(false)
+    val audioTracks = MutableStateFlow<List<TrackOption>>(emptyList())
+    val textTracks = MutableStateFlow<List<TrackOption>>(emptyList())
+    val textEnabled = MutableStateFlow(false)
+    /** Canales de la carpeta que se está viendo en la lista (puede ser otra distinta a la del canal actual). */
     val channels = MutableStateFlow<List<ChannelEntity>>(emptyList())
+    /** Carpetas de TV en vivo; null = todas. */
+    val categories = MutableStateFlow<List<String>>(emptyList())
+    val listCategory = MutableStateFlow<String?>(null)
+    /** Canales para ▲▼: los de la carpeta del canal que se está viendo. */
+    private var zapList: List<ChannelEntity> = emptyList()
     val currentProgram = MutableStateFlow<EpgEntity?>(null)
     val nextEpisode = MutableStateFlow<ItemRef?>(null)
     /** Banner breve con el nombre del canal al cambiar de canal. */
@@ -85,7 +101,13 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     init {
         viewModelScope.launch {
             prefs = c.prefs.playback.first()
-            if (isLive) channels.value = c.database.channels().listForZapping(context?.takeIf { it != "restart" })
+            if (isLive) {
+                val cat = context?.takeIf { it != "restart" }
+                listCategory.value = cat
+                channels.value = c.database.channels().listForZapping(cat)
+                zapList = channels.value
+                launch { categories.value = c.catalog.categories(ContentKind.LIVE).first() }
+            }
             load(ref, firstLoad = true)
             // En vivo: al entrar se muestra un momento el nombre del canal y cómo cambiar de canal.
             if (isLive) { zapBanner.value = true; delay(4_500); zapBanner.value = false }
@@ -181,7 +203,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
 
     // ---------------------------------------------------------------- TV en vivo
     fun zap(delta: Int) {
-        val list = channels.value
+        val list = zapList.ifEmpty { channels.value }
         if (list.isEmpty()) return
         val idx = list.indexOfFirst { it.sourceId == ref.sourceId && it.providerId == ref.id }
         val next = list[((if (idx < 0) 0 else idx) + delta).mod(list.size)]
@@ -190,13 +212,88 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
 
     fun playChannel(ch: ChannelEntity) {
         channelListVisible.value = false
+        // Al elegir de otra carpeta, ▲▼ siguen esa carpeta.
+        zapList = channels.value
         viewModelScope.launch {
             load(ItemRef(ContentKind.LIVE, ch.sourceId, ch.providerId))
             zapBanner.value = true; delay(3_500); zapBanner.value = false
         }
     }
 
-    fun toggleChannelList() { if (isLive) channelListVisible.value = !channelListVisible.value }
+    private var categoryJob: Job? = null
+
+    /** ◀ ▶ dentro de la lista de canales: carpeta anterior / siguiente (Todos, Entretenimiento, Premium…). */
+    fun shiftListCategory(delta: Int) {
+        val options = listOf<String?>(null) + categories.value
+        if (options.size < 2) return
+        val idx = options.indexOf(listCategory.value).coerceAtLeast(0)
+        val target = options[(idx + delta).mod(options.size)]
+        listCategory.value = target
+        categoryJob?.cancel()
+        categoryJob = viewModelScope.launch {
+            delay(120) // si se pulsa varias veces seguidas solo se consulta la última carpeta
+            channels.value = c.database.channels().listForZapping(target)
+        }
+    }
+
+    fun showOptions(show: Boolean) {
+        if (show) { channelListVisible.value = false; controlsVisible.value = false; refreshTracks() }
+        optionsVisible.value = show
+    }
+
+    fun openChannelList() {
+        if (!isLive) return
+        optionsVisible.value = false; controlsVisible.value = false
+        channelListVisible.value = true
+    }
+
+    // ---------------------------------------------------------------- audio y subtítulos
+    private fun refreshTracks() {
+        val p = player.value ?: run { audioTracks.value = emptyList(); textTracks.value = emptyList(); return }
+        val tracks = p.currentTracks
+        val audio = ArrayList<TrackOption>(); val text = ArrayList<TrackOption>()
+        tracks.groups.forEachIndexed { gi, g ->
+            for (i in 0 until g.length) {
+                if (!g.isTrackSupported(i)) continue
+                val f = g.getTrackFormat(i)
+                when (g.type) {
+                    C.TRACK_TYPE_AUDIO -> audio += TrackOption("a$gi-$i", trackLabel(f, audio.size + 1, true), g.isTrackSelected(i), g, i)
+                    C.TRACK_TYPE_TEXT -> text += TrackOption("t$gi-$i", trackLabel(f, text.size + 1, false), g.isTrackSelected(i), g, i)
+                }
+            }
+        }
+        audioTracks.value = audio
+        textTracks.value = text
+        textEnabled.value = !p.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT) && text.any { it.selected }
+    }
+
+    private fun trackLabel(f: androidx.media3.common.Format, n: Int, audio: Boolean): String {
+        val lang = f.language?.takeIf { it != C.LANGUAGE_UNDETERMINED && it.isNotBlank() }
+            ?.let { java.util.Locale.forLanguageTag(it).getDisplayLanguage(java.util.Locale.getDefault()).replaceFirstChar { c -> c.uppercase() } }
+        val base = f.label ?: lang ?: "#$n"
+        val extra = buildList {
+            if (f.label != null && lang != null && !f.label!!.contains(lang, true)) add(lang)
+            if (audio) when (f.channelCount) { 1 -> add("Mono"); 2 -> add("Estéreo"); 6 -> add("5.1"); 8 -> add("7.1") }
+        }
+        return if (extra.isEmpty()) base else "$base · ${extra.joinToString(" · ")}"
+    }
+
+    fun selectTrack(option: TrackOption) {
+        val p = player.value ?: return
+        val g = option.group ?: return
+        p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(g.type, false)
+            .setOverrideForType(TrackSelectionOverride(g.mediaTrackGroup, option.index))
+            .build()
+    }
+
+    fun subtitlesOff() {
+        val p = player.value ?: return
+        p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_TEXT).setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
+    }
+
+    fun toggleChannelList() { if (!isLive) return; if (channelListVisible.value) channelListVisible.value = false else openChannelList() }
 
     private suspend fun updateProgram() {
         val ch = c.database.channels().get(ref.sourceId, ref.id) ?: return
@@ -240,6 +337,8 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
 
     // ---------------------------------------------------------------- errores y reconexión
     private val listener = object : Player.Listener {
+        override fun onTracksChanged(tracks: Tracks) { refreshTracks() }
+        override fun onTrackSelectionParametersChanged(parameters: androidx.media3.common.TrackSelectionParameters) { refreshTracks() }
         override fun onPlaybackStateChanged(state: Int) {
             buffering.value = state == Player.STATE_BUFFERING || state == Player.STATE_IDLE && error.value == null
             if (state == Player.STATE_READY) { retries = 0; error.value = null; PlaybackProbe.readyCount++ }
