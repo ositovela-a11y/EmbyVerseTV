@@ -81,6 +81,9 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     private var zapList: List<ChannelEntity> = emptyList()
     val currentProgram = MutableStateFlow<EpgEntity?>(null)
     val nextEpisode = MutableStateFlow<ItemRef?>(null)
+    /** Siguiente episodio (para la cuenta regresiva al final del actual). Declarado antes de init: load() lo usa. */
+    val upNext = MutableStateFlow<Pair<ItemRef, String>?>(null)
+    val upNextCancelled = MutableStateFlow(false)
     /** Banner breve con el nombre del canal al cambiar de canal. */
     val zapBanner = MutableStateFlow(false)
 
@@ -340,9 +343,6 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         viewModelScope.launch { c.library.saveProgress(np.ref, np.title, np.imageUrl, pos, dur, np.seriesId, np.season, np.episode) }
     }
 
-    /** Siguiente episodio (para la cuenta regresiva al final del actual). */
-    val upNext = MutableStateFlow<Pair<ItemRef, String>?>(null)
-    val upNextCancelled = MutableStateFlow(false)
     val autoplayNext get() = prefs.autoplayNextEpisode
 
     private suspend fun computeUpNext(np: NowPlaying) {
