@@ -33,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -158,11 +159,14 @@ private fun HeroCarousel(items: List<HeroItem>, nav: Navigator) {
     val cfgW = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
     // Banner a todo lo ancho, proporción cinematográfica.
     val height = when { t.device.isTv -> 380.dp; cfgW >= 600 -> 340.dp; else -> 300.dp }
-    LaunchedEffect(items.size) {
-        while (items.size > 1) {
-            delay(8_000)
-            if (!pager.isScrollInProgress) pager.animateScrollToPage((pager.currentPage + 1) % items.size)
-        }
+    // Cada novedad dura 6.5 s (tiempo para leerla); la barra del indicador muestra cuánto falta.
+    val progress = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(pager.currentPage, items.size) {
+        if (items.size < 2) return@LaunchedEffect
+        progress.snapTo(0f)
+        progress.animateTo(1f, androidx.compose.animation.core.tween(6_500, easing = androidx.compose.animation.core.LinearEasing))
+        if (!pager.isScrollInProgress) pager.animateScrollToPage((pager.currentPage + 1) % items.size,
+            animationSpec = androidx.compose.animation.core.tween(650, easing = androidx.compose.animation.core.FastOutSlowInEasing))
     }
     Box(Modifier.fillMaxWidth().height(height)) {
         HorizontalPager(pager, modifier = Modifier.fillMaxSize()) { page ->
@@ -208,8 +212,10 @@ private fun HeroCarousel(items: List<HeroItem>, nav: Navigator) {
         }
         if (items.size > 1) Row(Modifier.align(Alignment.BottomEnd).padding(end = t.screenPadding, bottom = 32.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             repeat(items.size) { i ->
-                Box(Modifier.size(width = if (i == pager.currentPage) 22.dp else 6.dp, height = 6.dp).clip(CircleShape)
-                    .background(if (i == pager.currentPage) t.primary else Color.White.copy(alpha = 0.35f)))
+                val active = i == pager.currentPage
+                Box(Modifier.size(width = if (active) 28.dp else 6.dp, height = 6.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.3f))) {
+                    if (active) Box(Modifier.fillMaxHeight().fillMaxWidth(progress.value.coerceIn(0.05f, 1f)).background(t.primary))
+                }
             }
         }
     }

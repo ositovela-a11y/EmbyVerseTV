@@ -56,6 +56,9 @@
     <string name="crash_copy">Copy report</string>
     <string name="crash_message">Sorry. Copy this report and send it to support so it can be fixed. It contains no usernames or passwords.</string>
     <string name="crash_title">The app closed unexpectedly last time</string>
+    <string name="epg_event">Event</string>
+    <string name="epg_next">Up next</string>
+    <string name="epg_now">Now</string>
     <string name="epg_title">Program guide</string>
     <string name="epg_unavailable">No guide available for this channel.</string>
     <string name="episodes_empty">No episodes available</string>
@@ -75,6 +78,8 @@
     <string name="home_greeting">Hi</string>
     <string name="home_no_sources_message">Add an M3U playlist or an IPTV provider with your username and password to get started.</string>
     <string name="home_no_sources_title">No content yet</string>
+    <string name="intro_sound">Intro sound</string>
+    <string name="intro_sound_sub">Short sound when the app opens.</string>
     <string name="language_auto">Automatic</string>
     <string name="language_en">English</string>
     <string name="language_es">Español</string>
@@ -193,6 +198,7 @@
     <string name="source_user_agent">Custom User-Agent</string>
     <string name="source_username">Username</string>
     <string name="splash_loading">Getting things ready…</string>
+    <string name="spotlight_hint">Move through the titles to see their details here.</string>
     <string name="support_default">Contact whoever provided you with the app.</string>
     <string name="support_title">Support</string>
     <string name="vod_empty_message">Your sources have no content in this section or the filter has no results.</string>

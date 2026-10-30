@@ -27,6 +27,9 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+/** Novedades que se muestran en el banner principal. */
+const val HERO_NEWS = 10
+
 /** Elemento del banner principal: un banner publicado por el administrador o contenido destacado. */
 data class HeroItem(
     val id: String,
@@ -101,7 +104,7 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
     init {
         viewModelScope.launch {
             novedades.collect { list ->
-                list.take(8).mapNotNull { it.third }.filter { !it.detailsLoaded && detailsRequested.add("${it.sourceId}|${it.providerId}") }
+                list.take(HERO_NEWS).mapNotNull { it.third }.filter { !it.detailsLoaded && detailsRequested.add("${it.sourceId}|${it.providerId}") }
                     .forEach { m -> launch { c.sources.loadMovieDetails(m.sourceId, m.providerId) } }
             }
         }
@@ -126,7 +129,7 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
             .filter { !(hasSources && it.route == AppRoute.SOURCES) }
             .map { HeroItem(it.id, it.title, it.subtitle, it.imageUrl, it.route) }
         val heroMax = sections.firstOrNull { it.type == SectionType.HERO_BANNER }?.maxItems ?: 5
-        val featured = news.take(heroMax).map { it.second }
+        val featured = news.take(maxOf(heroMax, HERO_NEWS)).map { it.second }
         HomeUiState(
             config = cfg, sections = sections, content = content,
             // Banners del Design Studio primero y después las novedades de tus listas.

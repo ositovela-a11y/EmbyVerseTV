@@ -8,7 +8,7 @@ on:
         description: 'Memoria máxima por app del emulador (simula un teléfono modesto)'
         default: '256M'
   push:
-    branches: [main]
+    branches: [main, beta]
     paths: ['android-app/**', 'tests/android/**', '.github/workflows/android-emulator.yml']
 concurrency: { group: emulator, cancel-in-progress: true }
 permissions:
@@ -86,6 +86,15 @@ jobs:
           grep -A25 "FATAL EXCEPTION\|OutOfMemoryError\|ANR in" logcat.txt | head -80 | sed 's/^/::error::/' || true
           grep -E "FAILURES|OK \(|Process crashed|shortMsg|INSTRUMENTATION_FAILED|Error in|AssertionError|Exception" instrument.txt | head -20 | sed 's/^/::warning::/' || true
           grep -q "^OK (" instrument.txt
+      - name: APK de revisión (rama beta, no cambia la descarga de los clientes)
+        if: success() && github.ref_name == 'beta'
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          cp android-app/app/build/outputs/apk/release/app-release.apk EmbyVerse-revision.apk
+          NOTES="APK de REVISIÓN compilado desde ${GITHUB_SHA::7} el $(date -u '+%Y-%m-%d %H:%M UTC'). No se publica a los clientes hasta aprobarla."
+          gh release view apk-beta >/dev/null 2>&1 || gh release create apk-beta --prerelease --title "EmbyVerse (revisión)" --notes "$NOTES"
+          gh release edit apk-beta --notes "$NOTES"
+          gh release upload apk-beta EmbyVerse-revision.apk --clobber
       - name: Publicar registros (release ci-logs)
         if: always()
         env: { GH_TOKEN: '${{ github.token }}' }

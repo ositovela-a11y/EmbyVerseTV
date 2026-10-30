@@ -153,13 +153,13 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         error.value = null; buffering.value = true; nextEpisode.value = null
         val np = resolve(target)
         if (np == null) { error.value = PlayerUiError.Message(R.string.player_error_not_found); buffering.value = false; return }
-        ref = target
+        ref = np.ref
         nowPlaying.value = np
         retries = 0; altIndex = -1; forcedMime = null; originalUrl = null
         resumeFrom = when {
-            target.kind == ContentKind.LIVE -> null
+            np.ref.kind == ContentKind.LIVE -> null
             firstLoad && context == "restart" -> 0L
-            else -> c.library.progress(target)?.takeIf { !it.completed && it.positionMs > 15_000 }?.positionMs
+            else -> c.library.progress(np.ref)?.takeIf { !it.completed && it.positionMs > 15_000 }?.positionMs
         }
         if (target.kind == ContentKind.LIVE) {
             c.library.saveProgress(target, np.title, np.imageUrl, 0, 0)
@@ -182,7 +182,21 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
                 NowPlaying(r, series?.title ?: e.title, "T${e.season} · E${e.episode} — ${e.title}", e.thumbnailUrl ?: series?.posterUrl,
                     c.sources.resolveStreamUrl(r.sourceId, e.streamUrl), e.userAgent, e.referrer, e.seriesProviderId, e.season, e.episode)
             }
-            ContentKind.SERIES -> null
+            // Serie (p. ej. «Ver ahora» en las novedades): se sigue donde se quedó o se empieza por el primer episodio.
+            ContentKind.SERIES -> {
+                val series = db.series().get(r.sourceId, r.id) ?: return null
+                var eps = db.episodes().forSeries(r.sourceId, r.id)
+                if (eps.isEmpty()) { c.sources.loadEpisodes(r.sourceId, r.id); eps = db.episodes().forSeries(r.sourceId, r.id) }
+                if (eps.isEmpty()) return null
+                val progress = c.library.episodeProgress(r.sourceId, r.id).first().sortedByDescending { it.updatedAt }
+                val last = progress.firstOrNull()
+                val target = when {
+                    last == null -> eps.first()
+                    !last.completed -> eps.firstOrNull { it.providerId == last.itemId } ?: eps.first()
+                    else -> eps.getOrNull(eps.indexOfFirst { it.providerId == last.itemId } + 1) ?: eps.first()
+                }
+                resolve(ItemRef(ContentKind.EPISODE, target.sourceId, target.providerId))
+            }
         }
     }
 

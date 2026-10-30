@@ -28,6 +28,8 @@ data class PlaybackPrefs(
     val preferredSubtitleLanguage: String? = null,
     val subtitlesEnabled: Boolean = false,
     val autoReconnect: Boolean = true,
+    /** Sonido corto al abrir la app. */
+    val introSound: Boolean = true,
 )
 
 /** Preferencias locales del dispositivo. Nada de esto se envía a ningún servidor. */
@@ -73,6 +75,7 @@ class PreferencesRepository(private val context: Context) {
     private val SUB_LANG = stringPreferencesKey("play.subLang")
     private val SUBS_ON = booleanPreferencesKey("play.subsOn")
     private val RECONNECT = booleanPreferencesKey("play.reconnect")
+    private val INTRO_SOUND = booleanPreferencesKey("app.introSound")
 
     val playback: Flow<PlaybackPrefs> = ds.data.map { p ->
         PlaybackPrefs(
@@ -83,6 +86,7 @@ class PreferencesRepository(private val context: Context) {
             preferredSubtitleLanguage = p[SUB_LANG],
             subtitlesEnabled = p[SUBS_ON] ?: false,
             autoReconnect = p[RECONNECT] ?: true,
+            introSound = p[INTRO_SOUND] ?: true,
         )
     }.distinctUntilChanged()
 
@@ -96,6 +100,7 @@ class PreferencesRepository(private val context: Context) {
             if (n.preferredSubtitleLanguage == null) p.remove(SUB_LANG) else p[SUB_LANG] = n.preferredSubtitleLanguage
             p[SUBS_ON] = n.subtitlesEnabled
             p[RECONNECT] = n.autoReconnect
+            p[INTRO_SOUND] = n.introSound
         }
     }
 

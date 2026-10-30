@@ -23,6 +23,7 @@ import com.embyverse.app.data.repo.SyncState
 import com.embyverse.app.player.PlaybackProbe
 import com.embyverse.core.model.SourceType
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.FixMethodOrder
@@ -152,6 +153,12 @@ class SmokeFlowTest {
                 }
                 back()
                 waitTag("grid")
+            }
+            // «Ver ahora» de una serie en las novedades: abre el reproductor con una SERIE (no un episodio).
+            val serie = kotlinx.coroutines.runBlocking { app.container.catalog.series(null, 10).first().first() }
+            playAndCheck("Serie: Ver ahora desde novedades") {
+                compose.runOnUiThread { com.embyverse.app.player.PlayerActivity.start(compose.activity,
+                    com.embyverse.app.data.repo.ItemRef(com.embyverse.core.model.ContentKind.SERIES, serie.sourceId, serie.providerId)) }
             }
 
             // ---- TV en vivo (.ts continuo)

@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.verticalScroll
@@ -59,6 +60,10 @@ class MainActivity : AppCompatActivity() {
 
                 EmbyTheme(theme) { com.embyverse.app.ui.FastScrolling {
                     NebulaBackground(Modifier.fillMaxSize()) {
+                        // Marca de agua: el logotipo apenas visible al fondo de toda la app.
+                        if (splashDone) com.embyverse.app.ui.components.BrandLogo(config.brand.logoVariant, config.brand.logoUrl,
+                            Modifier.align(androidx.compose.ui.Alignment.Center).fillMaxSize(0.5f)
+                                .graphicsLayer { alpha = 0.045f })
                         when {
                             !splashDone -> SplashScreen(config.brand) { splashDone = true }
                             hasSources == null -> LoadingBox()

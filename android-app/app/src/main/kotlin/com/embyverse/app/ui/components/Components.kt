@@ -175,7 +175,7 @@ fun MediaImage(url: String?, kind: ContentKind, modifier: Modifier = Modifier, c
 
 /** Tarjeta de contenido (póster, apaisada o cuadrada) con título, subtítulo y progreso opcional. */
 @Composable
-fun MediaCardView(card: MediaCard, aspect: CardAspect, size: CardSize, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun MediaCardView(card: MediaCard, aspect: CardAspect, size: CardSize, onClick: () -> Unit, modifier: Modifier = Modifier, showText: Boolean = true) {
     val t = LocalEmby.current
     val w = cardWidth(aspect, size, t.device.isTv)
     val live = card.ref.kind == ContentKind.LIVE
@@ -192,6 +192,7 @@ fun MediaCardView(card: MediaCard, aspect: CardAspect, size: CardSize, onClick: 
                 }
             }
         }
+        if (!showText) return@Column
         Spacer(Modifier.height(8.dp))
         Text(card.title, style = MaterialTheme.typography.titleSmall, color = t.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
         card.subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = t.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis) }

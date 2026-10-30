@@ -310,6 +310,7 @@ fun PlaybackSettingsScreen(nav: Navigator) {
             item { SwitchRow(stringResource(R.string.playback_autoplay_next), null, p.autoplayNextEpisode) { v -> vm.update { it.copy(autoplayNextEpisode = v) } } }
             item { SwitchRow(stringResource(R.string.playback_reconnect), stringResource(R.string.playback_reconnect_sub), p.autoReconnect) { v -> vm.update { it.copy(autoReconnect = v) } } }
             item { SwitchRow(stringResource(R.string.playback_subtitles), null, p.subtitlesEnabled) { v -> vm.update { it.copy(subtitlesEnabled = v) } } }
+            item { SwitchRow(stringResource(R.string.intro_sound), stringResource(R.string.intro_sound_sub), p.introSound) { v -> vm.update { it.copy(introSound = v) } } }
             item { Text(stringResource(R.string.playback_audio_lang), style = MaterialTheme.typography.titleMedium, color = t.onBackground) }
             item { LangChips(p.preferredAudioLanguage) { l -> vm.update { it.copy(preferredAudioLanguage = l) } } }
             item { Text(stringResource(R.string.playback_sub_lang), style = MaterialTheme.typography.titleMedium, color = t.onBackground) }

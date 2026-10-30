@@ -135,7 +135,15 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
     val style = if (t.device.useRail) NavStyle.SIDE_RAIL else t.navStyle
 
     val host: @Composable (Modifier) -> Unit = { m ->
-        NavHost(nav, startDestination = if (startOnboarding) Routes.SOURCE_EDIT else Routes.HOME, modifier = m) {
+        NavHost(nav, startDestination = if (startOnboarding) Routes.SOURCE_EDIT else Routes.HOME, modifier = m,
+            // Cambio de sección "de plataforma": la nueva entra con un ligero acercamiento y fundido.
+            enterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(280, delayMillis = 60)) +
+                androidx.compose.animation.scaleIn(androidx.compose.animation.core.tween(340, easing = androidx.compose.animation.core.FastOutSlowInEasing), initialScale = 0.94f) },
+            exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(160)) },
+            popEnterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(240)) },
+            popExitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(160)) +
+                androidx.compose.animation.scaleOut(androidx.compose.animation.core.tween(200), targetScale = 0.97f) },
+        ) {
             composable(Routes.HOME) { HomeScreen(navigator) }
             composable("${Routes.LIVE}?category={category}", arguments = listOf(navArgument("category") { type = NavType.StringType; nullable = true; defaultValue = null })) {
                 LiveScreen(navigator, it.arguments?.getString("category"))
