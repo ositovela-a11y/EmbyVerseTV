@@ -64,3 +64,23 @@ class KeyRepeatGate(private val minGapMs: Long = 50) {
         return false
     }
 }
+
+/**
+ * Cuadrículas de películas y series en TV: la fila enfocada se coloca arriba, completa.
+ * Así nunca queda un póster cortado a la mitad debajo de la información.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+private object RowAlignedBringIntoView : BringIntoViewSpec {
+    private val spec: AnimationSpec<Float> = tween(160, easing = FastOutSlowInEasing)
+
+    @Suppress("OVERRIDE_DEPRECATION", "DEPRECATION")
+    override val scrollAnimationSpec: AnimationSpec<Float> get() = spec
+
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = offset
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun RowAlignedScrolling(content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalBringIntoViewSpec provides RowAlignedBringIntoView, content = content)
+}

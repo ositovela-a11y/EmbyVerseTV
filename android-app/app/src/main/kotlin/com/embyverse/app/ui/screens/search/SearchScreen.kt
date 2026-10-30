@@ -17,6 +17,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -62,12 +68,34 @@ fun SearchScreen(nav: Navigator) {
     val t = LocalEmby.current
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val voiceAvailable = remember { android.speech.SpeechRecognizer.isRecognitionAvailable(context) ||
+        context.packageManager.queryIntentActivities(android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH), 0).isNotEmpty() }
+    val voicePrompt = stringResource(R.string.search_voice_prompt)
+    val voice = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { r ->
+        r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { said -> text = said; vm.query.value = said }
+    }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { ScreenTitle(stringResource(R.string.nav_search)) }
         item {
-            SearchField(text, { text = it; vm.query.value = it }, stringResource(R.string.search_everything),
-                Modifier.fillMaxWidth().padding(horizontal = t.screenPadding).focusRequester(focus))
+            androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(horizontal = t.screenPadding), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                SearchField(text, { text = it; vm.query.value = it }, stringResource(R.string.search_everything),
+                    Modifier.weight(1f).focusRequester(focus))
+                // Búsqueda por voz (micrófono del control de Android TV o del celular).
+                if (voiceAvailable) {
+                    Spacer(Modifier.width(8.dp))
+                    com.embyverse.app.ui.components.FocusableSurface(onClick = {
+                        runCatching { voice.launch(android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                            .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, voicePrompt)) }
+                    }, shape = androidx.compose.foundation.shape.CircleShape, modifier = Modifier.testTag("voice_search")) { _ ->
+                        androidx.compose.foundation.layout.Box(Modifier.size(52.dp).background(t.buttonBackground), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                            Icon(Icons.Rounded.Mic, stringResource(R.string.search_voice), tint = t.buttonText)
+                        }
+                    }
+                }
+            }
             Spacer(Modifier.height(12.dp))
         }
         val r = results

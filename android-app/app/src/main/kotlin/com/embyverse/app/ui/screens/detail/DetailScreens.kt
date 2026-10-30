@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material3.CircularProgressIndicator
@@ -135,6 +136,13 @@ fun MovieDetailScreen(nav: Navigator, sid: String, id: String) {
                 val resume = p != null && !p.completed && p.positionMs > 15_000
                 EmbyButton(stringResource(if (resume) R.string.action_resume else R.string.action_play), { nav.play(ItemRef(ContentKind.MOVIE, sid, id)) }, icon = Icons.Rounded.PlayArrow)
                 if (resume) EmbyButton(stringResource(R.string.action_restart), { nav.play(ItemRef(ContentKind.MOVIE, sid, id), "restart") }, icon = Icons.Rounded.Replay, secondary = true)
+                m.trailer?.let { url ->
+                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                    EmbyButton(stringResource(R.string.action_trailer), {
+                        runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
+                            .onFailure { android.widget.Toast.makeText(ctx, R.string.trailer_no_app, android.widget.Toast.LENGTH_LONG).show() }
+                    }, icon = Icons.Rounded.Movie, secondary = true)
+                }
                 IconButton(onClick = { vm.toggleFavorite() }) {
                     Icon(if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, stringResource(if (fav) R.string.action_unfavorite else R.string.action_favorite), tint = if (fav) t.primary else t.onBackground)
                 }

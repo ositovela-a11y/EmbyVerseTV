@@ -34,6 +34,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.CalendarViewWeek
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.LiveTv
@@ -61,6 +62,9 @@ import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.animation.togetherWith
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.embyverse.app.R
 import com.embyverse.app.data.db.ChannelEntity
@@ -80,6 +84,7 @@ import com.embyverse.core.config.CardAspect
 import com.embyverse.core.config.CardSize
 import com.embyverse.core.model.ContentKind
 import java.text.DateFormat
+import kotlinx.coroutines.launch
 import java.util.Date
 
 @Composable
@@ -147,7 +152,7 @@ private fun FolderColumn(folders: List<Folder>, selected: String, onSelect: (Str
             FocusableSurface(onClick = { pending = null; onSelect(f.key) }, focusScale = 1f,
                 modifier = Modifier.fillMaxWidth().testTag("folder")
                     .then(if (isSel) Modifier.focusRequester(restore) else Modifier)
-                    .onFocusChanged { if (it.isFocused) pending = f.key }) { focused ->
+                    .onFocusChanged { if (it.isFocused && f.key != KEY_LOCK) pending = f.key }) { focused ->
                 Row(Modifier.fillMaxWidth().background(when { focused -> t.primary.copy(alpha = 0.28f); isSel -> t.surfaceVariant; else -> Color.Transparent })
                     .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(width = 3.dp, height = 18.dp).background(if (isSel) t.primary else Color.Transparent))
@@ -164,6 +169,31 @@ private fun FolderColumn(folders: List<Folder>, selected: String, onSelect: (Str
 private const val KEY_ALL = "\u0000all"
 private const val KEY_FAV = "\u0000fav"
 private const val KEY_HIST = "\u0000hist"
+private const val KEY_LOCK = "\u0000lock"
+
+/**
+ * Entrada de control parental al final de las carpetas: desbloquear con el PIN del perfil
+ * (o volver a bloquear). Devuelve la carpeta extra y el manejador; dibuja el diálogo de PIN.
+ */
+@Composable
+private fun rememberParentalFolder(): Pair<Folder?, () -> Unit> {
+    val c = LocalAppContainer.current
+    val statusFlow = remember { c.parental.status }
+    val status by statusFlow.collectAsStateWithLifecycle(initialValue = com.embyverse.app.data.repo.ParentalControl.Status.OFF)
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var ask by remember { mutableStateOf(false) }
+    if (ask) com.embyverse.app.ui.components.PinDialog(stringResource(R.string.parental_unlock), stringResource(R.string.parental_unlock_sub),
+        onDismiss = { ask = false }) { pin -> c.parental.unlock(pin).also { if (it) ask = false } }
+    val folder = when (status) {
+        com.embyverse.app.data.repo.ParentalControl.Status.LOCKED -> Folder(KEY_LOCK, "🔒 " + stringResource(R.string.parental_unlock))
+        com.embyverse.app.data.repo.ParentalControl.Status.UNLOCKED -> Folder(KEY_LOCK, "🔓 " + stringResource(R.string.parental_relock))
+        else -> null
+    }
+    return folder to {
+        if (status == com.embyverse.app.data.repo.ParentalControl.Status.LOCKED) ask = true
+        else scope.launch { c.parental.relock() }
+    }
+}
 
 // ------------------------------------------------------------------ TV EN VIVO
 /**
@@ -202,12 +232,14 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
     val allLabel = stringResource(R.string.category_all)
     val favLabel = stringResource(R.string.filter_favorites)
     val histLabel = stringResource(R.string.filter_history)
-    val folders = remember(s.categories, allLabel) {
-        listOf(Folder(KEY_FAV, "♥ $favLabel"), Folder(KEY_HIST, "⟲ $histLabel"), Folder(KEY_ALL, allLabel)) + s.categories.map { Folder(it, it) }
+    val (lockFolder, onLockFolder) = rememberParentalFolder()
+    val folders = remember(s.categories, allLabel, lockFolder) {
+        listOf(Folder(KEY_FAV, "♥ $favLabel"), Folder(KEY_HIST, "⟲ $histLabel"), Folder(KEY_ALL, allLabel)) + s.categories.map { Folder(it, it) } + listOfNotNull(lockFolder)
     }
     val selectedFolder = when (s.filter) { LiveFilter.FAVORITES -> KEY_FAV; LiveFilter.HISTORY -> KEY_HIST; else -> s.category ?: KEY_ALL }
     val onFolder: (String) -> Unit = { k ->
         when (k) {
+            KEY_LOCK -> onLockFolder()
             KEY_FAV -> vm.setFilter(LiveFilter.FAVORITES)
             KEY_HIST -> vm.setFilter(LiveFilter.HISTORY)
             else -> { vm.setFilter(LiveFilter.ALL); vm.setCategory(if (k == KEY_ALL) null else k) }
@@ -219,17 +251,26 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
         if (t.device.isTv) {
             Row(Modifier.statusBarsPadding().padding(end = t.screenPadding), verticalAlignment = Alignment.CenterVertically) {
                 ScreenTitle(stringResource(R.string.nav_live), Modifier.weight(1f))
+                com.embyverse.app.ui.components.EmbyButton(stringResource(R.string.guide_title), { nav.go(Routes.GUIDE) }, icon = Icons.Rounded.CalendarViewWeek, secondary = true)
+                Spacer(Modifier.width(12.dp))
                 SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_channels), Modifier.width(360.dp))
             }
         } else {
-            ScreenTitle(stringResource(R.string.nav_live))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ScreenTitle(stringResource(R.string.nav_live), Modifier.weight(1f))
+                IconButton(onClick = { nav.go(Routes.GUIDE) }, modifier = Modifier.statusBarsPadding().padding(end = 8.dp).testTag("open_guide")) {
+                    Icon(Icons.Rounded.CalendarViewWeek, stringResource(R.string.guide_title), tint = t.onBackground)
+                }
+            }
             SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_channels),
                 Modifier.fillMaxWidth().padding(horizontal = t.screenPadding))
             FolderRow(folders, selectedFolder, onFolder)
         }
         Row(Modifier.fillMaxSize()) {
-            if (t.device.isTv) FolderColumn(folders, selectedFolder, onFolder, Modifier.width(250.dp).fillMaxHeight())
-            Box(Modifier.weight(1f).fillMaxHeight()) {
+            if (t.device.isTv) FolderColumn(folders, selectedFolder, onFolder, Modifier.width(210.dp).fillMaxHeight())
+            androidx.compose.foundation.layout.BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()) {
+                // Lista de canales con espacio para el nombre completo; vista previa + ficha ≈ 40 % del ancho.
+                val sideW = (maxWidth * 0.42f).coerceIn(300.dp, 480.dp)
                 when {
                     s.loading -> LoadingBox()
                     s.rows.isEmpty() && s.filter == LiveFilter.ALL && s.category == null && s.query.isEmpty() ->
@@ -238,7 +279,7 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
                     s.rows.isEmpty() -> MessageState(Icons.Rounded.LiveTv, stringResource(R.string.folder_empty_title), stringResource(R.string.folder_empty_message))
                     wide -> Row(Modifier.fillMaxSize()) {
                         ChannelList(s, listKey, previewing, vm, onChannel, showFavoriteButton = !t.device.isTv, modifier = Modifier.weight(1f).fillMaxHeight())
-                        Column(Modifier.width(if (t.device.isTv) 420.dp else 360.dp).fillMaxHeight().padding(end = t.screenPadding, top = 8.dp, bottom = 8.dp),
+                        Column(Modifier.width(sideW).fillMaxHeight().padding(end = t.screenPadding, top = 8.dp, bottom = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             PreviewBox(preview, onFullscreen = fullscreen, modifier = Modifier.fillMaxWidth())
                             SelectedInfo(vm, previewing, Modifier.fillMaxWidth().weight(1f))
@@ -279,23 +320,41 @@ private fun ChannelListItem(row: ChannelRow, isPreviewing: Boolean, onFocus: () 
                 .background(when { focused -> t.primary.copy(alpha = 0.22f); isPreviewing -> t.surfaceVariant; else -> t.surface.copy(alpha = 0.7f) })
                 .padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                ch.number?.let { Text("$it", style = MaterialTheme.typography.labelMedium, color = if (focused) t.onBackground else t.textSecondary, modifier = Modifier.width(40.dp)) }
-                Box(Modifier.size(width = 60.dp, height = 38.dp)) { MediaImage(ch.logoUrl, ContentKind.LIVE, Modifier.fillMaxSize(), androidx.compose.ui.layout.ContentScale.Fit) }
-                Spacer(Modifier.width(12.dp))
+                ch.number?.let { Text("$it", style = MaterialTheme.typography.labelMedium, color = if (focused) t.onBackground else t.textSecondary,
+                    maxLines = 1, modifier = Modifier.width(if (it >= 1000) 44.dp else 34.dp)) }
+                Box(Modifier.size(width = 52.dp, height = 34.dp)) { MediaImage(ch.logoUrl, ContentKind.LIVE, Modifier.fillMaxSize(), androidx.compose.ui.layout.ContentScale.Fit) }
+                Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(ch.name, style = MaterialTheme.typography.titleSmall, color = t.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    // El nombre muchas veces ES la información del evento ("10/30 LIGUE 1 12:00pm"): se ve completo.
+                    Text(ch.name, style = MaterialTheme.typography.titleSmall, color = t.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis,
                         fontWeight = if (focused || isPreviewing) androidx.compose.ui.text.font.FontWeight.Bold else null)
-                    val sub = row.nowPlaying?.title ?: ch.category
-                    sub?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = if (row.nowPlaying != null) t.accent else t.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    val now = row.nowPlaying
+                    when {
+                        now != null -> {
+                            Text(now.title, style = MaterialTheme.typography.bodySmall, color = t.accent, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            ProgramProgress(now.start, now.end, Modifier.padding(top = 4.dp).fillMaxWidth(0.6f))
+                        }
+                        isPreviewing -> Text("● " + stringResource(R.string.preview_now), style = MaterialTheme.typography.labelSmall, color = t.primary)
+                    }
                 }
-                if (isPreviewing) Text("● " + stringResource(R.string.preview_now), style = MaterialTheme.typography.labelSmall, color = t.primary)
-                else if (row.favorite && !showFavoriteButton) Icon(Icons.Rounded.Favorite, null, tint = t.primary, modifier = Modifier.size(16.dp))
+                if (row.favorite && !showFavoriteButton) Icon(Icons.Rounded.Favorite, null, tint = t.primary, modifier = Modifier.size(16.dp))
             }
         }
         if (showFavoriteButton) IconButton(onClick = onFavorite) {
             Icon(if (row.favorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                 stringResource(if (row.favorite) R.string.action_unfavorite else R.string.action_favorite), tint = if (row.favorite) t.primary else t.textSecondary)
         }
+    }
+}
+
+/** Barra de avance del programa en curso. */
+@Composable
+private fun ProgramProgress(start: Long, end: Long, modifier: Modifier = Modifier) {
+    val t = LocalEmby.current
+    val now = System.currentTimeMillis() / 1000
+    val f = if (end > start) ((now - start).toFloat() / (end - start)).coerceIn(0f, 1f) else 0f
+    Box(modifier.height(3.dp).background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(2.dp))) {
+        Box(Modifier.fillMaxHeight().fillMaxWidth(f).background(t.primary, RoundedCornerShape(2.dp)))
     }
 }
 
@@ -345,27 +404,75 @@ private fun SelectedInfo(vm: LiveViewModel, previewing: ChannelEntity?, modifier
     EpgPanel(vm, ch, modifier)
 }
 
+/**
+ * Ficha del canal enfocado o en vista previa: logotipo, nombre completo (que en los canales de eventos
+ * dice qué partido pasa y a qué hora), carpeta, programa actual con su avance, lo que sigue y la guía.
+ */
 @Composable
 private fun EpgPanel(vm: LiveViewModel, ch: ChannelEntity, modifier: Modifier) {
     val t = LocalEmby.current
     val flow = remember(ch.sourceId, ch.providerId) { vm.upcoming(ch) }
     val programs by flow.collectAsStateWithLifecycle(initialValue = emptyList())
     val fmt = remember { DateFormat.getTimeInstance(DateFormat.SHORT) }
-    Column(modifier.background(t.surface.copy(alpha = 0.8f), RoundedCornerShape(t.cardRadius)).padding(16.dp)) {
-        Text(ch.name, style = MaterialTheme.typography.titleMedium, color = t.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(stringResource(R.string.epg_title), style = MaterialTheme.typography.labelMedium, color = t.textSecondary)
-        Spacer(Modifier.height(10.dp))
-        if (programs.isEmpty()) Text(stringResource(R.string.epg_unavailable), style = MaterialTheme.typography.bodySmall, color = t.textSecondary)
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(programs, key = { it.start }) { p ->
-                Column {
-                    Text("${fmt.format(Date(p.start * 1000))} – ${fmt.format(Date(p.end * 1000))}", style = MaterialTheme.typography.labelMedium, color = t.accent)
+    val nowSec = System.currentTimeMillis() / 1000
+    val current = programs.firstOrNull { it.start <= nowSec && it.end > nowSec }
+    val later = programs.filter { it !== current }
+    LazyColumn(modifier.background(t.surface.copy(alpha = 0.85f), RoundedCornerShape(t.cardRadius)).testTag("channel_info"),
+        contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item(key = "head") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(width = 76.dp, height = 50.dp).background(t.surfaceVariant, RoundedCornerShape(8.dp)).padding(4.dp)) {
+                    MediaImage(ch.logoUrl, ContentKind.LIVE, Modifier.fillMaxSize(), androidx.compose.ui.layout.ContentScale.Fit)
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(ch.name, style = MaterialTheme.typography.titleMedium, color = t.onBackground, maxLines = 3, overflow = TextOverflow.Ellipsis,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    Text(listOfNotNull(ch.number?.let { "Canal $it" }, ch.category).joinToString("  ·  "),
+                        style = MaterialTheme.typography.labelMedium, color = t.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+        if (current != null) item(key = "now") {
+            Column(Modifier.fillMaxWidth().background(t.primary.copy(alpha = 0.12f), RoundedCornerShape(10.dp)).padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(stringResource(R.string.epg_now).uppercase(), style = MaterialTheme.typography.labelSmall, color = t.primary)
+                Text(current.title, style = MaterialTheme.typography.titleMedium, color = t.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text("${fmt.format(Date(current.start * 1000))} – ${fmt.format(Date(current.end * 1000))}", style = MaterialTheme.typography.labelMedium, color = t.textSecondary)
+                ProgramProgress(current.start, current.end, Modifier.fillMaxWidth().padding(vertical = 4.dp))
+                current.description?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = t.onSurface, maxLines = 4, overflow = TextOverflow.Ellipsis) }
+            }
+        } else item(key = "noepg") {
+            // Sin guía: los canales de eventos traen la información en el nombre (equipo, liga, fecha y hora).
+            val event = eventInfo(ch.name)
+            Column(Modifier.fillMaxWidth().background(t.surfaceVariant.copy(alpha = 0.6f), RoundedCornerShape(10.dp)).padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (event != null) {
+                    Text(stringResource(R.string.epg_event).uppercase(), style = MaterialTheme.typography.labelSmall, color = t.primary)
+                    Text(event, style = MaterialTheme.typography.titleMedium, color = t.onBackground, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                } else Text(stringResource(R.string.epg_unavailable), style = MaterialTheme.typography.bodySmall, color = t.textSecondary)
+            }
+        }
+        if (later.isNotEmpty()) item(key = "nextTitle") { Text(stringResource(R.string.epg_next).uppercase(), style = MaterialTheme.typography.labelSmall, color = t.textSecondary) }
+        items(later, key = { it.start }) { p ->
+            Row {
+                Text(fmt.format(Date(p.start * 1000)), style = MaterialTheme.typography.labelMedium, color = t.accent, modifier = Modifier.width(64.dp))
+                Column(Modifier.weight(1f)) {
                     Text(p.title, style = MaterialTheme.typography.bodyMedium, color = t.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    p.description?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = t.textSecondary, maxLines = 3, overflow = TextOverflow.Ellipsis) }
+                    p.description?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = t.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis) }
                 }
             }
         }
     }
+}
+
+/** Si el nombre del canal describe un evento (fecha u hora, "vs", liga…), devuelve ese texto limpio. */
+internal fun eventInfo(name: String): String? {
+    val clean = name.replace(Regex("^[A-Z]{2,3}\\s*[|:-]\\s*"), "").trim()
+    val hasTime = Regex("\\b\\d{1,2}[:.]\\d{2}\\s*(am|pm|hrs|h)?\\b", RegexOption.IGNORE_CASE).containsMatchIn(clean) ||
+        Regex("\\b\\d{1,2}/\\d{1,2}\\b").containsMatchIn(clean)
+    val hasVs = Regex("\\b(vs\\.?|v\\.?|x|contra)\\b", RegexOption.IGNORE_CASE).containsMatchIn(clean)
+    return if (hasTime || hasVs) clean else null
 }
 
 // ------------------------------------------------------------------ PELÍCULAS Y SERIES
@@ -378,21 +485,24 @@ private fun VodScreen(nav: Navigator, kind: ContentKind) {
     val title = stringResource(if (kind == ContentKind.MOVIE) R.string.nav_movies else R.string.nav_series)
     Column(Modifier.fillMaxSize()) {
         val allLabel = stringResource(R.string.category_all)
-        val folders = remember(s.categories, allLabel) { listOf(Folder(KEY_ALL, allLabel)) + s.categories.map { Folder(it, it) } }
+        val (lockFolder, onLockFolder) = rememberParentalFolder()
+        val folders = remember(s.categories, allLabel, lockFolder) { listOf(Folder(KEY_ALL, allLabel)) + s.categories.map { Folder(it, it) } + listOfNotNull(lockFolder) }
         val selectedFolder = s.category ?: KEY_ALL
-        val onFolder: (String) -> Unit = { k -> vm.setCategory(if (k == KEY_ALL) null else k) }
+        val onFolder: (String) -> Unit = { k -> if (k == KEY_LOCK) onLockFolder() else vm.setCategory(if (k == KEY_ALL) null else k) }
         if (t.device.isTv) {
-            Row(Modifier.statusBarsPadding().padding(end = t.screenPadding), verticalAlignment = Alignment.CenterVertically) {
-                ScreenTitle(title, Modifier.weight(1f))
-                SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_in, title), Modifier.width(360.dp))
+            val sp by vm.spotlight.collectAsStateWithLifecycle()
+            Box(Modifier.fillMaxWidth().height(210.dp)) {
+                SpotlightHeader(sp, title, kind, Modifier.fillMaxSize())
+                SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_in, title),
+                    Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 12.dp, end = t.screenPadding).width(320.dp))
             }
         } else {
             ScreenTitle(title)
             SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_in, title), Modifier.fillMaxWidth().padding(horizontal = t.screenPadding))
-            if (s.categories.isNotEmpty()) FolderRow(folders, selectedFolder, onFolder)
+            if (folders.size > 1) FolderRow(folders, selectedFolder, onFolder)
         }
         Row(Modifier.fillMaxSize()) {
-            if (t.device.isTv && s.categories.isNotEmpty()) FolderColumn(folders, selectedFolder, onFolder, Modifier.width(250.dp).fillMaxHeight())
+            if (t.device.isTv && folders.size > 1) FolderColumn(folders, selectedFolder, onFolder, Modifier.width(210.dp).fillMaxHeight())
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 when {
                     s.loading -> LoadingBox()
@@ -401,13 +511,50 @@ private fun VodScreen(nav: Navigator, kind: ContentKind) {
                     else -> {
                         val minW = cardWidth(CardAspect.POSTER, CardSize.M, t.device.isTv)
                         val gridState = androidx.compose.runtime.key("$selectedFolder|${s.query}") { androidx.compose.foundation.lazy.grid.rememberLazyGridState() }
-                        LazyVerticalGrid(GridCells.Adaptive(minW), Modifier.fillMaxSize().testTag("grid"), state = gridState,
-                            contentPadding = PaddingValues(t.screenPadding), horizontalArrangement = Arrangement.spacedBy(t.cardGap), verticalArrangement = Arrangement.spacedBy(t.cardGap + 6.dp)) {
-                            items(s.cards, key = { "${it.ref.sourceId}|${it.ref.id}" }, contentType = { 0 }) { c ->
-                                MediaCardView(c, CardAspect.POSTER, CardSize.M, { nav.openItem(c.ref) })
+                        val grid = @Composable {
+                            LazyVerticalGrid(GridCells.Adaptive(minW), Modifier.fillMaxSize().testTag("grid"), state = gridState,
+                                contentPadding = PaddingValues(t.screenPadding), horizontalArrangement = Arrangement.spacedBy(t.cardGap), verticalArrangement = Arrangement.spacedBy(t.cardGap + 6.dp)) {
+                                items(s.cards, key = { "${it.ref.sourceId}|${it.ref.id}" }, contentType = { 0 }) { c ->
+                                    MediaCardView(c, CardAspect.POSTER, CardSize.M, { nav.openItem(c.ref) },
+                                        modifier = Modifier.onFocusChanged { if (it.hasFocus) vm.focused.value = c.ref },
+                                        showText = !t.device.isTv) // en TV el título y la ficha se ven arriba, en grande
+                                }
                             }
                         }
+                        if (t.device.isTv) com.embyverse.app.ui.RowAlignedScrolling { grid() } else grid()
                     }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Cabecera de "plataforma" en TV: fondo panorámico del título enfocado, con su nombre, año,
+ * calificación, géneros y sinopsis. Cambia con un fundido al moverse por la cuadrícula.
+ */
+@Composable
+private fun SpotlightHeader(sp: Spotlight?, sectionTitle: String, kind: ContentKind, modifier: Modifier = Modifier) {
+    val t = LocalEmby.current
+    androidx.compose.animation.AnimatedContent(sp, modifier.testTag("spotlight"), label = "spotlight",
+        contentKey = { it?.ref?.id },
+        transitionSpec = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(260)) togetherWith androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(200)) }) { item ->
+        Box(Modifier.fillMaxSize()) {
+            val img = item?.backdrop ?: item?.poster
+            if (img != null) Box(Modifier.align(Alignment.CenterEnd).fillMaxHeight().fillMaxWidth(0.62f)) {
+                MediaImage(img, kind, Modifier.fillMaxSize(), fallbackText = null)
+                Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(t.background, t.background.copy(alpha = 0.55f), Color.Transparent))))
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to t.background)))
+            }
+            Column(Modifier.align(Alignment.CenterStart).fillMaxWidth(0.55f).padding(start = t.screenPadding, end = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(sectionTitle.uppercase(), style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 2.sp), color = t.primary)
+                if (item == null) Text(stringResource(R.string.spotlight_hint), style = MaterialTheme.typography.titleMedium, color = t.textSecondary)
+                else {
+                    Text(item.title, style = MaterialTheme.typography.headlineMedium, color = t.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    if (item.meta.isNotBlank()) Text(item.meta, style = MaterialTheme.typography.labelLarge, color = t.accent, maxLines = 1)
+                    item.plot?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = t.onSurface, maxLines = 3, overflow = TextOverflow.Ellipsis) }
                 }
             }
         }

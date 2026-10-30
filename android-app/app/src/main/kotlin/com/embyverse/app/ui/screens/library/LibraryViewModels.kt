@@ -78,6 +78,9 @@ class LiveViewModel(private val c: AppContainer, initialCategory: String?) : Vie
     fun toggleFavorite(ch: ChannelEntity) = viewModelScope.launch { c.library.toggleFavorite(ItemRef(ContentKind.LIVE, ch.sourceId, ch.providerId), ch.name, ch.logoUrl) }
 }
 
+/** Cabecera destacada (TV) con la información del título enfocado. */
+data class Spotlight(val ref: ItemRef, val title: String, val meta: String, val plot: String?, val backdrop: String?, val poster: String?)
+
 data class VodUiState(
     val categories: List<String> = emptyList(),
     val category: String? = null,
@@ -94,6 +97,7 @@ class VodViewModel(private val c: AppContainer, private val kind: ContentKind) :
 
     private val items = category.flatMapLatest { cat ->
         (if (kind == ContentKind.MOVIE) c.database.movies().observeCards(cat, 5000) else c.database.series().observeCards(cat, 5000))
+            .let { f -> kotlinx.coroutines.flow.combine(f, c.parental.hidden) { l, h -> if (h.isEmpty()) l else l.filter { it.category !in h } } }
             .map { l -> l.map { it.searchKey to it.toCard(kind) } }
     }
 
@@ -104,6 +108,33 @@ class VodViewModel(private val c: AppContainer, private val kind: ContentKind) :
 
     fun setCategory(cat: String?) { category.value = cat }
     fun setQuery(q: String) { query.value = q }
+
+    /** Título enfocado con el control: su ficha se muestra arriba (se espera a que el foco se detenga). */
+    val focused = MutableStateFlow<ItemRef?>(null)
+    val spotlight: StateFlow<Spotlight?> = focused.debounce(140).flatMapLatest { r ->
+        kotlinx.coroutines.flow.flow {
+            if (r == null) { emit(null); return@flow }
+            emit(load(r))
+            // Las películas de Xtream no traen sinopsis ni fondo hasta pedir su ficha: se pide si el foco sigue ahí.
+            if (r.kind == ContentKind.MOVIE && c.database.movies().get(r.sourceId, r.id)?.detailsLoaded == false) {
+                kotlinx.coroutines.delay(600)
+                c.sources.loadMovieDetails(r.sourceId, r.id)
+                emit(load(r))
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    private suspend fun load(r: ItemRef): Spotlight? {
+        fun meta(year: Int?, rating: Double?, genres: String, extra: String?) = listOfNotNull(
+            year?.toString(), rating?.takeIf { it > 0 }?.let { "★ " + String.format(java.util.Locale.US, "%.1f", if (it > 10) it / 10 else it) },
+            genres.split(',', '/').map { it.trim() }.filter { it.isNotEmpty() }.take(2).joinToString(" · ").ifEmpty { null }, extra,
+        ).joinToString("   ")
+        return if (r.kind == ContentKind.MOVIE) c.database.movies().get(r.sourceId, r.id)?.let { m ->
+            Spotlight(r, m.title, meta(m.year, m.rating, m.genres, m.durationSeconds?.takeIf { it > 0 }?.let { "${it / 3600}h ${(it % 3600) / 60}min" }), m.plot, m.backdropUrl, m.posterUrl)
+        } else c.database.series().get(r.sourceId, r.id)?.let { m ->
+            Spotlight(r, m.title, meta(m.year, m.rating, m.genres, null), m.plot, m.backdropUrl, m.posterUrl)
+        }
+    }
 }
 
 class FavoritesViewModel(c: AppContainer) : ViewModel() {

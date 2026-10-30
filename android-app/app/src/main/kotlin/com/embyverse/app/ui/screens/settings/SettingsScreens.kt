@@ -56,7 +56,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -88,7 +91,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 @Composable
-private fun SettingsItem(icon: ImageVector, title: String, subtitle: String? = null, onClick: () -> Unit) {
+internal fun SettingsItem(icon: ImageVector, title: String, subtitle: String? = null, onClick: () -> Unit) {
     val t = LocalEmby.current
     FocusableSurface(onClick = onClick, modifier = Modifier.fillMaxWidth(), focusScale = 1.02f) { focused ->
         Row(Modifier.fillMaxWidth().background(if (focused) t.surfaceVariant else t.surface).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -104,7 +107,7 @@ private fun SettingsItem(icon: ImageVector, title: String, subtitle: String? = n
 }
 
 @Composable
-private fun SwitchRow(title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun SwitchRow(title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
     val t = LocalEmby.current
     FocusableSurface(onClick = { onChange(!checked) }, modifier = Modifier.fillMaxWidth(), focusScale = 1.02f) { focused ->
         Row(Modifier.fillMaxWidth().background(if (focused) t.surfaceVariant else t.surface).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -118,7 +121,7 @@ private fun SwitchRow(title: String, subtitle: String?, checked: Boolean, onChan
 }
 
 @Composable
-private fun SettingsList(content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+internal fun SettingsList(content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     val t = LocalEmby.current
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         LazyColumn(Modifier.widthIn(max = 760.dp).fillMaxSize(), contentPadding = PaddingValues(t.screenPadding), verticalArrangement = Arrangement.spacedBy(10.dp), content = content)
@@ -135,6 +138,7 @@ fun SettingsScreen(nav: Navigator) {
         SettingsList {
             item { SettingsItem(Icons.Rounded.Dns, stringResource(R.string.nav_sources), stringResource(R.string.settings_sources_sub)) { nav.go(Routes.SOURCES) } }
             item { SettingsItem(Icons.Rounded.Person, stringResource(R.string.profiles_title), stringResource(R.string.settings_profiles_sub)) { nav.go(Routes.PROFILES) } }
+            item { SettingsItem(Icons.Rounded.Lock, stringResource(R.string.parental_title), stringResource(R.string.parental_sub)) { nav.go(Routes.PARENTAL) } }
             item { SettingsItem(Icons.Rounded.Palette, stringResource(R.string.appearance_title), stringResource(R.string.settings_appearance_sub)) { nav.go(Routes.APPEARANCE) } }
             item { SettingsItem(Icons.Rounded.PlayCircle, stringResource(R.string.playback_title), stringResource(R.string.settings_playback_sub)) { nav.go(Routes.PLAYBACK) } }
             item { SettingsItem(Icons.Rounded.Favorite, stringResource(R.string.favorites_title), stringResource(R.string.settings_favorites_sub)) { nav.go(Routes.FAVORITES) } }
@@ -188,6 +192,39 @@ fun AppearanceScreen(nav: Navigator) {
         SubScreenTop(stringResource(R.string.appearance_title), nav::back)
         SettingsList {
             item { Text(stringResource(R.string.appearance_intro), style = MaterialTheme.typography.bodyMedium, color = t.textSecondary) }
+            if (uc.allowThemeSelection) {
+                item { Text(stringResource(R.string.appearance_styles), style = MaterialTheme.typography.titleMedium, color = t.onBackground) }
+                item { Text(stringResource(R.string.appearance_styles_sub), style = MaterialTheme.typography.bodySmall, color = t.textSecondary) }
+                item {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.testTag("style_themes")) {
+                        items(com.embyverse.core.config.STYLE_THEMES, key = { it.id }) { st ->
+                            val spec = remember(st.id, cfg.theme) { st.transform(cfg.theme) }
+                            val pal = spec.palette
+                            val selected = a.themeId == st.id
+                            FocusableSurface(onClick = { vm.update { it.copy(themeId = st.id, accentColor = null) } }, modifier = Modifier.width(176.dp)) { _ ->
+                                Column(Modifier.background(Brush.verticalGradient(if (spec.backgroundStyle == com.embyverse.core.config.BackgroundStyle.SOLID) listOf(pal.background.toColor(), pal.surface.toColor()) else listOf(spec.gradientStart.toColor(), spec.gradientEnd.toColor())))
+                                    .then(if (selected) Modifier.border(3.dp, t.focusRing, RoundedCornerShape(t.cardRadius)) else Modifier).padding(12.dp)) {
+                                    // Mini vista previa: tarjetas y botón con las formas del tema.
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        repeat(3) { i -> Box(Modifier.size(width = 40.dp, height = 56.dp)
+                                            .background(if (i == 0) pal.primary.toColor().copy(alpha = 0.85f) else pal.surfaceVariant.toColor(), RoundedCornerShape(spec.cardRadius.dp / 2))) }
+                                    }
+                                    Spacer(Modifier.size(8.dp))
+                                    Box(Modifier.background(pal.buttonBackground.toColor(), RoundedCornerShape(spec.buttonRadius.dp / 2)).padding(horizontal = 10.dp, vertical = 4.dp)) {
+                                        Text("▶", color = pal.buttonText.toColor(), style = MaterialTheme.typography.labelSmall)
+                                    }
+                                    Spacer(Modifier.size(8.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(st.name, style = MaterialTheme.typography.labelLarge, color = pal.onBackground.toColor(), maxLines = 1, modifier = Modifier.weight(1f))
+                                        if (selected) Icon(Icons.Rounded.Check, null, tint = pal.primary.toColor(), modifier = Modifier.size(18.dp))
+                                    }
+                                    Text(st.mood, style = MaterialTheme.typography.bodySmall, color = pal.textSecondary.toColor(), maxLines = 2)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             if (uc.allowThemeSelection && cfg.themes.size > 1) {
                 item { Text(stringResource(R.string.appearance_theme), style = MaterialTheme.typography.titleMedium, color = t.onBackground) }
                 item {
@@ -310,6 +347,17 @@ fun PlaybackSettingsScreen(nav: Navigator) {
             item { SwitchRow(stringResource(R.string.playback_autoplay_next), null, p.autoplayNextEpisode) { v -> vm.update { it.copy(autoplayNextEpisode = v) } } }
             item { SwitchRow(stringResource(R.string.playback_reconnect), stringResource(R.string.playback_reconnect_sub), p.autoReconnect) { v -> vm.update { it.copy(autoReconnect = v) } } }
             item { SwitchRow(stringResource(R.string.playback_subtitles), null, p.subtitlesEnabled) { v -> vm.update { it.copy(subtitlesEnabled = v) } } }
+            item { SwitchRow(stringResource(R.string.intro_sound), stringResource(R.string.intro_sound_sub), p.introSound) { v -> vm.update { it.copy(introSound = v) } } }
+            item { Text(stringResource(R.string.menu_awake), style = MaterialTheme.typography.titleMedium, color = t.onBackground) }
+            item { Text(stringResource(R.string.menu_awake_sub), style = MaterialTheme.typography.bodySmall, color = t.textSecondary) }
+            item {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(listOf(30, 60, 120, 240, -1)) { m ->
+                        com.embyverse.app.ui.components.CategoryChip(if (m < 0) stringResource(R.string.menu_awake_always) else if (m < 60) "$m min" else "${m / 60} h",
+                            p.menuAwakeMinutes == m) { vm.update { it.copy(menuAwakeMinutes = m) } }
+                    }
+                }
+            }
             item { Text(stringResource(R.string.playback_audio_lang), style = MaterialTheme.typography.titleMedium, color = t.onBackground) }
             item { LangChips(p.preferredAudioLanguage) { l -> vm.update { it.copy(preferredAudioLanguage = l) } } }
             item { Text(stringResource(R.string.playback_sub_lang), style = MaterialTheme.typography.titleMedium, color = t.onBackground) }
@@ -351,16 +399,20 @@ fun ProfilesScreen(nav: Navigator) {
     val t = LocalEmby.current
     var editing by remember { mutableStateOf<ProfileEntity?>(null) }
     var creating by remember { mutableStateOf(false) }
+    var askPin by remember { mutableStateOf<ProfileEntity?>(null) }
+    val c = com.embyverse.app.ui.LocalAppContainer.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     Column(Modifier.fillMaxSize()) {
         SubScreenTop(stringResource(R.string.profiles_title), nav::back)
         SettingsList {
             item { Text(stringResource(R.string.profiles_intro), style = MaterialTheme.typography.bodyMedium, color = t.textSecondary) }
             items(profiles, key = { it.id }) { p ->
-                FocusableSurface(onClick = { vm.select(p.id) }, modifier = Modifier.fillMaxWidth(), focusScale = 1.02f) { focused ->
+                val lockFlow = remember(p.id) { c.prefs.lock(p.id) }
+                val lock by lockFlow.collectAsStateWithLifecycle(initialValue = com.embyverse.app.data.prefs.ProfileLock())
+                FocusableSurface(onClick = { if (p.id != active && lock.pin != null && lock.pinOnEnter) askPin = p else vm.select(p.id) },
+                    modifier = Modifier.fillMaxWidth(), focusScale = 1.02f) { focused ->
                     Row(Modifier.fillMaxWidth().background(if (focused) t.surfaceVariant else t.surface).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(40.dp).background(p.colorArgb.toColor(), CircleShape), contentAlignment = Alignment.Center) {
-                            Text(p.name.take(1).uppercase(), color = Color(ConfigResolver.readableOn(p.colorArgb)), style = MaterialTheme.typography.titleMedium)
-                        }
+                        com.embyverse.app.ui.components.ProfileAvatar(p.name, p.colorArgb, lock.avatar, 40.dp)
                         Spacer(Modifier.width(14.dp))
                         Text(p.name, style = MaterialTheme.typography.titleMedium, color = t.onBackground, modifier = Modifier.weight(1f))
                         if (p.id == active) Icon(Icons.Rounded.Check, stringResource(R.string.profile_active), tint = t.primary)
@@ -374,19 +426,46 @@ fun ProfilesScreen(nav: Navigator) {
     }
     if (creating) NameDialog(stringResource(R.string.profile_create), "", onDismiss = { creating = false }) { vm.create(it); creating = false }
     editing?.let { p ->
+        val lockFlow = remember(p.id) { c.prefs.lock(p.id) }
+        val lock by lockFlow.collectAsStateWithLifecycle(initialValue = com.embyverse.app.data.prefs.ProfileLock())
         NameDialog(stringResource(R.string.profile_edit), p.name, onDismiss = { editing = null },
-            onDelete = if (profiles.size > 1) ({ vm.delete(p.id); editing = null }) else null) { vm.rename(p, it); editing = null }
+            onDelete = if (profiles.size > 1) ({ vm.delete(p.id); editing = null }) else null,
+            avatar = lock.avatar, onAvatar = { a -> scope.launch { c.prefs.updateLock(p.id) { it.copy(avatar = a) } } }) { vm.rename(p, it); editing = null }
+    }
+    askPin?.let { p ->
+        com.embyverse.app.ui.components.PinDialog(p.name, stringResource(R.string.profile_pin_enter), onDismiss = { askPin = null }) { pin ->
+            c.parental.checkPin(p.id, pin).also { ok -> if (ok) { vm.select(p.id); askPin = null } }
+        }
     }
 }
 
 @Composable
-private fun NameDialog(title: String, initial: String, onDismiss: () -> Unit, onDelete: (() -> Unit)? = null, onConfirm: (String) -> Unit) {
+private fun NameDialog(title: String, initial: String, onDismiss: () -> Unit, onDelete: (() -> Unit)? = null,
+                       avatar: String? = null, onAvatar: ((String?) -> Unit)? = null, onConfirm: (String) -> Unit) {
     var name by remember { mutableStateOf(initial) }
     val t = LocalEmby.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
-        text = { OutlinedTextField(name, { name = it.take(30) }, singleLine = true, label = { Text(stringResource(R.string.profile_name)) }) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(name, { name = it.take(30) }, singleLine = true, label = { Text(stringResource(R.string.profile_name)) })
+                if (onAvatar != null) {
+                    Text(stringResource(R.string.profile_avatar), style = MaterialTheme.typography.labelLarge, color = t.textSecondary)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item { FocusableSurface(onClick = { onAvatar(null) }, shape = CircleShape) { _ ->
+                            Box(Modifier.size(44.dp).background(if (avatar == null) t.primary else t.surfaceVariant), contentAlignment = Alignment.Center) { Text("A", color = t.onSurface) } } }
+                        items(com.embyverse.app.ui.components.PROFILE_AVATARS) { a ->
+                            FocusableSurface(onClick = { onAvatar(a) }, shape = CircleShape) { _ ->
+                                Box(Modifier.size(44.dp).background(if (avatar == a) t.primary else t.surfaceVariant), contentAlignment = Alignment.Center) {
+                                    Text(a, fontSize = 22.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onConfirm(name) }) { Text(stringResource(R.string.action_save)) } },
         dismissButton = {
             Row {

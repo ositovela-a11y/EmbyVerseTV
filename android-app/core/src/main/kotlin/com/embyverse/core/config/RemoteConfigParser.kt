@@ -310,6 +310,19 @@ object RemoteConfigParser {
                 }
             } ?: base.banners
 
+            // --- messages (opcional) ---
+            val messages = arr(r, "messages", "$")?.let { a ->
+                if (a.size > 10) err("$.messages", "máximo 10 mensajes")
+                a.mapIndexedNotNull { i, el ->
+                    val p = "$.messages[$i]"
+                    val o = el as? JsonObject ?: run { err(p, "debe ser un objeto"); return@mapIndexedNotNull null }
+                    val id = str(o, "id", p, 1, 32) ?: run { err("$p.id", "es obligatorio"); return@mapIndexedNotNull null }
+                    val title = str(o, "title", p, 1, 80) ?: run { err("$p.title", "es obligatorio"); return@mapIndexedNotNull null }
+                    val body = str(o, "body", p, 1, 400) ?: run { err("$p.body", "es obligatorio"); return@mapIndexedNotNull null }
+                    Notice(id, title, body, iso(o, "startsAt", p), iso(o, "endsAt", p))
+                }
+            } ?: base.messages
+
             // --- texts ---
             val texts = obj(r, "texts", "$")?.let { t ->
                 if (t.size > 100) err("$.texts", "máximo 100 textos")
@@ -321,7 +334,7 @@ object RemoteConfigParser {
             } ?: base.texts
 
             if (errors.isNotEmpty()) return null
-            return RemoteConfig(schema ?: 1, version, publishedAt, minApp, brand, theme, themes, uc, sections, banners, texts)
+            return RemoteConfig(schema ?: 1, version, publishedAt, minApp, brand, theme, themes, uc, sections, banners, texts, messages)
         }
     }
 }

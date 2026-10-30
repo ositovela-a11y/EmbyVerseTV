@@ -28,6 +28,22 @@ data class PlaybackPrefs(
     val preferredSubtitleLanguage: String? = null,
     val subtitlesEnabled: Boolean = false,
     val autoReconnect: Boolean = true,
+    /** Sonido corto al abrir la app. */
+    val introSound: Boolean = true,
+    /** Minutos que la pantalla sigue encendida en los menús sin tocar el control (-1 = siempre). */
+    val menuAwakeMinutes: Int = 120,
+)
+
+/**
+ * Seguridad de UN perfil: PIN, carpetas bloqueadas, bloqueo automático de adultos y avatar.
+ * Cada perfil tiene la suya: lo que bloquea un perfil (p. ej. «Niños») no afecta a los demás.
+ */
+data class ProfileLock(
+    val pin: String? = null,
+    val pinOnEnter: Boolean = false,
+    val blocked: Set<String> = emptySet(),
+    val blockAdult: Boolean = false,
+    val avatar: String? = null,
 )
 
 /** Preferencias locales del dispositivo. Nada de esto se envía a ningún servidor. */
@@ -73,6 +89,8 @@ class PreferencesRepository(private val context: Context) {
     private val SUB_LANG = stringPreferencesKey("play.subLang")
     private val SUBS_ON = booleanPreferencesKey("play.subsOn")
     private val RECONNECT = booleanPreferencesKey("play.reconnect")
+    private val INTRO_SOUND = booleanPreferencesKey("app.introSound")
+    private val MENU_AWAKE = intPreferencesKey("app.menuAwake")
 
     val playback: Flow<PlaybackPrefs> = ds.data.map { p ->
         PlaybackPrefs(
@@ -83,6 +101,8 @@ class PreferencesRepository(private val context: Context) {
             preferredSubtitleLanguage = p[SUB_LANG],
             subtitlesEnabled = p[SUBS_ON] ?: false,
             autoReconnect = p[RECONNECT] ?: true,
+            introSound = p[INTRO_SOUND] ?: true,
+            menuAwakeMinutes = p[MENU_AWAKE] ?: 120,
         )
     }.distinctUntilChanged()
 
@@ -96,7 +116,45 @@ class PreferencesRepository(private val context: Context) {
             if (n.preferredSubtitleLanguage == null) p.remove(SUB_LANG) else p[SUB_LANG] = n.preferredSubtitleLanguage
             p[SUBS_ON] = n.subtitlesEnabled
             p[RECONNECT] = n.autoReconnect
+            p[INTRO_SOUND] = n.introSound
+            p[MENU_AWAKE] = n.menuAwakeMinutes
         }
+    }
+
+    fun lock(profile: Long): Flow<ProfileLock> = ds.data.map { p ->
+        ProfileLock(
+            pin = p[stringPreferencesKey(k(profile, "pin"))],
+            pinOnEnter = p[booleanPreferencesKey(k(profile, "pinOnEnter"))] ?: false,
+            blocked = p[stringSetPreferencesKey(k(profile, "blocked"))].orEmpty(),
+            blockAdult = p[booleanPreferencesKey(k(profile, "blockAdult"))] ?: false,
+            avatar = p[stringPreferencesKey(k(profile, "avatar"))],
+        )
+    }.distinctUntilChanged()
+
+    suspend fun updateLock(profile: Long, transform: (ProfileLock) -> ProfileLock) {
+        val n = transform(lock(profile).first())
+        ds.edit { p ->
+            fun <T> set(key: Preferences.Key<T>, v: T?) { if (v == null) p.remove(key) else p[key] = v }
+            set(stringPreferencesKey(k(profile, "pin")), n.pin)
+            set(booleanPreferencesKey(k(profile, "pinOnEnter")), n.pinOnEnter.takeIf { it })
+            set(stringSetPreferencesKey(k(profile, "blocked")), n.blocked.ifEmpty { null })
+            set(booleanPreferencesKey(k(profile, "blockAdult")), n.blockAdult.takeIf { it })
+            set(stringPreferencesKey(k(profile, "avatar")), n.avatar)
+        }
+    }
+
+    private val SEEN_NOTICES = stringSetPreferencesKey("app.seenNotices")
+    val seenNotices: Flow<Set<String>> = ds.data.map { it[SEEN_NOTICES].orEmpty() }.distinctUntilChanged()
+    suspend fun markNoticeSeen(id: String) { ds.edit { it[SEEN_NOTICES] = it[SEEN_NOTICES].orEmpty() + id } }
+
+    /** Vencimiento de cada cuenta (segundos), guardado en cada actualización de la lista. */
+    val sourceExpiries: Flow<Map<String, Long>> = ds.data.map { p ->
+        p.asMap().entries.filter { it.key.name.startsWith("src.exp.") }.associate { it.key.name.removePrefix("src.exp.") to (it.value as Long) }
+    }.distinctUntilChanged()
+
+    suspend fun setSourceExpiry(sourceId: String, epochSeconds: Long?) {
+        val key = longPreferencesKey("src.exp.$sourceId")
+        ds.edit { if (epochSeconds == null || epochSeconds <= 0) it.remove(key) else it[key] = epochSeconds }
     }
 
     /** Borra las preferencias de un perfil eliminado. */

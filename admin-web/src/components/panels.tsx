@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Banner, PaletteKey, RemoteConfig, SectionSpec } from '../../../backend/src/config/schema';
+import type { Banner, PaletteKey, RemoteConfig, SectionSpec, Notice as ClientMessage } from '../../../backend/src/config/schema';
 import { ROUTES, SECTION_TYPES } from '../../../backend/src/config/schema';
 import type { Asset } from '../api';
 import { assetPreviewUrl } from '../preview/AppPreview';
@@ -329,6 +329,52 @@ export function BannersPanel({ ed, canEdit, assets, publicBase, onUpload }: Pane
                     <div className="row-actions">
                       <button className="btn-ghost" disabled={i === 0} onClick={() => { ed.update((d) => { const [x] = d.banners.splice(i, 1); d.banners.splice(i - 1, 0, x!); }); setOpen(i - 1); }}>Mover antes</button>
                       <button className="btn-danger" onClick={() => { ed.update((d) => { d.banners.splice(i, 1); }); setOpen(null); }}>Eliminar banner</button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </Group>
+  );
+}
+
+// ---------------------------------------------------------------- MENSAJES A CLIENTES
+export function MessagesPanel({ ed, canEdit }: PanelProps) {
+  const msgs = ed.config.messages ?? [];
+  const [open, setOpen] = useState<number | null>(msgs.length ? 0 : null);
+  const set = (i: number, f: (m: ClientMessage) => void, key?: string) => ed.update((d) => { d.messages ??= []; f(d.messages[i]!); }, key);
+  const now = Date.now() / 1000;
+  return (
+    <Group title="Mensajes a clientes" hint="Aparecen una sola vez en la app de cada cliente (mantenimiento, promociones, avisos). Si editas la app de un vendedor, solo la verán sus clientes."
+      actions={canEdit && msgs.length < 10 ? <button className="btn-ghost" onClick={() => { ed.update((d) => { (d.messages ??= []).push({ id: `msg-${Date.now().toString(36).slice(-6)}`, title: 'Aviso', body: 'Escribe aquí tu mensaje.', startsAt: null, endsAt: null }); }); setOpen(msgs.length); }}>Añadir mensaje</button> : undefined}>
+      {msgs.length === 0 && <p className="hint">No hay mensajes. Añade uno para avisar algo a tus clientes al abrir la app.</p>}
+      <ul className="list">
+        {msgs.map((m, i) => {
+          const s = m.startsAt ? Date.parse(m.startsAt) / 1000 : null, e = m.endsAt ? Date.parse(m.endsAt) / 1000 : null;
+          const state = e !== null && now >= e ? 'Finalizado' : s !== null && now < s ? 'Programado' : 'Activo';
+          return (
+            <li key={m.id} className={open === i ? 'open' : ''}>
+              <button className="list-row" onClick={() => setOpen(open === i ? null : i)}>
+                <span className="grow"><b>{m.title || 'Sin título'}</b><span className="hint">{m.body.slice(0, 60)}</span></span>
+                <span className={`pill pill-${state === 'Activo' ? 'ok' : state === 'Programado' ? 'info' : 'muted'}`}>{state}</span>
+              </button>
+              {open === i && (
+                <div className="list-detail">
+                  <TextField label="Título" value={m.title} max={80} disabled={!canEdit} onChange={(v) => set(i, (x) => { x.title = v; }, `mt-${i}`)} />
+                  <TextField label="Mensaje" value={m.body} max={400} multiline disabled={!canEdit} onChange={(v) => set(i, (x) => { x.body = v; }, `mb-${i}`)} />
+                  <div className="two">
+                    <div className="field"><label>Mostrar desde</label><input type="datetime-local" value={toLocalInput(m.startsAt)} disabled={!canEdit}
+                      onChange={(ev) => set(i, (x) => { x.startsAt = ev.target.value ? new Date(ev.target.value).toISOString() : null; })} /></div>
+                    <div className="field"><label>Dejar de mostrar el</label><input type="datetime-local" value={toLocalInput(m.endsAt)} disabled={!canEdit}
+                      onChange={(ev) => set(i, (x) => { x.endsAt = ev.target.value ? new Date(ev.target.value).toISOString() : null; })} /></div>
+                  </div>
+                  <p className="hint">Cada cliente lo ve una vez. Para volver a mostrarlo, crea un mensaje nuevo.</p>
+                  {canEdit && (
+                    <div className="row-actions">
+                      <button className="btn-danger" onClick={() => { ed.update((d) => { d.messages?.splice(i, 1); }); setOpen(null); }}>Eliminar mensaje</button>
                     </div>
                   )}
                 </div>

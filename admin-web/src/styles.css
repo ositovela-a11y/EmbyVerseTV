@@ -319,3 +319,14 @@ input[type=datetime-local] { min-width: 0; }
 .vendor-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
 .vendor-links { display: grid; gap: 4px; font-size: .86rem; word-break: break-all; }
 .vendor-links code { background: #f2f5fa; padding: 1px 6px; border-radius: 6px; }
+
+/* Separación App de clientes / Apps de vendedores */
+.target-switch { display: inline-flex; border: 1px solid #cfd7e6; border-radius: 10px; overflow: hidden; background: #fff; }
+.target-switch > button, .target-switch > label { white-space: nowrap; padding: 6px 12px; font: inherit; font-weight: 600; border: 0; background: transparent; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; color: #44516b; }
+.target-switch > label { border-left: 1px solid #cfd7e6; }
+.target-switch > .on { background: #0f1b33; color: #fff; }
+.target-switch select { padding: 4px 6px; border-radius: 6px; border: 1px solid #cfd7e6; font: inherit; }
+.editing-banner { grid-column: 1 / -1; padding: 8px 16px; font-size: 14px; }
+.editing-banner.clients { background: #e8f7df; color: #24510f; }
+.editing-banner.vendor { background: #fff1dc; color: #6b3d00; }
+.studio:has(> .editing-banner) { grid-template-rows: auto auto 1fr; }

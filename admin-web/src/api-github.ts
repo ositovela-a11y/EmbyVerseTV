@@ -30,9 +30,11 @@ const draftKey = () => `ev.studio.draft:${currentTarget() || 'principal'}`;
 const DRAFT_KEY_LEGACY = 'ev.studio.draft';
 /** Enlaces públicos de una app (principal si slug = ''). */
 export function linksFor(slug: string) {
-  const site = 'https://ositovela-a11y.github.io/EmbyVerseTV';
+  // Sitio actual (con dominio propio, los enlaces usan ese dominio; sin él, github.io).
+  const here = typeof location !== 'undefined' && /^https?:/.test(location.href) ? location.href.split('/studio')[0].replace(/\/$/, '') : '';
+  const site = here || 'https://ositovela-a11y.github.io/EmbyVerseTV';
   return {
-    apk: `https://github.com/${GH.owner}/${GH.repo}/releases/download/apk-latest/${slug ? `EmbyVerse-${slug}.apk` : 'EmbyVerse.apk'}`,
+    apk: `${site}/apk/${slug ? `EmbyVerse-${slug}.apk` : 'EmbyVerse.apk'}`,
     short: `${site.replace('https://', '')}/a/${slug ? `?v=${slug}` : ''}`,
     web: `${site}/${slug ? `?v=${slug}` : ''}`,
   };

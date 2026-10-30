@@ -81,6 +81,9 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     private var zapList: List<ChannelEntity> = emptyList()
     val currentProgram = MutableStateFlow<EpgEntity?>(null)
     val nextEpisode = MutableStateFlow<ItemRef?>(null)
+    /** Siguiente episodio (para la cuenta regresiva al final del actual). Declarado antes de init: load() lo usa. */
+    val upNext = MutableStateFlow<Pair<ItemRef, String>?>(null)
+    val upNextCancelled = MutableStateFlow(false)
     /** Banner breve con el nombre del canal al cambiar de canal. */
     val zapBanner = MutableStateFlow(false)
 
@@ -104,7 +107,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
             if (isLive) {
                 val cat = context?.takeIf { it != "restart" }
                 listCategory.value = cat
-                channels.value = c.database.channels().listForZapping(cat)
+                channels.value = visible(c.database.channels().listForZapping(cat))
                 zapList = channels.value
                 launch { categories.value = c.catalog.categories(ContentKind.LIVE).first() }
             }
@@ -153,13 +156,14 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         error.value = null; buffering.value = true; nextEpisode.value = null
         val np = resolve(target)
         if (np == null) { error.value = PlayerUiError.Message(R.string.player_error_not_found); buffering.value = false; return }
-        ref = target
+        ref = np.ref
         nowPlaying.value = np
+        computeUpNext(np)
         retries = 0; altIndex = -1; forcedMime = null; originalUrl = null
         resumeFrom = when {
-            target.kind == ContentKind.LIVE -> null
+            np.ref.kind == ContentKind.LIVE -> null
             firstLoad && context == "restart" -> 0L
-            else -> c.library.progress(target)?.takeIf { !it.completed && it.positionMs > 15_000 }?.positionMs
+            else -> c.library.progress(np.ref)?.takeIf { !it.completed && it.positionMs > 15_000 }?.positionMs
         }
         if (target.kind == ContentKind.LIVE) {
             c.library.saveProgress(target, np.title, np.imageUrl, 0, 0)
@@ -182,7 +186,21 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
                 NowPlaying(r, series?.title ?: e.title, "T${e.season} · E${e.episode} — ${e.title}", e.thumbnailUrl ?: series?.posterUrl,
                     c.sources.resolveStreamUrl(r.sourceId, e.streamUrl), e.userAgent, e.referrer, e.seriesProviderId, e.season, e.episode)
             }
-            ContentKind.SERIES -> null
+            // Serie (p. ej. «Ver ahora» en las novedades): se sigue donde se quedó o se empieza por el primer episodio.
+            ContentKind.SERIES -> {
+                val series = db.series().get(r.sourceId, r.id) ?: return null
+                var eps = db.episodes().forSeries(r.sourceId, r.id)
+                if (eps.isEmpty()) { c.sources.loadEpisodes(r.sourceId, r.id); eps = db.episodes().forSeries(r.sourceId, r.id) }
+                if (eps.isEmpty()) return null
+                val progress = c.library.episodeProgress(r.sourceId, r.id).first().sortedByDescending { it.updatedAt }
+                val last = progress.firstOrNull()
+                val target = when {
+                    last == null -> eps.first()
+                    !last.completed -> eps.firstOrNull { it.providerId == last.itemId } ?: eps.first()
+                    else -> eps.getOrNull(eps.indexOfFirst { it.providerId == last.itemId } + 1) ?: eps.first()
+                }
+                resolve(ItemRef(ContentKind.EPISODE, target.sourceId, target.providerId))
+            }
         }
     }
 
@@ -222,6 +240,12 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
 
     private var categoryJob: Job? = null
 
+    /** El control parental del perfil también aplica a la lista de canales del reproductor. */
+    private suspend fun visible(list: List<ChannelEntity>): List<ChannelEntity> {
+        val h = c.parental.hidden.first()
+        return if (h.isEmpty()) list else list.filter { it.category !in h }
+    }
+
     /** ◀ ▶ dentro de la lista de canales: carpeta anterior / siguiente (Todos, Entretenimiento, Premium…). */
     fun shiftListCategory(delta: Int) {
         val options = listOf<String?>(null) + categories.value
@@ -232,7 +256,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         categoryJob?.cancel()
         categoryJob = viewModelScope.launch {
             delay(120) // si se pulsa varias veces seguidas solo se consulta la última carpeta
-            channels.value = c.database.channels().listForZapping(target)
+            channels.value = visible(c.database.channels().listForZapping(target))
         }
     }
 
@@ -319,17 +343,30 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         viewModelScope.launch { c.library.saveProgress(np.ref, np.title, np.imageUrl, pos, dur, np.seriesId, np.season, np.episode) }
     }
 
+    val autoplayNext get() = prefs.autoplayNextEpisode
+
+    private suspend fun computeUpNext(np: NowPlaying) {
+        upNextCancelled.value = false
+        if (np.ref.kind != ContentKind.EPISODE || np.seriesId == null) { upNext.value = null; return }
+        val eps = c.database.episodes().forSeries(np.ref.sourceId, np.seriesId)
+        val next = eps.getOrNull(eps.indexOfFirst { it.providerId == np.ref.id } + 1)
+        upNext.value = next?.let { ItemRef(ContentKind.EPISODE, it.sourceId, it.providerId) to "T${it.season} · E${it.episode} — ${it.title}" }
+    }
+
+    fun cancelUpNext() { upNextCancelled.value = true }
+    fun playUpNext() { val n = upNext.value?.first ?: return; upNext.value = null; viewModelScope.launch { load(n) } }
+
     private fun onEnded() {
         val np = nowPlaying.value ?: return
         saveProgress()
+        // Terminó la cuenta regresiva: sigue el próximo episodio sin esperar más.
+        if (upNext.value != null && prefs.autoplayNextEpisode && !upNextCancelled.value) { playUpNext(); return }
         if (np.ref.kind != ContentKind.EPISODE || np.seriesId == null) return
         viewModelScope.launch {
             val eps = c.database.episodes().forSeries(np.ref.sourceId, np.seriesId)
             val idx = eps.indexOfFirst { it.providerId == np.ref.id }
             val next = eps.getOrNull(idx + 1) ?: return@launch
-            val nextRef = ItemRef(ContentKind.EPISODE, next.sourceId, next.providerId)
-            nextEpisode.value = nextRef
-            if (prefs.autoplayNextEpisode) { delay(5_000); if (nextEpisode.value == nextRef) playNext() }
+            nextEpisode.value = ItemRef(ContentKind.EPISODE, next.sourceId, next.providerId)
         }
     }
 

@@ -27,6 +27,9 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+/** Novedades que se muestran en el banner principal. */
+const val HERO_NEWS = 10
+
 /** Elemento del banner principal: un banner publicado por el administrador o contenido destacado. */
 data class HeroItem(
     val id: String,
@@ -47,6 +50,10 @@ data class HomeUiState(
     val content: Map<SectionType, List<MediaCard>> = emptyMap(),
     val hero: List<HeroItem> = emptyList(),
     val promos: List<Banner> = emptyList(),
+    /** Partidos y eventos de hoy detectados en los nombres de los canales. */
+    val events: List<com.embyverse.app.data.repo.LiveEvent> = emptyList(),
+    /** Vencimiento más próximo de las cuentas del proveedor (segundos), para avisar a tiempo. */
+    val expiresAt: Long? = null,
     val profileName: String? = null,
     val hasSources: Boolean = true,
     val loading: Boolean = true,
@@ -101,7 +108,7 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
     init {
         viewModelScope.launch {
             novedades.collect { list ->
-                list.take(8).mapNotNull { it.third }.filter { !it.detailsLoaded && detailsRequested.add("${it.sourceId}|${it.providerId}") }
+                list.take(HERO_NEWS).mapNotNull { it.third }.filter { !it.detailsLoaded && detailsRequested.add("${it.sourceId}|${it.providerId}") }
                     .forEach { m -> launch { c.sources.loadMovieDetails(m.sourceId, m.providerId) } }
             }
         }
@@ -118,21 +125,24 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
 
     val state: StateFlow<HomeUiState> = combine(
         combine(c.config.config, appearance, minuteTicker) { cfg, app, now -> Triple(cfg, ConfigResolver.sections(cfg, app), now) },
-        lists, combine(recent, novedades) { r, n -> r to n }, recommended, combine(profileName, c.sources.sources) { n, s -> n to s.isNotEmpty() },
-    ) { (cfg, sections, now), base, (rec, news), recs, (name, hasSources) ->
+        lists, combine(recent, novedades) { r, n -> r to n }, recommended,
+        combine(profileName, combine(c.sources.sources, c.prefs.sourceExpiries) { s, e -> s.isNotEmpty() to e.filterKeys { k -> s.any { it.id == k } }.values.minOrNull() },
+            c.catalog.eventCandidates().map { com.embyverse.app.data.repo.Events.today(it) }) { n, s, e -> Triple(n, s, e) },
+    ) { (cfg, sections, now), base, (rec, news), recs, (name, srcInfo, events) ->
+        val (hasSources, expiresAt) = srcInfo
         val content = base + mapOf(SectionType.RECENTLY_ADDED to rec, SectionType.RECOMMENDED to recs)
         // El banner de bienvenida («Añadir fuente») sobra cuando ya hay listas: se muestran las novedades.
         val heroBanners = ConfigResolver.banners(cfg, BannerPlacement.HERO, now)
             .filter { !(hasSources && it.route == AppRoute.SOURCES) }
             .map { HeroItem(it.id, it.title, it.subtitle, it.imageUrl, it.route) }
         val heroMax = sections.firstOrNull { it.type == SectionType.HERO_BANNER }?.maxItems ?: 5
-        val featured = news.take(heroMax).map { it.second }
+        val featured = news.take(maxOf(heroMax, HERO_NEWS)).map { it.second }
         HomeUiState(
             config = cfg, sections = sections, content = content,
             // Banners del Design Studio primero y después las novedades de tus listas.
             hero = heroBanners + featured,
             promos = ConfigResolver.banners(cfg, BannerPlacement.PROMO, now),
-            profileName = name, hasSources = hasSources, loading = false,
+            profileName = name, hasSources = hasSources, loading = false, events = events, expiresAt = expiresAt,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 

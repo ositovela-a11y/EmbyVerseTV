@@ -33,9 +33,22 @@ class EmbyVerseApp : Application(), SingletonImageLoader.Factory {
                 runCatching { ProviderHost.of(cfg)?.let { ProviderHost.follow(this@EmbyVerseApp, container.database, it) } }
             }
         }
+        // Al conectarse a internet (Wi-Fi o datos): se revisan el diseño publicado y las actualizaciones.
+        runCatching {
+            getSystemService(android.net.ConnectivityManager::class.java)?.registerDefaultNetworkCallback(object : android.net.ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: android.net.Network) {
+                    appScope.launch { runCatching { container.config.refresh() }; container.updater.check() }
+                }
+            })
+        }
         // Cada vez que se abre la app: si una lista tiene más de 4 h, se actualiza en segundo plano
         // (lo nuevo del proveedor aparece solo, sin pulsar «Actualizar»). Lo ya cargado sigue visible.
         ProcessLifecycleOwner.get().lifecycle.addObserver(LifecycleEventObserver { _, e ->
+            // Al volver a la app: diseño del panel y versión nueva de la app (sin reinstalar ni Downloader).
+            if (e == Lifecycle.Event.ON_START) appScope.launch {
+                runCatching { container.config.refresh() }
+                container.updater.check()
+            }
             if (e == Lifecycle.Event.ON_START) appScope.launch {
                 runCatching {
                     val limit = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(STALE_HOURS)

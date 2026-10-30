@@ -58,6 +58,10 @@ interface ChannelDao {
     @Query("SELECT * FROM channels WHERE (:category IS NULL OR category = :category) ORDER BY sourceId, position LIMIT 2000")
     suspend fun listForZapping(category: String?): List<ChannelEntity>
 
+    /** Posibles canales de eventos (partidos con hora en el nombre, carpetas de eventos/PPV/deportes). */
+    @Query("SELECT * FROM channels WHERE name LIKE '%:%' OR name LIKE '% vs %' OR name LIKE '% vs. %' OR name LIKE '% x %' OR category LIKE '%event%' OR category LIKE '%ppv%' OR category LIKE '%deport%' OR category LIKE '%sport%' OR category LIKE '%futbol%' OR category LIKE '%fútbol%' LIMIT 4000")
+    fun observeEventCandidates(): Flow<List<ChannelEntity>>
+
     @Query("SELECT COUNT(*) FROM channels")
     fun observeCount(): Flow<Int>
 
@@ -82,7 +86,7 @@ interface MovieDao {
     fun observe(category: String?, limit: Int): Flow<List<MovieEntity>>
 
     /** Solo lo que necesita la cuadrícula (sin sinopsis ni URLs): carga y desplazamiento más rápidos. */
-    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating FROM movies WHERE (:category IS NULL OR category = :category) ORDER BY sourceId, position LIMIT :limit")
+    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category FROM movies WHERE (:category IS NULL OR category = :category) ORDER BY sourceId, position LIMIT :limit")
     fun observeCards(category: String?, limit: Int): Flow<List<CardRow>>
 
     @Query("SELECT * FROM movies ORDER BY addedAt DESC LIMIT :limit")
@@ -117,7 +121,7 @@ interface SeriesDao {
     @Query("SELECT * FROM series WHERE (:category IS NULL OR category = :category) ORDER BY sourceId, position LIMIT :limit")
     fun observe(category: String?, limit: Int): Flow<List<SeriesEntity>>
 
-    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating FROM series WHERE (:category IS NULL OR category = :category) ORDER BY sourceId, position LIMIT :limit")
+    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category FROM series WHERE (:category IS NULL OR category = :category) ORDER BY sourceId, position LIMIT :limit")
     fun observeCards(category: String?, limit: Int): Flow<List<CardRow>>
 
     @Query("SELECT * FROM series ORDER BY addedAt DESC LIMIT :limit")
@@ -171,6 +175,9 @@ interface CategoryDao {
 
     @Query("SELECT DISTINCT name FROM categories WHERE kind = :kind ORDER BY sourceId, position")
     fun observeNames(kind: String): Flow<List<String>>
+
+    @Query("SELECT DISTINCT name FROM categories")
+    fun observeAllNames(): Flow<List<String>>
 }
 
 @Dao
@@ -246,6 +253,10 @@ interface EpgDao {
     @Query("SELECT * FROM epg WHERE sourceId = :sourceId AND channelId IN (:channelIds) AND start <= :now AND `end` > :now")
     suspend fun nowPlaying(sourceId: String, channelIds: List<String>, now: Long): List<EpgEntity>
 
+    /** Programación de varios canales en una ventana de tiempo (guía en cuadrícula). */
+    @Query("SELECT * FROM epg WHERE sourceId = :sourceId AND channelId IN (:channelIds) AND `end` > :from AND start < :to ORDER BY start")
+    suspend fun range(sourceId: String, channelIds: List<String>, from: Long, to: Long): List<EpgEntity>
+
     @Query("DELETE FROM epg WHERE `end` < :before")
     suspend fun prune(before: Long)
 }
@@ -260,4 +271,5 @@ data class CardRow(
     val backdropUrl: String?,
     val year: Int?,
     val rating: Double?,
+    val category: String? = null,
 )

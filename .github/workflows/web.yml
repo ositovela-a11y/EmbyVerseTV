@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
     paths: ['web-player/**', '.github/workflows/web.yml']
+  # Cada vez que se publica una APK nueva, el sitio se actualiza con ella (descarga y update.json).
+  workflow_run:
+    workflows: ["APK Android"]
+    types: [completed]
   workflow_dispatch:
 permissions:
   contents: write
@@ -12,6 +16,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: APK en el sitio y update.json (actualización dentro de la app)
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          mkdir -p web-player/apk
+          gh release download apk-latest -R "$GITHUB_REPOSITORY" -p '*.apk' -D web-player/apk --clobber || true
+          AAPT=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1)
+          python3 - "$AAPT" <<'PY'
+          import json, os, re, subprocess, sys
+          aapt = sys.argv[1]; apps = {}
+          for f in sorted(os.listdir('web-player/apk')):
+              if not f.endswith('.apk'): continue
+              out = subprocess.run([aapt, 'dump', 'badging', f'web-player/apk/{f}'], capture_output=True, text=True).stdout if aapt else ''
+              m = re.search(r"versionCode='(\d+)' versionName='([^']*)'", out)
+              if m: apps[f] = {'versionCode': int(m.group(1)), 'versionName': m.group(2), 'path': f'apk/{f}'}
+          json.dump({'apps': apps}, open('web-player/update.json', 'w'), indent=1)
+          print(json.dumps(apps, indent=1))
+          PY
+          # Dominio propio: si existe la variable del repositorio CUSTOM_DOMAIN, se publica el archivo CNAME.
+          if [ -n "${{ vars.CUSTOM_DOMAIN }}" ]; then echo "${{ vars.CUSTOM_DOMAIN }}" > web-player/CNAME; fi
       - name: Publicar en gh-pages
         run: |
           cd web-player
