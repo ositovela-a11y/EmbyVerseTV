@@ -42,6 +42,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -145,7 +146,7 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit) {
             val state = rememberLazyListState((currentIdx - 3).coerceAtLeast(0))
             val currentFocus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
             LaunchedEffect(Unit) { kotlinx.coroutines.delay(150); runCatching { currentFocus.requestFocus() } }
-            Column(Modifier.fillMaxHeight().width(340.dp).background(t.surface.copy(alpha = 0.94f)).padding(vertical = 12.dp)) {
+            Column(Modifier.fillMaxHeight().width(340.dp).testTag("channel_list").background(t.surface.copy(alpha = 0.94f)).padding(vertical = 12.dp)) {
                 Text(stringResource(R.string.player_channels), style = MaterialTheme.typography.titleMedium, color = t.onBackground, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                 LazyColumn(state = state, contentPadding = PaddingValues(horizontal = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     itemsIndexed(channels, key = { _, ch -> "${ch.sourceId}|${ch.providerId}" }) { i, ch ->
