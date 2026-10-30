@@ -89,7 +89,11 @@ export async function handle(request, env = {}) {
     out.set('content-type', ct || 'text/plain');
     return new Response(text, { status: resp.status, headers: out });
   }
+  // Listas y API (texto/JSON) sin content-length: así Deno/Cloudflare las comprimen (gzip/brotli)
+  // y llegan varias veces más rápido al navegador. El video se pasa tal cual.
+  const textual = /json|text|xml|mpegurl/i.test(ct) && resp.status === 200;
   for (const k of ['content-type', 'content-length', 'content-range', 'accept-ranges']) {
+    if (textual && k === 'content-length') continue;
     const v = resp.headers.get(k); if (v) out.set(k, v);
   }
   return new Response(request.method === 'HEAD' ? null : resp.body, { status: resp.status, headers: out });
