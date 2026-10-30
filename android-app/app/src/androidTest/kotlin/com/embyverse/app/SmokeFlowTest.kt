@@ -117,10 +117,10 @@ class SmokeFlowTest {
             for (index in listOf(0, 1, 3)) { // .mp4, .mkv y .avi en el catálogo (el simulador entrega el mismo clip)
                 t = System.currentTimeMillis()
                 openCard("MOVIE", (index + 1).toString(), index)
-                waitText("Reproducir")
+                waitText(app.getString(R.string.action_play))
                 log("Película #$index: ficha en ${System.currentTimeMillis() - t} ms")
                 if (index == 0) shot("03-ficha-pelicula")
-                playAndCheck("Película #$index") { compose.onAllNodesWithText("Reproducir", useUnmergedTree = true)[0].performClick() }
+                playAndCheck("Película #$index") { compose.onAllNodesWithText(app.getString(R.string.action_play), useUnmergedTree = true)[0].performClick() }
                 Espresso.pressBack() // volver a la cuadrícula
                 waitTag("grid")
             }
@@ -136,7 +136,7 @@ class SmokeFlowTest {
                 t = System.currentTimeMillis()
                 openCard("SERIES", (index + 1).toString(), index)
                 if (index == 6) { // Serie sin episodios: debe mostrar un aviso, no cerrarse
-                    waitText("episodio", 20_000)
+                    waitText(app.getString(R.string.episodes_empty), 20_000)
                     log("Serie #$index (sin episodios): aviso mostrado")
                 } else {
                     waitTag("episode", 30_000)
