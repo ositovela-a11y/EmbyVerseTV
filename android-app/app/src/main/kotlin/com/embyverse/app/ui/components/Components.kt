@@ -49,11 +49,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -110,25 +110,31 @@ fun BrandLogo(variant: LogoVariant, url: String?, modifier: Modifier = Modifier)
  * Contenedor enfocable: en Android TV el foco del mando agranda la tarjeta y dibuja el
  * anillo de foco; en táctil se comporta como un botón normal.
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun FocusableSurface(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(LocalEmby.current.cardRadius),
     focusScale: Float = 1.06f,
+    onLongClick: (() -> Unit)? = null,
     content: @Composable BoxScope.(focused: Boolean) -> Unit,
 ) {
     val t = LocalEmby.current
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    val scale by animateFloatAsState(if (focused) focusScale else 1f, tween(160), label = "focusScale")
+    val scale by animateFloatAsState(if (focused) focusScale else 1f, tween(120), label = "focusScale")
+    // Foco MUY visible (mando de TV): borde grueso del color de foco + ligero aumento. Sin sombras
+    // difuminadas: en TV Box modestos hacían que el desplazamiento se viera lento y borroso.
     Box(
         modifier
-            .scale(scale)
-            .then(if (focused && t.glowEnabled) Modifier.shadow((14 * t.glowIntensity + 4).dp, shape, ambientColor = t.focusRing, spotColor = t.focusRing) else Modifier)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(shape)
-            .then(if (focused) Modifier.border(BorderStroke(2.5.dp, t.focusRing), shape) else Modifier)
-            .clickable(interactionSource = interaction, indication = androidx.compose.material3.ripple(), role = Role.Button, onClick = onClick),
+            .then(if (focused) Modifier.border(BorderStroke(3.dp, t.focusRing), shape) else Modifier)
+            .then(
+                if (onLongClick != null) Modifier.combinedClickable(interactionSource = interaction, indication = androidx.compose.material3.ripple(), role = Role.Button, onClick = onClick, onLongClick = onLongClick)
+                else Modifier.clickable(interactionSource = interaction, indication = androidx.compose.material3.ripple(), role = Role.Button, onClick = onClick)
+            ),
     ) { content(focused) }
 }
 

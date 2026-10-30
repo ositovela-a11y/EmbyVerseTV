@@ -104,6 +104,7 @@
     <string name="playback_subtitles">Activar subtítulos por defecto</string>
     <string name="playback_title">Reproducción</string>
     <string name="player_channels">Canales</string>
+    <string name="player_channels_hint">◀ Canales    ▲▼ Cambiar canal</string>
     <string name="player_error_drm">Este contenido está protegido con DRM y no se puede reproducir aquí.</string>
     <string name="player_error_forbidden">El proveedor denegó el acceso (credenciales o límite de conexiones).</string>
     <string name="player_error_format">El formato de este stream no es compatible con el dispositivo.</string>
@@ -112,6 +113,10 @@
     <string name="player_error_not_found">El contenido ya no está disponible en el proveedor.</string>
     <string name="player_error_server">El servidor del proveedor tiene un problema. Inténtalo más tarde.</string>
     <string name="player_next_episode">Siguiente episodio</string>
+    <string name="preview_error">No se pudo cargar la vista previa de este canal.</string>
+    <string name="preview_fullscreen">OK: pantalla completa</string>
+    <string name="preview_hint">Pulsa OK en un canal para verlo aquí. Otra vez OK: pantalla completa.</string>
+    <string name="preview_now">En vista previa</string>
     <string name="privacy_p1">EmbyVerse guarda en este dispositivo tus fuentes, catálogos, favoritos, historial y preferencias. Estos datos no se envían a los servidores de EmbyVerse.</string>
     <string name="privacy_p2">Las contraseñas de los proveedores se cifran con Android Keystore y no se incluyen en copias de seguridad ni en registros.</string>
     <string name="privacy_p3">La app se conecta directamente a las direcciones de listas y proveedores que tú introduces. Esos servicios pueden registrar tu dirección IP según sus propias políticas.</string>
@@ -123,6 +128,7 @@
     <string name="profile_create">Crear perfil</string>
     <string name="profile_default">Principal</string>
     <string name="profile_edit">Editar perfil</string>
+    <string name="profile_manage">Administrar perfiles</string>
     <string name="profile_name">Nombre del perfil</string>
     <string name="profiles_intro">Cada perfil tiene sus propios favoritos, historial y apariencia en este dispositivo.</string>
     <string name="profiles_title">Perfiles</string>
@@ -180,4 +186,5 @@
     <string name="support_title">Soporte</string>
     <string name="vod_empty_message">Tus fuentes no incluyen contenido en esta sección o el filtro no tiene resultados.</string>
     <string name="vod_empty_title">No hay contenido</string>
+    <string name="who_is_watching">¿Quién está viendo?</string>
 </resources>

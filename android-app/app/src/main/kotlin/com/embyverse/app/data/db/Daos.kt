@@ -81,6 +81,10 @@ interface MovieDao {
     @Query("SELECT * FROM movies WHERE (:category IS NULL OR category = :category) ORDER BY sourceId, position LIMIT :limit")
     fun observe(category: String?, limit: Int): Flow<List<MovieEntity>>
 
+    /** Solo lo que necesita la cuadrícula (sin sinopsis ni URLs): carga y desplazamiento más rápidos. */
+    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating FROM movies WHERE (:category IS NULL OR category = :category) ORDER BY sourceId, position LIMIT :limit")
+    fun observeCards(category: String?, limit: Int): Flow<List<CardRow>>
+
     @Query("SELECT * FROM movies ORDER BY addedAt DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<MovieEntity>>
 
@@ -112,6 +116,9 @@ interface SeriesDao {
 
     @Query("SELECT * FROM series WHERE (:category IS NULL OR category = :category) ORDER BY sourceId, position LIMIT :limit")
     fun observe(category: String?, limit: Int): Flow<List<SeriesEntity>>
+
+    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating FROM series WHERE (:category IS NULL OR category = :category) ORDER BY sourceId, position LIMIT :limit")
+    fun observeCards(category: String?, limit: Int): Flow<List<CardRow>>
 
     @Query("SELECT * FROM series ORDER BY addedAt DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<SeriesEntity>>
@@ -242,3 +249,15 @@ interface EpgDao {
     @Query("DELETE FROM epg WHERE `end` < :before")
     suspend fun prune(before: Long)
 }
+
+/** Fila ligera para cuadrículas de películas y series. */
+data class CardRow(
+    val sourceId: String,
+    val providerId: String,
+    val title: String,
+    val searchKey: String,
+    val posterUrl: String?,
+    val backdropUrl: String?,
+    val year: Int?,
+    val rating: Double?,
+)

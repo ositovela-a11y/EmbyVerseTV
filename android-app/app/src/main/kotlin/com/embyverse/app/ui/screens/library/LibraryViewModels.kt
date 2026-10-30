@@ -91,8 +91,8 @@ class VodViewModel(private val c: AppContainer, private val kind: ContentKind) :
     private val query = MutableStateFlow("")
 
     private val items = category.flatMapLatest { cat ->
-        if (kind == ContentKind.MOVIE) c.catalog.movies(cat, 5000).map { l -> l.map { it.searchKey to it.toCard() } }
-        else c.catalog.series(cat, 5000).map { l -> l.map { it.searchKey to it.toCard() } }
+        (if (kind == ContentKind.MOVIE) c.database.movies().observeCards(cat, 5000) else c.database.series().observeCards(cat, 5000))
+            .map { l -> l.map { it.searchKey to it.toCard(kind) } }
     }
 
     val state: StateFlow<VodUiState> = combine(c.catalog.categories(kind), category, query.debounce(200), items) { cats, cat, q, list ->

@@ -103,6 +103,7 @@
     <string name="playback_subtitles">Enable subtitles by default</string>
     <string name="playback_title">Playback</string>
     <string name="player_channels">Channels</string>
+    <string name="player_channels_hint">◀ Channels    ▲▼ Change channel</string>
     <string name="player_error_drm">This content is DRM-protected and cannot be played here.</string>
     <string name="player_error_forbidden">The provider denied access (credentials or connection limit).</string>
     <string name="player_error_format">This stream format is not supported on this device.</string>
@@ -111,6 +112,10 @@
     <string name="player_error_not_found">The content is no longer available from the provider.</string>
     <string name="player_error_server">The provider\'s server has a problem. Try again later.</string>
     <string name="player_next_episode">Next episode</string>
+    <string name="preview_error">This channel\'s preview could not be loaded.</string>
+    <string name="preview_fullscreen">OK: full screen</string>
+    <string name="preview_hint">Press OK on a channel to preview it here. Press OK again for full screen.</string>
+    <string name="preview_now">Previewing</string>
     <string name="privacy_p1">EmbyVerse stores your sources, catalogs, favorites, history and preferences on this device. This data is not sent to EmbyVerse servers.</string>
     <string name="privacy_p2">Provider passwords are encrypted with Android Keystore and are never included in backups or logs.</string>
     <string name="privacy_p3">The app connects directly to the playlist and provider addresses you enter. Those services may log your IP address under their own policies.</string>
@@ -122,6 +127,7 @@
     <string name="profile_create">Create profile</string>
     <string name="profile_default">Main</string>
     <string name="profile_edit">Edit profile</string>
+    <string name="profile_manage">Manage profiles</string>
     <string name="profile_name">Profile name</string>
     <string name="profiles_intro">Each profile has its own favorites, history and appearance on this device.</string>
     <string name="profiles_title">Profiles</string>
@@ -179,4 +185,5 @@
     <string name="support_title">Support</string>
     <string name="vod_empty_message">Your sources have no content in this section or the filter has no results.</string>
     <string name="vod_empty_title">Nothing here</string>
+    <string name="who_is_watching">Who\'s watching?</string>
 </resources>

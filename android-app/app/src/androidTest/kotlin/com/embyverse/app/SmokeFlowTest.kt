@@ -158,7 +158,27 @@ class SmokeFlowTest {
             compose.onNodeWithTag("nav_live", useUnmergedTree = true).performClick()
             waitTag("channel", 30_000)
             shot("05-tv-en-vivo")
-            playAndCheck("Canal en vivo") { compose.onAllNodesWithTag("channel", useUnmergedTree = true)[0].performClick() }
+            // Primer toque: vista previa dentro de la pantalla. Segundo toque: pantalla completa.
+            PlaybackProbe.reset()
+            var tp = System.currentTimeMillis()
+            compose.onAllNodesWithTag("channel", useUnmergedTree = true)[0].performClick()
+            try { compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 || PlaybackProbe.lastError != null } } catch (e: ComposeTimeoutException) { fail("la vista previa no arrancó") }
+            assertTrue("vista previa: ${PlaybackProbe.lastError}", PlaybackProbe.readyCount > 0)
+            log("Canal en vivo: vista previa en ${System.currentTimeMillis() - tp} ms")
+            Thread.sleep(2_000); shot("06-vista-previa")
+            playAndCheck("Canal en vivo (pantalla completa)") { compose.onAllNodesWithTag("channel", useUnmergedTree = true)[0].performClick() }
+            // Cambiar de canal sin salir: lista lateral dentro del reproductor.
+            PlaybackProbe.reset()
+            compose.onAllNodesWithTag("channel", useUnmergedTree = true)[1].performClick()
+            compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 || PlaybackProbe.lastError != null }
+            PlaybackProbe.reset()
+            compose.onAllNodesWithTag("preview", useUnmergedTree = true)[0].performClick()
+            compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 || PlaybackProbe.lastError != null }
+            assertTrue("pantalla completa desde la vista previa", PlaybackProbe.readyCount > 0)
+            log("Canal en vivo: vista previa → pantalla completa al pulsar el recuadro")
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_LEFT)
+            Thread.sleep(1_500); shot("07-lista-en-reproductor")
+            back(); back()
             log("Recorrido completo sin cierres · ${memory()}")
         }
     }

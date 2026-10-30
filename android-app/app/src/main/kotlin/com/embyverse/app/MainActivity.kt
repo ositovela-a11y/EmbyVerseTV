@@ -48,6 +48,8 @@ class MainActivity : AppCompatActivity() {
                 val hasSourcesFlow = remember { container.sources.sources.map { it.isNotEmpty() } }
                 val hasSources by hasSourcesFlow.collectAsStateWithLifecycle(initialValue = null)
                 var splashDone by rememberSaveable { mutableStateOf(false) }
+                val profiles by container.library.profiles.collectAsStateWithLifecycle(initialValue = null)
+                var profileChosen by rememberSaveable { mutableStateOf(false) }
                 var crash by remember { mutableStateOf(CrashReport.take(this@MainActivity)) }
 
                 EmbyTheme(theme) {
@@ -55,6 +57,9 @@ class MainActivity : AppCompatActivity() {
                         when {
                             !splashDone -> SplashScreen(config.brand) { splashDone = true }
                             hasSources == null -> LoadingBox()
+                            // Varios perfiles: se elige quién ve, así favoritos e historial no se mezclan.
+                            !profileChosen && hasSources == true && (profiles?.size ?: 0) > 1 ->
+                                com.embyverse.app.ui.screens.profiles.ProfilePicker(profiles!!, profile) { profileChosen = true }
                             else -> {
                                 // La decisión de mostrar la configuración inicial se toma una sola vez por sesión.
                                 val startOnboarding = rememberSaveable { hasSources == false }

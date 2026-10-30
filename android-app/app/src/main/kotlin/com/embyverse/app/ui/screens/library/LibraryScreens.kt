@@ -1,6 +1,17 @@
 package com.embyverse.app.ui.screens.library
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.media3.ui.PlayerView
+import com.embyverse.app.player.LivePreview
+import com.embyverse.app.ui.LocalAppContainer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -101,13 +112,39 @@ private fun CategoryBar(categories: List<String>, selected: String?, onSelect: (
 }
 
 // ------------------------------------------------------------------ TV EN VIVO
+/**
+ * TV en vivo con VISTA PREVIA: el primer OK (o toque) en un canal lo reproduce en el recuadro;
+ * el segundo OK sobre el mismo canal, o pulsar el recuadro, lo abre a pantalla completa.
+ * En TV y pantallas anchas la vista previa va a la derecha; en teléfono, arriba de la lista.
+ */
 @Composable
 fun LiveScreen(nav: Navigator, initialCategory: String?) {
     val vm = appViewModel(key = "live-$initialCategory") { LiveViewModel(it, initialCategory) }
     val s by vm.state.collectAsStateWithLifecycle()
     val t = LocalEmby.current
     var text by rememberSaveable { mutableStateOf("") }
-    val selected by vm.selected.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val container = LocalAppContainer.current
+    val scope = rememberCoroutineScope()
+    val preview = remember { LivePreview(context, container, scope) }
+    val previewing by preview.channel.collectAsStateWithLifecycle()
+    val wide = t.device.useRail || t.device.width != com.embyverse.app.ui.theme.WidthClass.COMPACT
+
+    // La vista previa se detiene al salir de la pantalla y se reanuda al volver.
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) {
+        val obs = LifecycleEventObserver { _, e ->
+            if (e == Lifecycle.Event.ON_STOP) preview.release()
+            if (e == Lifecycle.Event.ON_START) preview.channel.value?.let { preview.play(it) }
+        }
+        lifecycle.addObserver(obs)
+        onDispose { lifecycle.removeObserver(obs); preview.clear() }
+    }
+    val fullscreen: (ChannelEntity) -> Unit = { ch ->
+        preview.release()
+        nav.play(ItemRef(ContentKind.LIVE, ch.sourceId, ch.providerId), s.category)
+    }
+    val onChannel: (ChannelEntity) -> Unit = { ch -> if (preview.isPreviewing(ch)) fullscreen(ch) else preview.play(ch) }
 
     Column(Modifier.fillMaxSize()) {
         ScreenTitle(stringResource(R.string.nav_live))
@@ -123,47 +160,108 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
             s.loading -> LoadingBox()
             s.rows.isEmpty() -> MessageState(Icons.Rounded.LiveTv, stringResource(R.string.live_empty_title), stringResource(R.string.live_empty_message),
                 stringResource(R.string.nav_sources), { nav.go(Routes.SOURCES) })
-            else -> Row(Modifier.fillMaxSize()) {
-                LazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(horizontal = t.screenPadding, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(s.rows, key = { "${it.channel.sourceId}|${it.channel.providerId}" }) { row ->
-                        ChannelListItem(row, onFocus = { vm.selected.value = row.channel },
-                            onPlay = { nav.play(ItemRef(ContentKind.LIVE, row.channel.sourceId, row.channel.providerId), s.category) },
-                            onFavorite = { vm.toggleFavorite(row.channel) })
-                    }
+            wide -> Row(Modifier.fillMaxSize()) {
+                ChannelList(s, previewing, vm, onChannel, showFavoriteButton = !t.device.isTv, modifier = Modifier.weight(1f).fillMaxHeight())
+                Column(Modifier.width(if (t.device.isTv) 460.dp else 380.dp).fillMaxHeight().padding(end = t.screenPadding, top = 8.dp, bottom = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    PreviewBox(preview, onFullscreen = fullscreen, modifier = Modifier.fillMaxWidth())
+                    SelectedInfo(vm, previewing, Modifier.fillMaxWidth().weight(1f))
                 }
-                // Guía del canal enfocado (sólo en pantallas anchas / TV, y sólo si hay EPG válida).
-                if (t.device.useRail || t.device.width != com.embyverse.app.ui.theme.WidthClass.COMPACT) {
-                    selected?.let { EpgPanel(vm, it, Modifier.width(320.dp).fillMaxHeight()) }
-                }
+            }
+            else -> Column(Modifier.fillMaxSize()) {
+                if (previewing != null) PreviewBox(preview, onFullscreen = fullscreen, modifier = Modifier.fillMaxWidth().padding(horizontal = t.screenPadding, vertical = 6.dp))
+                ChannelList(s, previewing, vm, onChannel, showFavoriteButton = true, modifier = Modifier.fillMaxSize())
             }
         }
     }
 }
 
 @Composable
-private fun ChannelListItem(row: ChannelRow, onFocus: () -> Unit, onPlay: () -> Unit, onFavorite: () -> Unit) {
+private fun ChannelList(s: LiveUiState, previewing: ChannelEntity?, vm: LiveViewModel, onChannel: (ChannelEntity) -> Unit, showFavoriteButton: Boolean, modifier: Modifier) {
+    val t = LocalEmby.current
+    LazyColumn(modifier, contentPadding = PaddingValues(horizontal = t.screenPadding, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        items(s.rows, key = { "${it.channel.sourceId}|${it.channel.providerId}" }, contentType = { 0 }) { row ->
+            val ch = row.channel
+            ChannelListItem(row, isPreviewing = previewing != null && previewing.sourceId == ch.sourceId && previewing.providerId == ch.providerId,
+                onFocus = { vm.selected.value = ch }, onPlay = { onChannel(ch) }, onFavorite = { vm.toggleFavorite(ch) }, showFavoriteButton = showFavoriteButton)
+        }
+    }
+}
+
+@Composable
+private fun ChannelListItem(row: ChannelRow, isPreviewing: Boolean, onFocus: () -> Unit, onPlay: () -> Unit, onFavorite: () -> Unit, showFavoriteButton: Boolean) {
     val t = LocalEmby.current
     val ch = row.channel
     Row(verticalAlignment = Alignment.CenterVertically) {
-        FocusableSurface(onClick = onPlay, modifier = Modifier.weight(1f).testTag("channel").onFocusChanged { if (it.isFocused) onFocus() }, focusScale = 1.02f) { focused ->
-            Row(Modifier.fillMaxWidth().background(if (focused) t.surfaceVariant else t.surface.copy(alpha = 0.7f)).padding(10.dp),
+        // Mantener pulsado (OK largo en el mando) = añadir o quitar de favoritos.
+        FocusableSurface(onClick = onPlay, onLongClick = onFavorite, modifier = Modifier.weight(1f).testTag("channel").onFocusChanged { if (it.isFocused) onFocus() }, focusScale = 1.03f) { focused ->
+            Row(Modifier.fillMaxWidth()
+                .background(when { focused -> t.primary.copy(alpha = 0.22f); isPreviewing -> t.surfaceVariant; else -> t.surface.copy(alpha = 0.7f) })
+                .padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                ch.number?.let { Text("$it", style = MaterialTheme.typography.labelMedium, color = t.textSecondary, modifier = Modifier.width(36.dp)) }
-                Box(Modifier.size(width = 64.dp, height = 40.dp)) { MediaImage(ch.logoUrl, ContentKind.LIVE, Modifier.fillMaxSize(), androidx.compose.ui.layout.ContentScale.Fit) }
+                ch.number?.let { Text("$it", style = MaterialTheme.typography.labelMedium, color = if (focused) t.onBackground else t.textSecondary, modifier = Modifier.width(40.dp)) }
+                Box(Modifier.size(width = 60.dp, height = 38.dp)) { MediaImage(ch.logoUrl, ContentKind.LIVE, Modifier.fillMaxSize(), androidx.compose.ui.layout.ContentScale.Fit) }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(ch.name, style = MaterialTheme.typography.titleSmall, color = t.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(ch.name, style = MaterialTheme.typography.titleSmall, color = t.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        fontWeight = if (focused || isPreviewing) androidx.compose.ui.text.font.FontWeight.Bold else null)
                     val sub = row.nowPlaying?.title ?: ch.category
                     sub?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = if (row.nowPlaying != null) t.accent else t.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 }
+                if (isPreviewing) Text("● " + stringResource(R.string.preview_now), style = MaterialTheme.typography.labelSmall, color = t.primary)
+                else if (row.favorite && !showFavoriteButton) Icon(Icons.Rounded.Favorite, null, tint = t.primary, modifier = Modifier.size(16.dp))
             }
         }
-        IconButton(onClick = onFavorite) {
+        if (showFavoriteButton) IconButton(onClick = onFavorite) {
             Icon(if (row.favorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                 stringResource(if (row.favorite) R.string.action_unfavorite else R.string.action_favorite), tint = if (row.favorite) t.primary else t.textSecondary)
         }
     }
+}
+
+/** Recuadro de vista previa: muestra el canal elegido; pulsarlo (OK) lo abre a pantalla completa. */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+@Composable
+private fun PreviewBox(preview: LivePreview, onFullscreen: (ChannelEntity) -> Unit, modifier: Modifier) {
+    val t = LocalEmby.current
+    val player by preview.player.collectAsStateWithLifecycle()
+    val ch by preview.channel.collectAsStateWithLifecycle()
+    val buffering by preview.buffering.collectAsStateWithLifecycle()
+    val error by preview.error.collectAsStateWithLifecycle()
+    FocusableSurface(onClick = { ch?.let(onFullscreen) }, modifier = modifier.aspectRatio(16f / 9f).testTag("preview"), focusScale = 1.02f) { focused ->
+        Box(Modifier.fillMaxSize().background(Color.Black)) {
+            if (ch != null) AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { ctx -> PlayerView(ctx).apply { useController = false; setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER); setKeepContentOnPlayerReset(true) } },
+                update = { v -> v.player = player },
+                onRelease = { v -> v.player = null },
+            )
+            val c = ch
+            when {
+                c == null -> Column(Modifier.align(Alignment.Center).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Rounded.LiveTv, null, tint = t.textSecondary, modifier = Modifier.size(40.dp))
+                    Spacer(Modifier.height(8.dp))
+                    Text(stringResource(R.string.preview_hint), style = MaterialTheme.typography.bodyMedium, color = t.textSecondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                }
+                error -> Text(stringResource(R.string.preview_error), style = MaterialTheme.typography.bodyMedium, color = t.onBackground, modifier = Modifier.align(Alignment.Center).padding(16.dp))
+                buffering -> androidx.compose.material3.CircularProgressIndicator(Modifier.align(Alignment.Center).size(40.dp), color = t.primary)
+            }
+            if (c != null) Row(Modifier.align(Alignment.BottomStart).fillMaxWidth()
+                .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f)))).padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text(c.name, style = MaterialTheme.typography.titleSmall, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.preview_fullscreen), style = MaterialTheme.typography.labelSmall, color = if (focused) t.primary else Color.White.copy(alpha = 0.8f))
+            }
+        }
+    }
+}
+
+/** Guía (ahora y después) del canal enfocado o en vista previa. Lee la selección aquí para no recomponer la lista. */
+@Composable
+private fun SelectedInfo(vm: LiveViewModel, previewing: ChannelEntity?, modifier: Modifier) {
+    val focused by vm.selected.collectAsStateWithLifecycle()
+    val ch = focused ?: previewing ?: return
+    EpgPanel(vm, ch, modifier)
 }
 
 @Composable
@@ -172,7 +270,7 @@ private fun EpgPanel(vm: LiveViewModel, ch: ChannelEntity, modifier: Modifier) {
     val flow = remember(ch.sourceId, ch.providerId) { vm.upcoming(ch) }
     val programs by flow.collectAsStateWithLifecycle(initialValue = emptyList())
     val fmt = remember { DateFormat.getTimeInstance(DateFormat.SHORT) }
-    Column(modifier.padding(end = t.screenPadding, top = 8.dp).background(t.surface.copy(alpha = 0.8f), RoundedCornerShape(t.cardRadius)).padding(16.dp)) {
+    Column(modifier.background(t.surface.copy(alpha = 0.8f), RoundedCornerShape(t.cardRadius)).padding(16.dp)) {
         Text(ch.name, style = MaterialTheme.typography.titleMedium, color = t.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(stringResource(R.string.epg_title), style = MaterialTheme.typography.labelMedium, color = t.textSecondary)
         Spacer(Modifier.height(10.dp))

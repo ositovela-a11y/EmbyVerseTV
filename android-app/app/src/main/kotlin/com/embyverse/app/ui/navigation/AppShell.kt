@@ -33,6 +33,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -174,7 +179,7 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
         }) {
             TOP.forEach { d ->
                 NavigationRailItem(
-                    modifier = Modifier.testTag("nav_${d.route}"),
+                    modifier = Modifier.testTag("nav_${d.route}").focusHighlight(t.focusRing, t.primary),
                     selected = current == d.route, onClick = { navigator.goTop(d.route) },
                     icon = { Icon(d.icon, null) }, label = if (t.navShowLabels) ({ Text(stringResource(d.label)) }) else null,
                     colors = NavigationRailItemDefaults.colors(selectedIconColor = t.buttonText, indicatorColor = t.primary,
@@ -197,7 +202,7 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
             if (bottom) NavigationBar(containerColor = t.surface.copy(alpha = 0.97f), modifier = Modifier.navigationBarsPadding(), windowInsets = androidx.compose.foundation.layout.WindowInsets(0)) {
                 TOP.forEach { d ->
                     NavigationBarItem(
-                        modifier = Modifier.testTag("nav_${d.route}"),
+                        modifier = Modifier.testTag("nav_${d.route}").focusHighlight(t.focusRing, t.primary),
                         selected = current == d.route, onClick = { navigator.goTop(d.route) },
                         icon = { Icon(d.icon, null) }, label = if (t.navShowLabels) ({ Text(stringResource(d.label), maxLines = 1) }) else null,
                         alwaysShowLabel = false,
@@ -208,4 +213,12 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
             }
         }
     }
+}
+
+/** Resalta con fuerza el elemento del menú que tiene el foco del mando (antes apenas se notaba). */
+private fun Modifier.focusHighlight(ring: androidx.compose.ui.graphics.Color, fill: androidx.compose.ui.graphics.Color): Modifier = composed {
+    var focused by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    this.onFocusChanged { focused = it.hasFocus || it.isFocused }
+        .then(if (focused) Modifier.background(fill.copy(alpha = 0.22f), androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+            .border(2.5.dp, ring, androidx.compose.foundation.shape.RoundedCornerShape(14.dp)) else Modifier)
 }

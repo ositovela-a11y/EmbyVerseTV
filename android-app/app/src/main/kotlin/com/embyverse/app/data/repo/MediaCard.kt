@@ -41,3 +41,9 @@ fun ProgressEntity.toCard() = MediaCard(
 )
 
 fun FavoriteEntity.toCard() = MediaCard(ItemRef(ContentKind.valueOf(kind), sourceId, itemId), title, imageUrl)
+
+fun com.embyverse.app.data.db.CardRow.toCard(kind: ContentKind) = MediaCard(
+    ItemRef(kind, sourceId, providerId), title, posterUrl,
+    subtitle = listOfNotNull(year?.toString(), rating?.let { "★ %.1f".format(it) }).joinToString(" · ").ifEmpty { null },
+    backdropUrl = backdropUrl,
+)

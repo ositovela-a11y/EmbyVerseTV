@@ -29,7 +29,7 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
             return Result.success()
         }
         c.config.refresh()
-        c.sources.syncAll(olderThanMs = TimeUnit.HOURS.toMillis(12))
+        c.sources.syncAll(olderThanMs = TimeUnit.HOURS.toMillis(4))
         c.sources.sources.first().forEach { c.epg.refresh(it.id) }
         return Result.success()
     }
@@ -39,8 +39,8 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         private val network = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
 
         fun schedule(context: Context) {
-            val req = PeriodicWorkRequestBuilder<SyncWorker>(12, TimeUnit.HOURS).setConstraints(network).build()
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork("embyverse-sync", ExistingPeriodicWorkPolicy.KEEP, req)
+            val req = PeriodicWorkRequestBuilder<SyncWorker>(6, TimeUnit.HOURS).setConstraints(network).build()
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork("embyverse-sync", ExistingPeriodicWorkPolicy.UPDATE, req)
         }
 
         fun syncNow(context: Context, sourceId: String) {

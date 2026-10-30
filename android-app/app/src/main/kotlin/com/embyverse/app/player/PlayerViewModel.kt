@@ -7,25 +7,17 @@ import androidx.annotation.OptIn
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
-import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.HttpDataSource
-import androidx.media3.datasource.okhttp.OkHttpDataSource
-import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.embyverse.app.R
 import com.embyverse.app.data.db.ChannelEntity
 import com.embyverse.app.data.db.EpgEntity
-import com.embyverse.app.data.net.Network as Net
 import com.embyverse.app.data.prefs.PlaybackPrefs
 import com.embyverse.app.data.repo.ItemRef
 import com.embyverse.app.di.AppContainer
-import com.embyverse.core.m3u.M3uCatalogBuilder
 import com.embyverse.core.model.ContentKind
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -90,6 +82,8 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
             prefs = c.prefs.playback.first()
             if (isLive) channels.value = c.database.channels().listForZapping(context?.takeIf { it != "restart" })
             load(ref, firstLoad = true)
+            // En vivo: al entrar se muestra un momento el nombre del canal y cómo cambiar de canal.
+            if (isLive) { zapBanner.value = true; delay(4_500); zapBanner.value = false }
         }
     }
 
@@ -97,12 +91,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     fun attach(ctx: Context) {
         appContext = ctx.applicationContext
         if (player.value == null) {
-            // Arranque rápido: empieza con 1 s de búfer (2 s tras un corte) en lugar de 2,5 s / 5 s.
-            val loadControl = DefaultLoadControl.Builder()
-                .setBufferDurationsMs(15_000, 50_000, 1_000, 2_000)
-                .setPrioritizeTimeOverSizeThresholds(true)
-                .build()
-            val p = ExoPlayer.Builder(ctx.applicationContext).setLoadControl(loadControl).build().apply {
+            val p = StreamSource.player(ctx, quickStart = false).apply {
                 addListener(listener)
                 playWhenReady = true
                 trackSelectionParameters = trackSelectionParameters.buildUpon()
@@ -172,21 +161,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
 
     private fun prepare(np: NowPlaying, startAt: Long?) {
         val p = player.value ?: return
-        // Cabeceras por stream (User-Agent / Referer declarados en la lista M3U).
-        val ds = OkHttpDataSource.Factory(c.okHttp)
-            .setUserAgent(np.userAgent ?: Net.USER_AGENT)
-            .setDefaultRequestProperties(buildMap { np.referrer?.let { put("Referer", it) } })
-        val source = DefaultMediaSourceFactory(ds)
-        val ext = M3uCatalogBuilder.extension(np.url)
-        val mime = when (ext) {
-            "m3u8", "m3u" -> MimeTypes.APPLICATION_M3U8
-            "mpd" -> MimeTypes.APPLICATION_MPD
-            else -> null
-        }
-        val item = MediaItem.Builder().setUri(np.url).apply { mime?.let { setMimeType(it) } }
-            .setMediaMetadata(MediaMetadata.Builder().setTitle(np.title).setSubtitle(np.subtitle).build())
-            .build()
-        p.setMediaSource(source.createMediaSource(item))
+        p.setMediaSource(StreamSource.mediaSource(c.okHttp, np.url, np.userAgent, np.referrer, np.title, np.subtitle))
         if (startAt != null && startAt > 0) p.seekTo(startAt)
         p.prepare()
         p.playWhenReady = true

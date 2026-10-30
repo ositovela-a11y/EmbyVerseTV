@@ -42,6 +42,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -108,6 +109,7 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit) {
                     Text(np?.title.orEmpty(), style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     val sub = if (vm.isLive) program?.title ?: np?.subtitle else np?.subtitle
                     sub?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    if (vm.isLive && channels.size > 1) Text(stringResource(R.string.player_channels_hint), style = MaterialTheme.typography.labelMedium, color = t.primary)
                 }
                 if (vm.isLive && channels.size > 1) IconButton(onClick = { vm.toggleChannelList() }) {
                     Icon(Icons.AutoMirrored.Rounded.List, stringResource(R.string.player_channels), tint = Color.White)
@@ -137,15 +139,19 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit) {
         }
 
         // Lista de canales para cambiar sin salir del reproductor.
-        AnimatedVisibility(visible = listVisible, enter = slideInHorizontally { it }, exit = slideOutHorizontally { it }, modifier = Modifier.align(Alignment.CenterEnd)) {
+        // Se abre con ◀ (o MENÚ/GUÍA) y el foco va directo al canal actual: se elige otro sin salir.
+        AnimatedVisibility(visible = listVisible, enter = slideInHorizontally { -it }, exit = slideOutHorizontally { -it }, modifier = Modifier.align(Alignment.CenterStart)) {
             val currentIdx = channels.indexOfFirst { it.sourceId == np?.ref?.sourceId && it.providerId == np?.ref?.id }.coerceAtLeast(0)
-            val state = rememberLazyListState(currentIdx)
+            val state = rememberLazyListState((currentIdx - 3).coerceAtLeast(0))
+            val currentFocus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
+            LaunchedEffect(Unit) { kotlinx.coroutines.delay(150); runCatching { currentFocus.requestFocus() } }
             Column(Modifier.fillMaxHeight().width(340.dp).background(t.surface.copy(alpha = 0.94f)).padding(vertical = 12.dp)) {
                 Text(stringResource(R.string.player_channels), style = MaterialTheme.typography.titleMedium, color = t.onBackground, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                 LazyColumn(state = state, contentPadding = PaddingValues(horizontal = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     itemsIndexed(channels, key = { _, ch -> "${ch.sourceId}|${ch.providerId}" }) { i, ch ->
-                        FocusableSurface(onClick = { vm.playChannel(ch) }, modifier = Modifier.fillMaxWidth(), focusScale = 1.02f) { focused ->
-                            Row(Modifier.fillMaxWidth().background(if (focused || i == currentIdx) t.surfaceVariant else Color.Transparent).padding(10.dp),
+                        FocusableSurface(onClick = { vm.playChannel(ch) }, focusScale = 1.02f,
+                            modifier = Modifier.fillMaxWidth().then(if (i == currentIdx) Modifier.focusRequester(currentFocus) else Modifier)) { focused ->
+                            Row(Modifier.fillMaxWidth().background(when { focused -> t.primary.copy(alpha = 0.25f); i == currentIdx -> t.surfaceVariant; else -> Color.Transparent }).padding(10.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
                                 Text("${ch.number ?: i + 1}", color = t.textSecondary, modifier = Modifier.width(40.dp), style = MaterialTheme.typography.labelMedium)
                                 Text(ch.name, color = if (i == currentIdx) t.primary else t.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)

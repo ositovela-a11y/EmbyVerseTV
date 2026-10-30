@@ -92,6 +92,8 @@ class PlayerActivity : AppCompatActivity() {
                 KeyEvent.KEYCODE_DPAD_UP -> if (!vm.controlsVisible.value && !vm.channelListVisible.value) { vm.zap(-1); return true }
                 KeyEvent.KEYCODE_DPAD_DOWN -> if (!vm.controlsVisible.value && !vm.channelListVisible.value) { vm.zap(+1); return true }
                 KeyEvent.KEYCODE_GUIDE, KeyEvent.KEYCODE_MENU -> { vm.toggleChannelList(); return true }
+                // ◀ con los controles ocultos: lista de canales para elegir otro sin salir.
+                KeyEvent.KEYCODE_DPAD_LEFT -> if (!vm.controlsVisible.value && !vm.channelListVisible.value) { vm.toggleChannelList(); return true }
             }
         }
         return super.dispatchKeyEvent(event)

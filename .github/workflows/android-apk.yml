@@ -4,7 +4,7 @@ name: APK Android
 on:
   push:
     branches: [main]
-    paths: ['android-app/**', 'shared/**', 'web-player/config/**', 'scripts/apply-brand.mjs', '.github/workflows/android-apk.yml']
+    paths: ['android-app/**', 'shared/**', 'web-player/config/**', 'scripts/apply-brand.mjs', 'scripts/apk-targets.mjs', '.github/workflows/android-apk.yml']
   workflow_dispatch:
 permissions:
   contents: write
@@ -16,25 +16,19 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.m.outputs.matrix }}
+      all: ${{ steps.m.outputs.all }}
+      count: ${{ steps.m.outputs.count }}
     steps:
       - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      # Solo se recompila lo necesario: los cambios de colores, banners o textos llegan a las apps
+      # instaladas sin APK nueva. Hace falta APK nueva cuando cambia el código o el NOMBRE/LOGOTIPO de una app.
       - id: m
-        run: |
-          node -e '
-            const fs = require("fs");
-            const base = "https://ositovela-a11y.github.io/EmbyVerseTV/config";
-            const list = [{ slug: "", name: "Principal", config: "web-player/config/app.json", url: base + "/app.json", asset: "EmbyVerse.apk" }];
-            try {
-              for (const v of JSON.parse(fs.readFileSync("web-player/config/vendors/index.json", "utf8"))) {
-                if (!/^[a-z][a-z0-9]{1,30}$/.test(v.slug)) continue;
-                list.push({ slug: v.slug, name: v.name, config: `web-player/config/vendors/${v.slug}.json`, url: `${base}/vendors/${v.slug}.json`, asset: `EmbyVerse-${v.slug}.apk` });
-              }
-            } catch {}
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, "matrix=" + JSON.stringify({ include: list }) + "\n");
-            console.log(list.map((x) => x.asset).join(", "));
-          '
+        env: { BEFORE: '${{ github.event.before }}', EVENT: '${{ github.event_name }}', GH_TOKEN: '${{ github.token }}' }
+        run: node scripts/apk-targets.mjs
   build:
     needs: targets
+    if: needs.targets.outputs.count != '0'
     name: APK ${{ matrix.name }}
     strategy:
       fail-fast: false
@@ -102,7 +96,7 @@ jobs:
     needs: [targets, build]
     if: always() && needs.targets.result == 'success'
     runs-on: ubuntu-latest
-    env: { GH_TOKEN: '${{ github.token }}', MATRIX: '${{ needs.targets.outputs.matrix }}' }
+    env: { GH_TOKEN: '${{ github.token }}', MATRIX: '${{ needs.targets.outputs.all }}' }
     steps:
       - run: |
           keep=$(echo "$MATRIX" | jq -r '.include[].asset')
