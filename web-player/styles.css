@@ -245,3 +245,4 @@ body.playing .toast { bottom: 90px; }
 .p-err-detail { color: var(--muted); font-size: .75rem; font-family: ui-monospace, monospace; }
 .sync-note { display: flex; align-items: center; gap: 10px; margin: 0; padding: 0 var(--pad); color: var(--muted); font-size: .88rem; }
 .spinner.tiny { width: 16px; height: 16px; border-width: 2px; }
+.lib-more { height: 1px; }

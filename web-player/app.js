@@ -235,7 +235,7 @@ const state = {
 };
 const saveSources = () => store.set('sources', state.sources);
 const favKey = (kind, sid, id) => `${kind}|${sid}|${id}`;
-const PAGE = 120;
+const PAGE = 48; // primera tanda pequeña = pestaña instantánea; el resto se añade al bajar
 
 // Índice unificado: se construye UNA vez al cargar o sincronizar (antes se copiaba todo el
 // catálogo en cada pintado de pantalla, lo que hacía lenta la web con listas grandes).
@@ -303,7 +303,7 @@ const titleOf = (x) => x.name || x.title;
 
 function img(src, cls = '') {
   const u = safeImg(src);
-  return u ? `<img class="${cls}" loading="lazy" decoding="async" src="${esc(u)}" alt="" onerror="this.remove()">` : '';
+  return u ? `<img class="${cls}" loading="lazy" decoding="async" fetchpriority="low" src="${esc(u)}" alt="" onerror="this.remove()">` : '';
 }
 
 function card(kind, x, opts = {}) {
@@ -428,9 +428,21 @@ function renderLibrary(tab) {
         ${index.cats[tab].map(([c, n]) => `<button class="chip" data-act="cat" data-cat="${esc(c)}" aria-pressed="${state.category === c}" data-focus>${esc(c)} <small>${n}</small></button>`).join('')}
       </nav>
     </div>
-    ${items.length ? `<div class="grid ${kind === 'live' ? 'grid-wide' : ''}">${items.slice(0, limit).map((x) => card(kind, x)).join('')}</div>`
+    ${items.length ? `<div class="grid ${kind === 'live' ? 'grid-wide' : ''}" id="lib-grid">${items.slice(0, limit).map((x) => card(kind, x)).join('')}</div>`
       : `<p class="empty">${all.length ? 'Ningún resultado con este filtro.' : 'Tus fuentes no tienen contenido en esta sección.'}</p>`}
-    ${items.length > limit ? `<button class="btn more" data-act="more" data-focus>Mostrar más (${(items.length - limit).toLocaleString('es')} restantes)</button>` : ''}`;
+    <div id="lib-more" class="lib-more"></div>`;
+  // Carga continua: al acercarse al final se añaden más tarjetas sin repintar la página.
+  let shown = Math.min(limit, items.length);
+  const sentinel = $('#lib-more');
+  if (!sentinel || shown >= items.length) return;
+  const obs = new IntersectionObserver((entries) => {
+    if (!entries[0].isIntersecting || !document.body.contains(sentinel)) return;
+    const next = items.slice(shown, shown + PAGE * 2);
+    $('#lib-grid').insertAdjacentHTML('beforeend', next.map((x) => card(kind, x)).join(''));
+    shown += next.length; state.limit = shown;
+    if (shown >= items.length) obs.disconnect();
+  }, { rootMargin: '1200px 0px' });
+  obs.observe(sentinel);
 }
 
 function renderFavorites() {
@@ -612,7 +624,7 @@ setTimeout(() => { loadLib('Hls'); }, 2500);
 function destroyEngines() {
   if (player.hls) { player.hls.destroy(); player.hls = null; }
   if (player.ts) { try { player.ts.destroy(); } catch { /* */ } player.ts = null; }
-  player.video.removeAttribute('src'); player.video.load();
+  if (player.video.hasAttribute('src')) { player.video.removeAttribute('src'); player.video.load(); }
 }
 
 function playerError(msg, detail) {
@@ -639,10 +651,21 @@ function openPlayer(item, list = null) {
 }
 
 /** Variantes a probar: en canales Xtream se intenta HLS (.m3u8) y, si no arranca, MPEG-TS (.ts), o al revés. */
+// Reproductor HLS integrado del navegador (Chrome reciente, Safari, Android/WebView): a diferencia de
+// hls.js, NO necesita que el proveedor permita CORS, así que abre canales que de otro modo fallan.
+const nativeHls = (() => { try { return !!document.createElement('video').canPlayType('application/vnd.apple.mpegurl'); } catch { return false; } })();
+
+/** Intentos en orden: {url, mode}. mode: 'native' (sin CORS), 'hls' (hls.js), 'ts' (mpegts.js), 'file'. */
 function candidatesFor(item) {
   const m = /^(.*\/live\/[^/]+\/[^/]+\/[^/.]+)\.(m3u8|ts)$/i.exec(item.url);
-  if (!m) return [item.url];
-  return m[2].toLowerCase() === 'm3u8' ? [item.url, `${m[1]}.ts`] : [item.url, `${m[1]}.m3u8`];
+  const ext = extOf(item.url);
+  if (m) {
+    const hlsUrl = `${m[1]}.m3u8`, tsUrl = `${m[1]}.ts`;
+    return [...(nativeHls ? [{ url: hlsUrl, mode: 'native' }] : []), { url: hlsUrl, mode: 'hls' }, { url: tsUrl, mode: 'ts' }];
+  }
+  if (ext === 'm3u8' || ext === 'm3u') return [...(nativeHls ? [{ url: item.url, mode: 'native' }] : []), { url: item.url, mode: 'hls' }];
+  if (ext === 'ts' || (item.kind === 'live' && !ext)) return [{ url: item.url, mode: 'ts' }];
+  return [{ url: item.url, mode: 'file' }];
 }
 
 const MIXED_STREAM_MSG = 'Tu proveedor entrega el video por http:// (sin cifrar) y el navegador lo bloquea en esta página segura. Este canal funciona en la app Android de EmbyVerse.';
@@ -651,7 +674,8 @@ async function start(item, attempt = 0) {
   destroyEngines();
   clearTimeout(player.watchdog);
   const urls = candidatesFor(item);
-  const url = urls[attempt], v = player.video;
+  const { url, mode } = urls[attempt], v = player.video;
+  player.expectSrc = null;
   const token = player.token = (player.token || 0) + 1; // invalida intentos anteriores
   const alive = () => player.item === item && player.token === token;
   if (insecureOnHttps(url)) return playerError(MIXED_STREAM_MSG);
@@ -673,13 +697,17 @@ async function start(item, attempt = 0) {
   const resume = item.kind !== 'live' ? state.progress[favKey(item.kind, item.sid, item.id)] : null;
   const startAt = item.restart ? 0 : resume && resume.t > 15 && resume.t / resume.d < 0.95 ? resume.t : 0;
   const onReady = () => { if (!alive()) return; if (startAt) v.currentTime = startAt; v.play().catch(() => { $('#p-loading').hidden = true; $('#p-tap').hidden = false; }); };
-  const isHls = ext === 'm3u8' || ext === 'm3u';
-  const isTs = ext === 'ts' || (item.kind === 'live' && !ext);
-
-  if (isHls) {
+  if (mode === 'native') {
+    // 8 s para el intento nativo; si no arranca se pasa a hls.js y después a MPEG-TS.
+    clearTimeout(player.watchdog);
+    player.watchdog = setTimeout(() => fail(lastProblem || 'El canal no envió video a tiempo.', 'nativo sin imagen tras 8 s'), 8000);
+    player.expectSrc = url; v.src = url; v.addEventListener('loadedmetadata', onReady, { once: true });
+    return;
+  }
+  if (mode === 'hls') {
     const Hls = await loadLib('Hls');
     if (!alive()) return;
-    if (!Hls || !Hls.isSupported()) { v.src = url; v.addEventListener('loadedmetadata', onReady, { once: true }); return; }
+    if (!Hls || !Hls.isSupported()) { if (!Hls) return fail("No se pudo descargar el reproductor HLS. Revisa tu conexión y pulsa Reintentar.", "hls.js no cargó"); player.expectSrc = url; v.src = url; v.addEventListener('loadedmetadata', onReady, { once: true }); return; }
     const h = new Hls({
       enableWorker: true, maxBufferLength: 20, startFragPrefetch: true,
       manifestLoadingTimeOut: 8000, manifestLoadingMaxRetry: 1, levelLoadingTimeOut: 8000, levelLoadingMaxRetry: 1,
@@ -701,7 +729,7 @@ async function start(item, attempt = 0) {
     h.loadSource(url); h.attachMedia(v);
     return;
   }
-  if (isTs) {
+  if (mode === 'ts') {
     const mpegts = await loadLib('mpegts');
     if (!alive()) return;
     if (!mpegts) return fail('No se pudo descargar el reproductor de canales. Revisa tu conexión a Internet y pulsa Reintentar.', 'mpegts.js no cargó');
@@ -709,17 +737,18 @@ async function start(item, attempt = 0) {
     const p = mpegts.createPlayer({ type: 'mpegts', isLive: true, url }, { enableWorker: true, lazyLoad: false, liveBufferLatencyChasing: true });
     player.ts = p; p.attachMediaElement(v); p.load();
     p.on(mpegts.Events.ERROR, (type, detail, info) => fail(
-      type === mpegts.ErrorTypes.NETWORK_ERROR ? 'No se pudo cargar el canal: el servidor no responde o no permite reproducir desde navegadores (CORS). Prueba en la app Android.' : 'Este canal usa un formato que el navegador no puede reproducir.',
+      type === mpegts.ErrorTypes.NETWORK_ERROR ? 'Tu proveedor no permite reproducir este canal desde un navegador web. Se probaron los 3 métodos disponibles. Este canal sí funciona en la app Android de EmbyVerse.' : 'Este canal usa un formato que el navegador no puede reproducir.',
       `${type} · ${detail}${info && info.code ? ' · HTTP ' + info.code : ''}`));
     v.addEventListener('loadedmetadata', onReady, { once: true });
     return;
   }
-  v.src = url; v.addEventListener('loadedmetadata', onReady, { once: true });
+  player.expectSrc = url; v.src = url; v.addEventListener('loadedmetadata', onReady, { once: true });
 }
 player.video.addEventListener('playing', () => { clearTimeout(player.watchdog); $('#p-loading').hidden = true; $('#p-tap').hidden = true; player.retries = 0; });
 player.video.addEventListener('waiting', () => { if ($('#p-err').hidden) $('#p-loading').hidden = false; });
 player.video.addEventListener('error', () => {
-  if (player.hls || player.ts || !player.item || !player.fail) return;
+  // Solo errores del video que se pidió (no los del vaciado del intento anterior).
+  if (player.hls || player.ts || !player.item || !player.fail || !player.expectSrc || player.video.currentSrc !== player.expectSrc) return;
   const code = player.video.error && player.video.error.code;
   player.fail('No se pudo reproducir: el formato no es compatible con este navegador o el servidor no responde.', `video error ${code || ''}`);
 });
