@@ -3,7 +3,6 @@ package com.embyverse.app.ui.screens.library
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
@@ -125,8 +124,7 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
     var text by rememberSaveable { mutableStateOf("") }
     val context = LocalContext.current
     val container = LocalAppContainer.current
-    val scope = rememberCoroutineScope()
-    val preview = remember { LivePreview(context, container, scope) }
+    val preview = remember { LivePreview(context, container) }
     val previewing by preview.channel.collectAsStateWithLifecycle()
     val wide = t.device.useRail || t.device.width != com.embyverse.app.ui.theme.WidthClass.COMPACT
 
@@ -138,7 +136,7 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
             if (e == Lifecycle.Event.ON_START) preview.channel.value?.let { preview.play(it) }
         }
         lifecycle.addObserver(obs)
-        onDispose { lifecycle.removeObserver(obs); preview.clear() }
+        onDispose { lifecycle.removeObserver(obs); preview.dispose() }
     }
     val fullscreen: (ChannelEntity) -> Unit = { ch ->
         preview.release()

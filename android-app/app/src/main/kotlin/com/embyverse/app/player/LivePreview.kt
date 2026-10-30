@@ -6,7 +6,12 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.embyverse.app.data.db.ChannelEntity
 import com.embyverse.app.di.AppContainer
+import android.os.Handler
+import android.os.Looper
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,7 +23,10 @@ import kotlinx.coroutines.launch
  * Se libera al salir de la pantalla y antes de abrir la pantalla completa, para no gastar una
  * de las conexiones simultáneas que permite el proveedor.
  */
-class LivePreview(private val context: Context, private val c: AppContainer, private val scope: CoroutineScope) {
+class LivePreview(private val context: Context, private val c: AppContainer, @Suppress("UNUSED_PARAMETER") ignored: CoroutineScope? = null) {
+    // ExoPlayer solo se puede usar desde el hilo en que se creó: todo va por el hilo principal.
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val main = Handler(Looper.getMainLooper())
     private val _player = MutableStateFlow<ExoPlayer?>(null)
     val player: StateFlow<ExoPlayer?> = _player
     private val _channel = MutableStateFlow<ChannelEntity?>(null)
@@ -51,6 +59,7 @@ class LivePreview(private val context: Context, private val c: AppContainer, pri
 
     /** Detiene y libera (al salir de la pantalla o antes de pasar a pantalla completa). */
     fun release() {
+        if (Looper.myLooper() != Looper.getMainLooper()) { main.post { release() }; return }
         job?.cancel()
         _player.value?.let { it.removeListener(listener); it.release() }
         _player.value = null
@@ -58,4 +67,7 @@ class LivePreview(private val context: Context, private val c: AppContainer, pri
     }
 
     fun clear() { release(); _channel.value = null }
+
+    /** Al salir definitivamente de la pantalla. */
+    fun dispose() { clear(); scope.cancel() }
 }
