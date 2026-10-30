@@ -121,7 +121,10 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
         lists, combine(recent, novedades) { r, n -> r to n }, recommended, combine(profileName, c.sources.sources) { n, s -> n to s.isNotEmpty() },
     ) { (cfg, sections, now), base, (rec, news), recs, (name, hasSources) ->
         val content = base + mapOf(SectionType.RECENTLY_ADDED to rec, SectionType.RECOMMENDED to recs)
-        val heroBanners = ConfigResolver.banners(cfg, BannerPlacement.HERO, now).map { HeroItem(it.id, it.title, it.subtitle, it.imageUrl, it.route) }
+        // El banner de bienvenida («Añadir fuente») sobra cuando ya hay listas: se muestran las novedades.
+        val heroBanners = ConfigResolver.banners(cfg, BannerPlacement.HERO, now)
+            .filter { !(hasSources && it.route == AppRoute.SOURCES) }
+            .map { HeroItem(it.id, it.title, it.subtitle, it.imageUrl, it.route) }
         val heroMax = sections.firstOrNull { it.type == SectionType.HERO_BANNER }?.maxItems ?: 5
         val featured = news.take(heroMax).map { it.second }
         HomeUiState(
