@@ -181,20 +181,33 @@ async function xtreamAuth(src) {
   if (!/^active$/i.test(status)) throw new UserError(`La cuenta del proveedor no está activa (estado: ${status}).`);
   return { status, exp: ui.exp_date ? +ui.exp_date : null, max: ui.max_connections ? +ui.max_connections : null, formats: ui.allowed_output_formats || [] };
 }
-async function xtreamCatalog(src) {
-  const acc = await xtreamAuth(src);
+async function xtreamCatalog(src, progress = () => {}) {
+  // Autenticación, categorías y contenido se piden TODOS A LA VEZ (antes eran 3 rondas seguidas).
   const warnings = [];
-  const get = async (action) => { try { const r = await fetchText(xApi(src, action), { json: true, timeout: 60000 }); return Array.isArray(r) ? r : Object.values(r || {}); } catch (e) { warnings.push(`${action}: ${e.message}`); return []; } };
-  const cats = async (a) => Object.fromEntries((await get(a)).map((c) => [String(c.category_id), c.category_name]));
-  const [lc, vc, sc] = await Promise.all([cats('get_live_categories'), cats('get_vod_categories'), cats('get_series_categories')]);
-  const [ls, vs, ss] = await Promise.all([get('get_live_streams'), get('get_vod_streams'), get('get_series')]);
+  const get = async (action, label) => {
+    try { const r = await fetchText(xApi(src, action), { json: true, timeout: 90000 }); if (label) progress(label); return Array.isArray(r) ? r : Object.values(r || {}); }
+    catch (e) { if (e instanceof UserError && /usa http:\/\//.test(e.message)) throw e; warnings.push(`${action}: ${e.message}`); return []; }
+  };
+  const catsOf = (arr) => Object.fromEntries(arr.map((c) => [String(c.category_id), c.category_name]));
+  const authP = xtreamAuth(src);
+  const all = Promise.all([get('get_live_categories'), get('get_vod_categories'), get('get_series_categories'),
+    get('get_live_streams', 'canales'), get('get_vod_streams', 'películas'), get('get_series', 'series')]);
+  const acc = await authP; // si las credenciales fallan, se informa en cuanto responde la autenticación
+  progress('autenticado');
+  const [lcA, vcA, scA, ls, vs, ss] = await all;
+  const lc = catsOf(lcA), vc = catsOf(vcA), sc = catsOf(scA);
   const base = xBase(src.location), u = enc(src.username), p = enc(src.password);
   const fmt = acc.formats.includes('m3u8') || !acc.formats.length ? 'm3u8' : 'ts';
   const live = dedupe(ls.filter((x) => x.stream_id != null), (x) => x.stream_id).map((x) => ({ id: String(x.stream_id), name: x.name || 'Canal', url: `${base}/live/${u}/${p}/${x.stream_id}.${fmt}`, logo: x.stream_icon || null, group: lc[String(x.category_id)] || null, epg: x.epg_channel_id || null, num: +x.num || null }));
   const movies = dedupe(vs.filter((x) => x.stream_id != null), (x) => x.stream_id).map((x) => ({ id: String(x.stream_id), title: x.name || 'Película', url: `${base}/movie/${u}/${p}/${x.stream_id}.${x.container_extension || 'mp4'}`, poster: x.stream_icon || null, group: vc[String(x.category_id)] || null, year: +x.year || null, rating: +x.rating || null, ext: x.container_extension || 'mp4', added: +x.added || null }));
-  const series = dedupe(ss.filter((x) => x.series_id != null), (x) => x.series_id).map((x) => ({ id: String(x.series_id), title: x.name || 'Serie', poster: x.cover || null, group: sc[String(x.category_id)] || null, plot: x.plot || null, year: parseInt(x.releaseDate || x.release_date, 10) || null, rating: +x.rating || null, episodes: null, added: +x.last_modified || null }));
+  const series = dedupe(ss.filter((x) => x.series_id != null), (x) => x.series_id).map((x) => ({ id: String(x.series_id), title: x.name || 'Serie', poster: x.cover || null, backdrop: Array.isArray(x.backdrop_path) ? x.backdrop_path[0] || null : null, group: sc[String(x.category_id)] || null, plot: x.plot || null, year: parseInt(x.releaseDate || x.release_date, 10) || null, rating: +x.rating || null, episodes: null, added: +x.last_modified || null }));
   if (!live.length && !movies.length && !series.length) throw new UserError('La cuenta es válida pero el servidor no devolvió contenido. ' + warnings.join(' '));
   return { sourceId: src.id, live, movies, series, warnings, account: acc };
+}
+async function xtreamMovieInfo(src, id) {
+  const r = await fetchText(xApi(src, 'get_vod_info', '&vod_id=' + enc(id)), { json: true });
+  const i = (r && !Array.isArray(r.info) && r.info) || {};
+  return { plot: i.plot || i.description || null, genre: i.genre || null, duration: i.duration || null, backdrop: Array.isArray(i.backdrop_path) ? i.backdrop_path[0] : null, cast: i.cast || null, director: i.director || null };
 }
 async function xtreamEpisodes(src, seriesId) {
   const r = await fetchText(xApi(src, 'get_series_info', '&series_id=' + enc(seriesId)), { json: true });
@@ -204,166 +217,298 @@ async function xtreamEpisodes(src, seriesId) {
     .sort((a, b) => a.season - b.season || a.episode - b.episode);
 }
 
+
 // ------------------------------------------------------------------ estado
 const state = {
   sources: store.get('sources', []),
   catalogs: {},
-  tab: 'live',
+  tab: 'home',
   category: null,
   query: '',
+  limit: 0,
   favorites: new Set(store.get('favorites', [])),
   progress: store.get('progress', {}),
   history: store.get('history', []),
-  detail: null,
+  detail: null, // { kind: 'movie' | 'series', sid, id, season? }
 };
 const saveSources = () => store.set('sources', state.sources);
 const favKey = (kind, sid, id) => `${kind}|${sid}|${id}`;
+const PAGE = 120;
 
-function allOf(kind) {
-  const out = [];
+// Índice unificado: se construye UNA vez al cargar o sincronizar (antes se copiaba todo el
+// catálogo en cada pintado de pantalla, lo que hacía lenta la web con listas grandes).
+const index = { live: [], movies: [], series: [], cats: {}, byKey: new Map() };
+function rebuildIndex() {
+  for (const k of ['live', 'movies', 'series']) index[k] = [];
+  index.byKey.clear();
   for (const s of state.sources) {
     const c = state.catalogs[s.id]; if (!c) continue;
-    for (const x of c[kind] || []) out.push({ ...x, sid: s.id });
+    for (const k of ['live', 'movies', 'series']) for (const x of c[k] || []) {
+      x.sid = s.id; x._n = norm(x.name || x.title); index[k].push(x);
+      index.byKey.set(`${k}|${s.id}|${x.id}`, x);
+    }
   }
-  return out;
+  for (const k of ['live', 'movies', 'series']) {
+    const m = new Map();
+    for (const x of index[k]) { const g = x.group || 'Sin categoría'; m.set(g, (m.get(g) || 0) + 1); }
+    index.cats[k] = [...m.entries()];
+  }
+  index.recentMovies = [...index.movies].sort((a, b) => (b.added || 0) - (a.added || 0));
+  index.recentSeries = [...index.series].sort((a, b) => (b.added || 0) - (a.added || 0));
 }
+const kindOfTab = { live: 'live', movies: 'movie', series: 'series' };
+const listOfKind = { live: 'live', movie: 'movies', series: 'series' };
 
 // ------------------------------------------------------------------ fuentes
 async function syncSource(src) {
-  src.lastError = null; src.syncing = true; render();
+  src.lastError = null; src.syncing = true; src.step = 'Conectando…'; render();
+  const progress = (what) => { src.step = what === 'autenticado' ? 'Cuenta verificada. Descargando catálogo…' : `Recibido: ${what}…`; const el = document.querySelector(`[data-step="${src.id}"]`); if (el) el.textContent = src.step; };
   try {
     let cat;
-    if (src.type === 'xtream') cat = await xtreamCatalog(src);
+    if (src.type === 'xtream') cat = await xtreamCatalog(src, progress);
     else {
-      const text = src.type === 'file' ? await idb.get('file:' + src.id) : await fetchText(src.location, { timeout: 90000 });
+      const text = src.type === 'file' ? await idb.get('file:' + src.id) : await fetchText(src.location, { timeout: 120000 });
       if (!text) throw new UserError('No se encontró el archivo guardado. Vuelve a elegirlo.');
+      progress('lista');
       cat = parseM3U(text, src.id, src.type === 'url' ? src.location : null);
       if (!cat.live.length && !cat.movies.length && !cat.series.length) throw new UserError('La lista es válida pero está vacía.');
     }
     state.catalogs[src.id] = cat;
-    await idb.put('cat:' + src.id, cat);
+    rebuildIndex();
+    idb.put('cat:' + src.id, cat); // en segundo plano: no hace esperar a la interfaz
     Object.assign(src, { lastSync: Date.now(), counts: [cat.live.length, cat.movies.length, cat.series.length], warnings: cat.warnings || [] });
   } catch (e) {
     src.lastError = e instanceof UserError ? e.message : 'No se pudo cargar la fuente.';
-  } finally { src.syncing = false; saveSources(); render(); }
+  } finally { src.syncing = false; src.step = null; saveSources(); render(); }
   return !src.lastError;
 }
 
 async function loadCatalogs() {
   await Promise.all(state.sources.map(async (s) => { const c = await idb.get('cat:' + s.id); if (c) state.catalogs[s.id] = c; }));
+  rebuildIndex();
+}
+
+// ------------------------------------------------------------------ componentes
+const view = $('#view');
+const hue = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+const titleOf = (x) => x.name || x.title;
+
+function img(src, cls = '') {
+  const u = safeImg(src);
+  return u ? `<img class="${cls}" loading="lazy" decoding="async" src="${esc(u)}" alt="" onerror="this.remove()">` : '';
+}
+
+function card(kind, x, opts = {}) {
+  const k = favKey(kind, x.sid, x.id);
+  const prog = state.progress[k];
+  const pct = prog && prog.d ? Math.min(100, (prog.t / prog.d) * 100) : 0;
+  const title = titleOf(x);
+  const live = kind === 'live';
+  const sub = live ? (x.num ? `Canal ${x.num}` : x.group || '') : [x.year, x.rating ? `★ ${x.rating.toFixed(1)}` : null].filter(Boolean).join('  ·  ');
+  return `<button class="card ${live ? 'wide' : ''}" data-act="open" data-kind="${kind}" data-sid="${esc(x.sid)}" data-id="${esc(x.id)}" data-focus>
+    <span class="art" style="--h:${hue(title)}">${img(live ? x.logo : x.poster)}<span class="art-title">${esc(title)}</span>
+      ${state.favorites.has(k) ? '<span class="fav" aria-label="En mi lista">♥</span>' : ''}${pct > 2 ? `<span class="bar"><i style="width:${pct}%"></i></span>` : ''}</span>
+    <span class="meta"><b>${esc(opts.title || title)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</span>
+  </button>`;
+}
+
+function row(title, kind, items, more) {
+  if (!items.length) return '';
+  return `<section class="row">
+    <div class="row-head"><h2>${esc(title)}</h2>${more ? `<button class="link" data-act="goto" data-tab="${more.tab}" data-cat="${esc(more.cat || '')}" data-focus>Ver todo</button>` : ''}</div>
+    <div class="strip ${kind === 'live' ? 'strip-wide' : ''}">${items.map((x) => card(kind, x)).join('')}</div>
+  </section>`;
 }
 
 // ------------------------------------------------------------------ vistas
-const TABS = [['live', 'TV en vivo'], ['movies', 'Películas'], ['series', 'Series'], ['favorites', 'Favoritos'], ['sources', 'Fuentes']];
-const view = $('#view');
-
 function render() {
-  document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-current', b.dataset.tab === state.tab ? 'page' : 'false'));
-  $('#search').hidden = state.tab === 'sources';
-  if (state.detail) return renderSeries(state.detail);
-  if (!state.sources.length && state.tab !== 'sources') return renderWelcome();
+  document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-current', b.dataset.tab === state.tab && !state.detail ? 'page' : 'false'));
+  const noSources = !state.sources.length;
+  document.body.classList.toggle('signed-out', noSources);
+  $('#search').hidden = noSources || !['live', 'movies', 'series'].includes(state.tab) || !!state.detail;
+  if (noSources && state.tab !== 'sources') return renderWelcome();
+  if (state.detail) return renderDetail(state.detail);
   if (state.tab === 'sources') return renderSources();
   if (state.tab === 'favorites') return renderFavorites();
+  if (state.tab === 'home') return renderHome();
   return renderLibrary(state.tab);
 }
 
 function renderWelcome() {
   view.innerHTML = `
     <section class="welcome">
-      <h1>Entrar a EmbyVerse</h1>
-      <p>Entra con los datos de tu proveedor: servidor Xtream Codes con usuario y contraseña, o el enlace de tu lista M3U.</p>
-      ${addForm('Tus datos de acceso', 'Entrar')}
-      <button class="btn" data-act="demo" data-focus>Probar con la lista de demostración</button>
-      <p class="fine">Los datos se guardan solo en este navegador. La lista de demostración usa películas abiertas de la Blender Foundation (CC BY) y streams de prueba públicos.</p>
+      <div class="welcome-copy">
+        <img class="welcome-logo" src="${$('.logo').src}" alt="EmbyVerse">
+        <h1>Tu universo de entretenimiento</h1>
+        <p>Entra con los datos de tu proveedor para ver canales en vivo, películas y series.</p>
+      </div>
+      ${addForm('Iniciar sesión', 'Entrar')}
+      <button class="link" data-act="demo" data-focus>Probar con la lista de demostración</button>
     </section>`;
   wireForm();
   focusFirst();
 }
 
-function categoriesFor(items) {
-  const counts = new Map();
-  for (const x of items) { const g = x.group || 'Sin categoría'; counts.set(g, (counts.get(g) || 0) + 1); }
-  return [...counts.entries()];
-}
-
-function cardFor(kind, x) {
-  const fav = state.favorites.has(favKey(kind, x.sid, x.id));
-  const prog = state.progress[favKey(kind, x.sid, x.id)];
-  const pct = prog && prog.d ? Math.min(100, (prog.t / prog.d) * 100) : 0;
-  const img = safeImg(kind === 'live' ? x.logo : x.poster);
-  const title = kind === 'live' ? x.name : x.title;
-  const sub = kind === 'live' ? (x.num ? `${x.num} · ` : '') + (x.group || '') : [x.year, x.rating ? '★ ' + x.rating.toFixed(1) : null].filter(Boolean).join(' · ');
-  return `<button class="card ${kind === 'live' ? 'wide' : ''}" data-act="open" data-kind="${kind}" data-sid="${esc(x.sid)}" data-id="${esc(x.id)}" data-focus>
-    <span class="art" style="--h:${hue(title)}">${img ? `<img loading="lazy" src="${esc(img)}" alt="" onerror="this.remove()">` : ''}<span class="art-title">${esc(title)}</span>
-      ${fav ? '<span class="fav" aria-label="Favorito">♥</span>' : ''}${pct > 2 ? `<span class="bar"><i style="width:${pct}%"></i></span>` : ''}</span>
-    <span class="meta"><b>${esc(title)}</b><small>${esc(sub)}</small></span>
-  </button>`;
-}
-const hue = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
-
-const PAGE = 300;
-function renderLibrary(tab) {
-  const kind = tab === 'live' ? 'live' : tab === 'movies' ? 'movie' : 'series';
-  const all = allOf(tab === 'live' ? 'live' : tab);
-  const cats = categoriesFor(all);
-  const q = norm(state.query);
-  let items = all.filter((x) => (!state.category || (x.group || 'Sin categoría') === state.category) && (!q || norm(x.name || x.title).includes(q)));
-  const total = items.length;
-  const limit = state.limit || PAGE;
-  items = items.slice(0, limit);
-  const cont = tab !== 'live' ? continueRow(kind) : '';
+function renderHome() {
+  const anyContent = index.live.length + index.movies.length + index.series.length;
+  if (!anyContent) {
+    const syncing = state.sources.find((s) => s.syncing);
+    view.innerHTML = syncing ? `<div class="loading-state"><span class="spinner"></span><p data-step="${esc(syncing.id)}">${esc(syncing.step || 'Cargando tu catálogo…')}</p></div>`
+      : `<p class="empty">Tus fuentes aún no tienen contenido. <button class="link" data-act="goto" data-tab="sources" data-focus>Revisar fuentes</button></p>`;
+    return;
+  }
+  // Destacado: título reciente con imagen, cambia cada día
+  const pool = [...index.recentMovies.slice(0, 30), ...index.recentSeries.slice(0, 20)].filter((x) => safeImg(x.backdrop || x.poster));
+  const hero = pool.length ? pool[new Date().getDate() % pool.length] : null;
+  const heroKind = hero && (index.byKey.has(`series|${hero.sid}|${hero.id}`) ? 'series' : 'movie');
+  const cont = continueItems();
+  const topCats = (k, n) => index.cats[k].slice().sort((a, b) => b[1] - a[1]).slice(0, n).map(([c]) => c);
+  const byCat = (k, c) => index[k].filter((x) => (x.group || 'Sin categoría') === c).slice(0, 24);
   view.innerHTML = `
-    ${cont}
-    <div class="library">
-      <nav class="cats" aria-label="Categorías">
-        <button class="cat" data-act="cat" data-cat="" aria-pressed="${!state.category}" data-focus>Todas <small>${all.length}</small></button>
-        ${cats.map(([c, n]) => `<button class="cat" data-act="cat" data-cat="${esc(c)}" aria-pressed="${state.category === c}" data-focus>${esc(c)} <small>${n}</small></button>`).join('')}
-      </nav>
-      <div class="grid-wrap">
-        ${total ? `<div class="grid ${kind === 'live' ? 'grid-wide' : ''}">${items.map((x) => cardFor(kind, x)).join('')}</div>` : `<p class="empty">${all.length ? 'Ningún resultado con este filtro.' : 'Tus fuentes no tienen contenido en esta sección.'}</p>`}
-        ${total > limit ? `<button class="btn more" data-act="more" data-focus>Mostrar más (${total - limit} restantes)</button>` : ''}
+    ${hero ? `<section class="hero" style="--h:${hue(titleOf(hero))}">
+      <div class="hero-bg">${img(hero.backdrop || hero.poster)}</div>
+      <div class="hero-body">
+        <span class="eyebrow">${heroKind === 'series' ? 'Serie destacada' : 'Película destacada'}</span>
+        <h1>${esc(hero.title)}</h1>
+        <p class="hero-meta">${[hero.year, hero.rating ? `★ ${hero.rating.toFixed(1)}` : null, hero.group].filter(Boolean).map(esc).join('<i></i>')}</p>
+        ${hero.plot ? `<p class="hero-plot">${esc(hero.plot)}</p>` : ''}
+        <div class="hero-actions">
+          <button class="btn primary" data-act="${heroKind === 'series' ? 'open' : 'play'}" data-kind="${heroKind}" data-sid="${esc(hero.sid)}" data-id="${esc(hero.id)}" data-focus>▶ ${heroKind === 'series' ? 'Ver episodios' : 'Reproducir'}</button>
+          <button class="btn glass" data-act="open" data-kind="${heroKind}" data-sid="${esc(hero.sid)}" data-id="${esc(hero.id)}" data-focus>Más información</button>
+        </div>
       </div>
+      ${safeImg(hero.poster) ? `<div class="hero-poster">${img(hero.poster)}</div>` : ''}
+    </section>` : ''}
+    <div class="rows">
+      ${cont.length ? `<section class="row"><div class="row-head"><h2>Continuar viendo</h2></div><div class="strip strip-wide">${cont.join('')}</div></section>` : ''}
+      ${row('TV en vivo', 'live', index.live.slice(0, 24), { tab: 'live' })}
+      ${row('Películas recién añadidas', 'movie', index.recentMovies.slice(0, 24), { tab: 'movies' })}
+      ${row('Series recién añadidas', 'series', index.recentSeries.slice(0, 24), { tab: 'series' })}
+      ${topCats('movies', 4).map((c) => row(c, 'movie', byCat('movies', c), { tab: 'movies', cat: c })).join('')}
+      ${topCats('series', 3).map((c) => row(c, 'series', byCat('series', c), { tab: 'series', cat: c })).join('')}
     </div>`;
 }
 
-function continueRow(kind) {
-  const keys = state.history.filter((h) => h.k.startsWith(kind === 'movie' ? 'movie|' : 'episode|')).slice(0, 12);
-  const rows = keys.map((h) => { const p = state.progress[h.k]; return p && p.d && p.t / p.d < 0.95 && p.t > 15 ? h : null; }).filter(Boolean);
-  if (!rows.length) return '';
-  return `<section class="row"><h2>Continuar viendo</h2><div class="strip">${rows.map((h) => {
-    const p = state.progress[h.k]; const [k, sid, ...rest] = h.k.split('|'); const id = rest.join('|');
-    return `<button class="card wide" data-act="resume" data-kind="${k}" data-sid="${esc(sid)}" data-id="${esc(id)}" data-focus><span class="art" style="--h:${hue(h.title)}"><span class="art-title">${esc(h.title)}</span><span class="bar"><i style="width:${(p.t / p.d) * 100}%"></i></span></span><span class="meta"><b>${esc(h.title)}</b><small>${fmtTime(p.t)} de ${fmtTime(p.d)}</small></span></button>`;
-  }).join('')}</div></section>`;
+function continueItems() {
+  const out = [];
+  for (const h of state.history) {
+    if (out.length >= 12) break;
+    const [k, sid, ...rest] = h.k.split('|'); const id = rest.join('|');
+    if (k !== 'movie' && k !== 'episode') continue;
+    const p = state.progress[h.k];
+    if (!p || !p.d || p.t < 15 || p.t / p.d > 0.95) continue;
+    out.push(`<button class="card wide" data-act="resume" data-kind="${k}" data-sid="${esc(sid)}" data-id="${esc(id)}" data-focus>
+      <span class="art" style="--h:${hue(h.title)}">${img(h.img)}<span class="art-title">${esc(h.title)}</span><span class="bar"><i style="width:${(p.t / p.d) * 100}%"></i></span><span class="play-badge">▶</span></span>
+      <span class="meta"><b>${esc(h.title)}</b><small>${esc(h.sub || '')}${h.sub ? '  ·  ' : ''}quedan ${fmtTime(p.d - p.t)}</small></span></button>`);
+  }
+  return out;
+}
+
+function renderLibrary(tab) {
+  const kind = kindOfTab[tab];
+  const all = index[tab];
+  const q = norm(state.query);
+  const items = all.filter((x) => (!state.category || (x.group || 'Sin categoría') === state.category) && (!q || x._n.includes(q)));
+  const limit = state.limit || PAGE;
+  const label = { live: 'TV en vivo', movies: 'Películas', series: 'Series' }[tab];
+  view.innerHTML = `
+    <div class="lib-head">
+      <h1>${label}<span class="count">${items.length.toLocaleString('es')}</span></h1>
+      <nav class="chips" aria-label="Categorías">
+        <button class="chip" data-act="cat" data-cat="" aria-pressed="${!state.category}" data-focus>Todas</button>
+        ${index.cats[tab].map(([c, n]) => `<button class="chip" data-act="cat" data-cat="${esc(c)}" aria-pressed="${state.category === c}" data-focus>${esc(c)} <small>${n}</small></button>`).join('')}
+      </nav>
+    </div>
+    ${items.length ? `<div class="grid ${kind === 'live' ? 'grid-wide' : ''}">${items.slice(0, limit).map((x) => card(kind, x)).join('')}</div>`
+      : `<p class="empty">${all.length ? 'Ningún resultado con este filtro.' : 'Tus fuentes no tienen contenido en esta sección.'}</p>`}
+    ${items.length > limit ? `<button class="btn more" data-act="more" data-focus>Mostrar más (${(items.length - limit).toLocaleString('es')} restantes)</button>` : ''}`;
 }
 
 function renderFavorites() {
   const groups = [['live', 'Canales'], ['movie', 'Películas'], ['series', 'Series']].map(([kind, label]) => {
-    const pool = allOf(kind === 'live' ? 'live' : kind === 'movie' ? 'movies' : 'series');
-    const items = pool.filter((x) => state.favorites.has(favKey(kind, x.sid, x.id)));
-    return items.length ? `<section class="row"><h2>${label}</h2><div class="grid ${kind === 'live' ? 'grid-wide' : ''}">${items.map((x) => cardFor(kind, x)).join('')}</div></section>` : '';
+    const items = index[listOfKind[kind]].filter((x) => state.favorites.has(favKey(kind, x.sid, x.id)));
+    return items.length ? `<section class="row"><div class="row-head"><h2>${label}</h2></div><div class="grid ${kind === 'live' ? 'grid-wide' : ''}">${items.map((x) => card(kind, x)).join('')}</div></section>` : '';
   }).join('');
-  view.innerHTML = groups || '<p class="empty">Aún no tienes favoritos. Abre un canal, película o serie y pulsa ♥.</p>';
+  view.innerHTML = `<div class="lib-head"><h1>Mi lista</h1></div>${groups || '<p class="empty">Aún no tienes nada en tu lista. Abre un canal, película o serie y pulsa «♡ Mi lista».</p>'}`;
+}
+
+async function renderDetail(d) {
+  const x = index.byKey.get(`${listOfKind[d.kind]}|${d.sid}|${d.id}`);
+  if (!x) { state.detail = null; return render(); }
+  const src = state.sources.find((s) => s.id === d.sid);
+  const k = favKey(d.kind, d.sid, x.id);
+  const prog = state.progress[k];
+  const resumable = d.kind === 'movie' && prog && prog.d && prog.t > 15 && prog.t / prog.d < 0.95;
+  view.innerHTML = `<section class="detail" style="--h:${hue(x.title)}">
+    <div class="detail-bg">${img(x.backdrop || x.poster)}</div>
+    <button class="btn glass back" data-act="back" data-focus>← Volver</button>
+    <div class="detail-main">
+      <div class="detail-poster art" style="--h:${hue(x.title)}">${img(x.poster)}<span class="art-title">${esc(x.title)}</span></div>
+      <div class="detail-info">
+        <span class="eyebrow">${d.kind === 'series' ? 'Serie' : 'Película'}</span>
+        <h1>${esc(x.title)}</h1>
+        <p class="hero-meta" id="d-meta">${[x.year, x.rating ? `★ ${x.rating.toFixed(1)}` : null, x.group].filter(Boolean).map(esc).join('<i></i>')}</p>
+        <p class="detail-plot" id="d-plot">${x.plot ? esc(x.plot) : ''}</p>
+        <div class="hero-actions">
+          ${d.kind === 'movie' ? `<button class="btn primary" data-act="play" data-kind="movie" data-sid="${esc(d.sid)}" data-id="${esc(x.id)}" data-focus>▶ ${resumable ? `Continuar (${fmtTime(prog.t)})` : 'Reproducir'}</button>
+            ${resumable ? `<button class="btn glass" data-act="play" data-restart="1" data-kind="movie" data-sid="${esc(d.sid)}" data-id="${esc(x.id)}" data-focus>Desde el principio</button>` : ''}` : ''}
+          <button class="btn glass" data-act="fav" data-kind="${d.kind}" data-sid="${esc(d.sid)}" data-id="${esc(x.id)}" data-focus>${state.favorites.has(k) ? '♥ En mi lista' : '♡ Mi lista'}</button>
+        </div>
+        ${resumable ? `<div class="bar inline"><i style="width:${(prog.t / prog.d) * 100}%"></i></div>` : ''}
+      </div>
+    </div>
+    ${d.kind === 'series' ? '<div id="eps" class="eps"><div class="loading-state small"><span class="spinner"></span><p>Cargando episodios…</p></div></div>' : ''}
+  </section>`;
+  focusFirst();
+  if (d.kind === 'movie') {
+    if (src && src.type === 'xtream' && !x.infoLoaded) {
+      try {
+        const info = await xtreamMovieInfo(src, x.id);
+        Object.assign(x, { plot: x.plot || info.plot, backdrop: x.backdrop || info.backdrop, genre: info.genre, duration: info.duration, infoLoaded: true });
+        if (state.detail !== d) return;
+        $('#d-plot').textContent = x.plot || '';
+        $('#d-meta').innerHTML = [x.year, x.duration, x.rating ? `★ ${x.rating.toFixed(1)}` : null, x.genre || x.group].filter(Boolean).map(esc).join('<i></i>');
+        if (safeImg(x.backdrop) && !$('.detail-bg img')) $('.detail-bg').innerHTML = img(x.backdrop);
+      } catch { /* la ficha sigue funcionando sin la información ampliada */ }
+    }
+    return;
+  }
+  try {
+    if (!x.episodes) { x.episodes = await xtreamEpisodes(src, x.id); idb.put('cat:' + d.sid, state.catalogs[d.sid]); }
+    if (state.detail !== d) return;
+    const seasons = [...new Set(x.episodes.map((e) => e.season))];
+    const cur = d.season ?? seasons[0];
+    $('#eps').innerHTML = !x.episodes.length ? '<p class="empty">El proveedor no tiene episodios para esta serie.</p>' : `
+      ${seasons.length > 1 ? `<nav class="chips">${seasons.map((n) => `<button class="chip" data-act="season" data-n="${n}" aria-pressed="${n === cur}" data-focus>Temporada ${n}</button>`).join('')}</nav>` : `<h2>Temporada ${cur}</h2>`}
+      <ol class="episodes">${x.episodes.filter((e) => e.season === cur).map((e) => {
+        const p = state.progress[favKey('episode', d.sid, e.id)]; const pct = p && p.d ? (p.t / p.d) * 100 : 0;
+        return `<li><button class="ep" data-act="play-ep" data-eid="${esc(e.id)}" data-focus>
+          <span class="ep-thumb art" style="--h:${hue(x.title + e.episode)}">${img(e.thumb || x.poster)}<span class="play-badge">▶</span>${pct > 2 ? `<span class="bar"><i style="width:${pct}%"></i></span>` : ''}</span>
+          <span class="ep-text"><b>${e.episode}. ${esc(e.title)}</b>${e.plot ? `<small>${esc(e.plot)}</small>` : ''}</span></button></li>`;
+      }).join('')}</ol>`;
+  } catch (e) { $('#eps').innerHTML = `<p class="err">${esc(e.message || 'No se pudieron cargar los episodios.')}</p>`; }
 }
 
 function addForm(title, button) {
+  const t = state.formType || 'xtream';
   return `
-      <form id="add" class="add" autocomplete="off">
+      <form id="add" class="add" autocomplete="off" data-type="${t}">
         <h2>${title}</h2>
-        <div class="seg" role="radiogroup" aria-label="Tipo de fuente">
-          ${[['xtream', 'Xtream Codes'], ['url', 'Lista M3U (URL)'], ['file', 'Archivo M3U']].map(([v, l]) => `<label><input type="radio" name="type" value="${v}" ${(state.formType || 'xtream') === v ? 'checked' : ''} data-focus><span>${l}</span></label>`).join('')}
+        <div class="seg" role="radiogroup" aria-label="Tipo de acceso">
+          ${[['xtream', 'Xtream Codes'], ['url', 'Lista M3U (URL)'], ['file', 'Archivo M3U']].map(([v, l]) => `<label><input type="radio" name="type" value="${v}" ${t === v ? 'checked' : ''} data-focus><span>${l}</span></label>`).join('')}
         </div>
-        <label class="field">Nombre<input id="f-name" name="name" maxlength="40" placeholder="Mi proveedor" data-focus></label>
         <div class="t-url t-xtream">
-          <label class="field"><span class="t-url">URL de la lista</span><span class="t-xtream">Servidor (o pega el enlace get.php completo)</span><input id="f-loc" name="location" inputmode="url" placeholder="https://" data-focus></label>
+          <label class="field"><span class="t-url">URL de la lista M3U</span><span class="t-xtream">Servidor (o pega el enlace get.php completo)</span><input id="f-loc" name="location" inputmode="url" placeholder="https://" data-focus></label>
         </div>
         <label class="field t-file">Archivo .m3u / .m3u8<input id="f-file" name="file" type="file" accept=".m3u,.m3u8,audio/x-mpegurl,application/vnd.apple.mpegurl,text/plain" data-focus></label>
         <div class="two t-xtream">
-          <label class="field">Usuario<input id="f-user" name="username" data-focus></label>
+          <label class="field">Usuario<input id="f-user" name="username" autocapitalize="off" data-focus></label>
           <label class="field">Contraseña<input id="f-pass" name="password" type="password" data-focus></label>
         </div>
-        <p class="fine">${pageIsHttps ? 'Esta página es segura (https), así que el navegador solo permite listas, servidores y canales https://. Para proveedores http:// usa la app Android.' : ''} Usa solo listas y servicios a los que tengas derecho de acceso.</p>
+        <label class="field">Nombre (opcional)<input id="f-name" name="name" maxlength="40" placeholder="Mi proveedor" data-focus></label>
         <p class="err" id="f-err" hidden></p>
-        <button class="btn primary" data-focus>${button}</button>
+        <button class="btn primary wide-btn" data-focus>${button}</button>
+        <p class="fine">${pageIsHttps ? 'En el navegador solo funcionan servidores y listas <b>https://</b>. Si tu proveedor usa http://, usa la app Android. ' : ''}Usa solo servicios a los que tengas derecho de acceso. Tus datos se guardan solo en este navegador.</p>
       </form>`;
 }
 
@@ -381,22 +526,20 @@ function wireForm() {
 function renderSources() {
   view.innerHTML = `
     <section class="sources">
-      <h1>Fuentes</h1>
+      <div class="lib-head"><h1>Fuentes</h1></div>
       ${state.sources.map((s) => `
         <article class="source">
-          <div><b>${esc(s.name)}</b><small>${s.type === 'xtream' ? 'Xtream Codes' : s.type === 'file' ? 'Archivo M3U' : 'Lista M3U (URL)'}${s.counts ? ` · ${s.counts[0]} canales · ${s.counts[1]} películas · ${s.counts[2]} series` : ''}</small>
-            ${s.lastSync ? `<small>Actualizada: ${new Date(s.lastSync).toLocaleString()}</small>` : ''}
-            ${s.syncing ? '<small class="ok">Cargando…</small>' : ''}
+          <div><b>${esc(s.name)}</b><small>${s.type === 'xtream' ? 'Xtream Codes' : s.type === 'file' ? 'Archivo M3U' : 'Lista M3U'}${s.counts ? `  ·  ${s.counts[0].toLocaleString('es')} canales  ·  ${s.counts[1].toLocaleString('es')} películas  ·  ${s.counts[2].toLocaleString('es')} series` : ''}</small>
+            ${s.lastSync ? `<small>Actualizada: ${new Date(s.lastSync).toLocaleString('es')}</small>` : ''}
+            ${s.syncing ? `<small class="ok" data-step="${esc(s.id)}">${esc(s.step || 'Cargando…')}</small>` : ''}
             ${s.lastError ? `<p class="err">${esc(s.lastError)}</p>` : ''}
-            ${(s.warnings || []).map((w) => `<small class="warn">${esc(w)}</small>`).join('')}
           </div>
           <div class="source-actions">
             <button class="btn" data-act="sync" data-sid="${esc(s.id)}" data-focus ${s.syncing ? 'disabled' : ''}>Actualizar</button>
             <button class="btn danger" data-act="delete" data-sid="${esc(s.id)}" data-focus>Eliminar</button>
           </div>
         </article>`).join('')}
-      ${addForm('Añadir fuente', 'Probar y guardar')}
-      <p class="fine">Las fuentes, contraseñas, favoritos y el progreso se guardan solo en este navegador.</p>
+      ${addForm('Añadir otra fuente', 'Añadir')}
     </section>`;
   wireForm();
 }
@@ -415,49 +558,47 @@ async function onAddSource(e) {
       src.location = file.name; src.name ||= file.name.replace(/\.m3u8?$/i, '');
     } else {
       if (!src.location) throw new UserError(type === 'xtream' ? 'Indica la dirección del servidor.' : 'Indica la URL de la lista.');
-      if (type === 'xtream') src.location = xBase(src.location);
+      if (type === 'xtream') { src.location = xBase(src.location); if (!src.username || !src.password) throw new UserError('Indica usuario y contraseña.'); }
       if (!isHttp(src.location)) throw new UserError('La dirección debe empezar por http:// o https://');
       if (insecureOnHttps(src.location)) throw new UserError(MIXED_MSG);
       src.name ||= (() => { try { return new URL(src.location).hostname; } catch { return 'Fuente'; } })();
     }
     btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = 'Conectando…'; show('');
+    const firstSource = !state.sources.length;
     state.sources.push(src); saveSources();
+    if (firstSource) { state.tab = 'home'; }
     const ok = await syncSource(src);
-    if (!ok) { const m = src.lastError; state.sources = state.sources.filter((s) => s !== src); saveSources(); idb.del('file:' + src.id); if (state.sources.length) state.tab = 'sources'; render(); $('#f-err').textContent = m; $('#f-err').hidden = false; return; }
-    if (!src.password) delete src.password;
-    toast(`«${src.name}» añadida: ${src.counts[0]} canales, ${src.counts[1]} películas, ${src.counts[2]} series`);
-    state.tab = src.counts[0] ? 'live' : src.counts[1] ? 'movies' : 'series'; state.category = null; render(); focusFirst();
-  } catch (ex) { show(ex instanceof UserError ? ex.message : 'No se pudo añadir la fuente.'); btn.disabled = false; btn.textContent = btn.dataset.label || 'Entrar'; }
-}
-
-async function renderSeries(d) {
-  const s = (state.catalogs[d.sid]?.series || []).find((x) => x.id === d.id);
-  if (!s) { state.detail = null; return render(); }
-  const src = state.sources.find((x) => x.id === d.sid);
-  const fav = state.favorites.has(favKey('series', d.sid, s.id));
-  view.innerHTML = `<section class="detail">
-    <button class="btn" data-act="back" data-focus>← Volver</button>
-    <div class="detail-head"><span class="art poster" style="--h:${hue(s.title)}">${safeImg(s.poster) ? `<img src="${esc(safeImg(s.poster))}" alt="" onerror="this.remove()">` : ''}</span>
-      <div><h1>${esc(s.title)}</h1><p class="fine">${[s.year, s.group].filter(Boolean).map(esc).join(' · ')}</p>${s.plot ? `<p>${esc(s.plot)}</p>` : ''}
-      <button class="btn" data-act="fav" data-kind="series" data-sid="${esc(d.sid)}" data-id="${esc(s.id)}" data-focus>${fav ? '♥ En favoritos' : '♡ Añadir a favoritos'}</button></div></div>
-    <div id="eps"><p class="fine">Cargando episodios…</p></div></section>`;
-  focusFirst();
-  try {
-    if (!s.episodes) { s.episodes = await xtreamEpisodes(src, s.id); idb.put('cat:' + d.sid, state.catalogs[d.sid]); }
-    const seasons = [...new Set(s.episodes.map((e) => e.season))];
-    const cur = d.season ?? seasons[0];
-    $('#eps').innerHTML = !s.episodes.length ? '<p class="empty">No hay episodios disponibles.</p>' : `
-      ${seasons.length > 1 ? `<div class="cats horiz">${seasons.map((n) => `<button class="cat" data-act="season" data-n="${n}" aria-pressed="${n === cur}" data-focus>Temporada ${n}</button>`).join('')}</div>` : ''}
-      <ol class="episodes">${s.episodes.filter((e) => e.season === cur).map((e) => {
-        const p = state.progress[favKey('episode', d.sid, e.id)]; const pct = p && p.d ? (p.t / p.d) * 100 : 0;
-        return `<li><button class="ep" data-act="play-ep" data-eid="${esc(e.id)}" data-focus><span class="ep-n">${e.episode}</span><span><b>${esc(e.title)}</b>${e.plot ? `<small>${esc(e.plot)}</small>` : ''}${pct > 2 ? `<span class="bar inline"><i style="width:${pct}%"></i></span>` : ''}</span></button></li>`;
-      }).join('')}</ol>`;
-  } catch (e) { $('#eps').innerHTML = `<p class="err">${esc(e.message)}</p>`; }
+    if (!ok) {
+      const m = src.lastError; state.sources = state.sources.filter((s) => s !== src); saveSources(); idb.del('file:' + src.id);
+      state.tab = state.sources.length ? 'sources' : 'home'; render();
+      $('#f-err').textContent = m; $('#f-err').hidden = false; return;
+    }
+    toast(`Conectado: ${src.counts[0].toLocaleString('es')} canales, ${src.counts[1].toLocaleString('es')} películas, ${src.counts[2].toLocaleString('es')} series`);
+    state.tab = 'home'; state.category = null; render(); focusFirst();
+  } catch (ex) {
+    show(ex instanceof UserError ? ex.message : 'No se pudo añadir la fuente.');
+    const b = $('#add button.primary'); if (b) { b.disabled = false; b.textContent = b.dataset.label || 'Entrar'; }
+  }
 }
 
 // ------------------------------------------------------------------ reproductor
 const player = { el: $('#player'), video: $('#video'), hls: null, ts: null, item: null, list: null, retries: 0, saveTimer: null };
-const fmtTime = (s) => { s = Math.max(0, Math.floor(s || 0)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); };
+const fmtTime = (s) => { s = Math.max(0, Math.floor(s || 0)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return h ? `${h} h ${String(m).padStart(2, '0')} min` : `${m}:${String(x).padStart(2, '0')}`; };
+
+// Los motores HLS y MPEG-TS se descargan solo al reproducir algo que los necesite (antes
+// retrasaban la apertura de la web).
+const LIBS = { Hls: 'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js', mpegts: 'https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.js' };
+const libPromises = {};
+function loadLib(name) {
+  if (window[name]) return Promise.resolve(window[name]);
+  return libPromises[name] ||= new Promise((res) => {
+    const s = document.createElement('script'); s.src = LIBS[name]; s.async = true;
+    s.onload = () => res(window[name] || null); s.onerror = () => { delete libPromises[name]; res(null); };
+    document.head.appendChild(s);
+  });
+}
+// Precarga silenciosa tras abrir la web, para que el primer canal arranque rápido.
+setTimeout(() => { loadLib('Hls'); }, 2500);
 
 function destroyEngines() {
   if (player.hls) { player.hls.destroy(); player.hls = null; }
@@ -473,18 +614,19 @@ function playerError(msg) {
 function openPlayer(item, list = null) {
   player.item = item; player.list = list; player.retries = 0;
   $('#p-title').textContent = item.title; $('#p-sub').textContent = item.sub || '';
-  $('#p-err').hidden = true; $('#p-loading').hidden = false;
-  $('#p-fav').textContent = state.favorites.has(favKey(item.kind, item.sid, item.favId || item.id)) ? '♥' : '♡';
+  $('#p-err').hidden = true; $('#p-loading').hidden = false; $('#p-tap').hidden = true;
+  $('#p-fav').textContent = state.favorites.has(favKey(item.kind === 'episode' ? 'series' : item.kind, item.sid, item.favId || item.id)) ? '♥' : '♡';
   $('#p-prev').hidden = $('#p-next').hidden = !(list && list.length > 1);
   player.el.hidden = false; document.body.classList.add('playing');
   const k = favKey(item.kind, item.sid, item.id);
-  state.history = [{ k, title: item.title, at: Date.now() }, ...state.history.filter((h) => h.k !== k)].slice(0, 100); store.set('history', state.history);
+  state.history = [{ k, title: item.title, sub: item.kind === 'episode' ? item.sub.split(' — ')[0] : null, img: item.img || null, at: Date.now() }, ...state.history.filter((h) => h.k !== k)].slice(0, 100);
+  store.set('history', state.history);
   start(item);
   showOverlay();
   $('#p-close').focus();
 }
 
-function start(item) {
+async function start(item) {
   destroyEngines();
   const url = item.url, v = player.video;
   if (insecureOnHttps(url)) return playerError(MIXED_MSG);
@@ -492,8 +634,15 @@ function start(item) {
   const resume = item.kind !== 'live' ? state.progress[favKey(item.kind, item.sid, item.id)] : null;
   const startAt = item.restart ? 0 : resume && resume.t > 15 && resume.t / resume.d < 0.95 ? resume.t : 0;
   const onReady = () => { if (startAt) v.currentTime = startAt; v.play().catch(() => { $('#p-loading').hidden = true; $('#p-tap').hidden = false; }); };
-  if ((ext === 'm3u8' || ext === 'm3u') && window.Hls && Hls.isSupported()) {
-    const h = new Hls({ enableWorker: true, lowLatencyMode: false });
+  if (ext === 'mkv' || ext === 'avi' || ext === 'wmv') return playerError(`El formato .${ext} no lo pueden reproducir los navegadores. Ábrelo en la app Android de EmbyVerse.`);
+  const isHls = ext === 'm3u8' || ext === 'm3u';
+  const isTs = ext === 'ts' || (item.kind === 'live' && !ext);
+  if (isHls && v.canPlayType('application/vnd.apple.mpegurl') && !window.MediaSource) { v.src = url; v.addEventListener('loadedmetadata', onReady, { once: true }); return; }
+  if (isHls) {
+    const Hls = await loadLib('Hls');
+    if (player.item !== item) return;
+    if (!Hls || !Hls.isSupported()) { v.src = url; v.addEventListener('loadedmetadata', onReady, { once: true }); return; }
+    const h = new Hls({ enableWorker: true, maxBufferLength: 20, startFragPrefetch: true });
     player.hls = h;
     h.on(Hls.Events.MANIFEST_PARSED, onReady);
     h.on(Hls.Events.ERROR, (_, d) => {
@@ -501,27 +650,31 @@ function start(item) {
       if (d.type === Hls.ErrorTypes.NETWORK_ERROR && player.retries < 3) { player.retries++; setTimeout(() => h.startLoad(), 1000 * 2 ** player.retries); return; }
       if (d.type === Hls.ErrorTypes.MEDIA_ERROR && player.retries < 2) { player.retries++; h.recoverMediaError(); return; }
       playerError(d.response && (d.response.code === 401 || d.response.code === 403) ? 'El proveedor denegó el acceso (credenciales o límite de conexiones).'
-        : d.type === Hls.ErrorTypes.NETWORK_ERROR ? 'No se pudo cargar el canal. El servidor no responde o no permite reproducir desde navegadores (CORS).' : 'Este stream no se puede reproducir en el navegador.');
+        : d.type === Hls.ErrorTypes.NETWORK_ERROR ? 'No se pudo cargar. El servidor no responde o no permite reproducir desde navegadores (CORS).' : 'Este contenido no se puede reproducir en el navegador.');
     });
     h.loadSource(url); h.attachMedia(v);
-  } else if ((ext === 'ts' || (item.kind === 'live' && !ext)) && window.mpegts && mpegts.getFeatureList().mseLivePlayback) {
+    return;
+  }
+  if (isTs) {
+    const mpegts = await loadLib('mpegts');
+    if (player.item !== item) return;
+    if (!mpegts || !mpegts.getFeatureList().mseLivePlayback) return playerError('Este navegador no puede reproducir canales MPEG-TS. Usa la app Android.');
     const p = mpegts.createPlayer({ type: 'mpegts', isLive: true, url }, { enableWorker: true, lazyLoad: false, liveBufferLatencyChasing: true });
     player.ts = p; p.attachMediaElement(v); p.load();
     p.on(mpegts.Events.ERROR, (type) => {
       if (type === mpegts.ErrorTypes.NETWORK_ERROR && player.retries < 3) { player.retries++; setTimeout(() => start(item), 1000 * 2 ** player.retries); return; }
-      playerError(type === mpegts.ErrorTypes.NETWORK_ERROR ? 'No se pudo cargar el canal. El servidor no responde o no permite reproducir desde navegadores (CORS).' : 'Este stream MPEG-TS no se puede reproducir en el navegador.');
+      playerError(type === mpegts.ErrorTypes.NETWORK_ERROR ? 'No se pudo cargar el canal. El servidor no responde o no permite reproducir desde navegadores (CORS).' : 'Este canal no se puede reproducir en el navegador.');
     });
     v.addEventListener('loadedmetadata', onReady, { once: true });
-  } else {
-    v.src = url; v.addEventListener('loadedmetadata', onReady, { once: true });
+    return;
   }
+  v.src = url; v.addEventListener('loadedmetadata', onReady, { once: true });
 }
 player.video.addEventListener('playing', () => { $('#p-loading').hidden = true; $('#p-tap').hidden = true; player.retries = 0; });
 player.video.addEventListener('waiting', () => { if ($('#p-err').hidden) $('#p-loading').hidden = false; });
 player.video.addEventListener('error', () => {
-  if (player.hls || player.ts) return;
-  const ext = extOf(player.item?.url || '');
-  playerError(ext === 'mkv' || ext === 'avi' ? `El formato .${ext} no lo reproducen los navegadores. Usa la app Android.` : 'No se pudo reproducir. El formato no es compatible con este navegador o el servidor no responde.');
+  if (player.hls || player.ts || !player.item) return;
+  playerError('No se pudo reproducir. El formato no es compatible con este navegador o el servidor no responde.');
 });
 player.video.addEventListener('timeupdate', () => {
   const it = player.item; if (!it || it.kind === 'live') return;
@@ -534,9 +687,10 @@ player.video.addEventListener('ended', () => { if (player.list && player.item.ki
 function closePlayer() {
   const it = player.item;
   if (it && it.kind !== 'live' && isFinite(player.video.duration)) { state.progress[favKey(it.kind, it.sid, it.id)] = { t: player.video.currentTime, d: player.video.duration }; store.set('progress', state.progress); }
+  player.item = null;
   destroyEngines(); player.el.hidden = true; document.body.classList.remove('playing');
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-  player.item = null; render(); focusFirst();
+  render(); focusFirst();
 }
 
 function zap(delta, wrap = true) {
@@ -555,51 +709,56 @@ function showOverlay() {
 
 // ------------------------------------------------------------------ acciones
 function itemFor(kind, sid, id) {
-  const c = state.catalogs[sid]; if (!c) return null;
-  if (kind === 'live') { const x = c.live.find((y) => y.id === id); return x && { kind, sid, id, title: x.name, sub: x.group, url: x.url }; }
-  if (kind === 'movie') { const x = c.movies.find((y) => y.id === id); return x && { kind, sid, id, title: x.title, sub: [x.year, x.group].filter(Boolean).join(' · '), url: x.url }; }
+  if (kind === 'live') { const x = index.byKey.get(`live|${sid}|${id}`); return x && { kind, sid, id, title: x.name, sub: x.group, url: x.url, img: x.logo }; }
+  if (kind === 'movie') { const x = index.byKey.get(`movies|${sid}|${id}`); return x && { kind, sid, id, title: x.title, sub: [x.year, x.group].filter(Boolean).join('  ·  '), url: x.url, img: x.poster }; }
   if (kind === 'episode') {
-    for (const s of c.series) { const e = (s.episodes || []).find((y) => y.id === id); if (e) return { kind, sid, id, title: s.title, sub: `T${e.season} · E${e.episode} — ${e.title}`, url: e.url, favId: s.id, seriesId: s.id }; }
+    for (const s of index.series) {
+      if (s.sid !== sid || !s.episodes) continue;
+      const e = s.episodes.find((y) => y.id === id);
+      if (e) return { kind, sid, id, title: s.title, sub: `T${e.season} · E${e.episode} — ${e.title}`, url: e.url, favId: s.id, seriesId: s.id, img: e.thumb || s.poster };
+    }
   }
   return null;
+}
+
+function liveList() {
+  const q = norm(state.query);
+  return index.live.filter((x) => (!state.category || (x.group || 'Sin categoría') === state.category) && (!q || x._n.includes(q))).slice(0, 3000).map((x) => itemFor('live', x.sid, x.id));
 }
 
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   const { act, kind, sid, id } = b.dataset;
   if (act === 'open') {
-    if (kind === 'series') { state.detail = { sid, id }; render(); return; }
-    const it = itemFor(kind, sid, id);
-    let list = null;
-    if (kind === 'live') {
-      const q = norm(state.query);
-      list = allOf('live').filter((x) => (!state.category || (x.group || 'Sin categoría') === state.category) && (!q || norm(x.name).includes(q))).map((x) => itemFor('live', x.sid, x.id));
-    }
-    if (it) openPlayer(it, list);
+    if (kind === 'series' || kind === 'movie') { state.detail = { kind, sid, id }; window.scrollTo(0, 0); render(); return; }
+    const it = itemFor(kind, sid, id); if (it) openPlayer(it, kind === 'live' ? liveList() : null);
+  } else if (act === 'play') {
+    const it = itemFor(kind, sid, id); if (!it) return;
+    if (b.dataset.restart) it.restart = true;
+    openPlayer(it);
   } else if (act === 'resume') {
     const it = itemFor(kind, sid, id); if (!it) return toast('Ese contenido ya no está en tus fuentes.');
     let list = null;
-    if (kind === 'episode') { const s = state.catalogs[sid].series.find((x) => x.id === it.seriesId); list = s.episodes.map((ep) => itemFor('episode', sid, ep.id)); }
+    if (kind === 'episode') { const s = index.byKey.get(`series|${sid}|${it.seriesId}`); list = s.episodes.map((ep) => itemFor('episode', sid, ep.id)); }
     openPlayer(it, list);
   } else if (act === 'play-ep') {
-    const d = state.detail; const s = state.catalogs[d.sid].series.find((x) => x.id === d.id);
-    const list = s.episodes.map((ep) => itemFor('episode', d.sid, ep.id));
-    openPlayer(itemFor('episode', d.sid, b.dataset.eid), list);
-  } else if (act === 'season') { state.detail.season = +b.dataset.n; renderSeries(state.detail); }
+    const d = state.detail; const s = index.byKey.get(`series|${d.sid}|${d.id}`);
+    openPlayer(itemFor('episode', d.sid, b.dataset.eid), s.episodes.map((ep) => itemFor('episode', d.sid, ep.id)));
+  } else if (act === 'season') { state.detail.season = +b.dataset.n; renderDetail(state.detail); }
   else if (act === 'back') { state.detail = null; render(); focusFirst(); }
-  else if (act === 'fav') { toggleFav(kind, sid, id); render(); }
-  else if (act === 'cat') { state.category = b.dataset.cat || null; state.limit = PAGE; render(); b && document.querySelector(`.cat[data-cat="${CSS.escape(b.dataset.cat)}"]`)?.focus(); }
-  else if (act === 'more') { state.limit = (state.limit || PAGE) + PAGE; render(); }
-  else if (act === 'goto-sources') { state.tab = 'sources'; render(); focusFirst(); }
+  else if (act === 'fav') { const on = toggleFav(kind, sid, id); b.textContent = on ? '♥ En mi lista' : '♡ Mi lista'; }
+  else if (act === 'cat') { state.category = b.dataset.cat || null; state.limit = PAGE; render(); document.querySelector(`.chip[data-cat="${CSS.escape(b.dataset.cat)}"]`)?.focus(); }
+  else if (act === 'goto') { state.tab = b.dataset.tab; state.category = b.dataset.cat || null; state.detail = null; state.limit = PAGE; window.scrollTo(0, 0); render(); focusFirst(); }
+  else if (act === 'more') { state.limit = (state.limit || PAGE) + PAGE * 2; render(); }
   else if (act === 'demo') {
     const src = { id: uid(), type: 'url', name: 'Demostración', location: new URL('demo.m3u', location.href).href };
-    state.sources.push(src); saveSources();
-    if (await syncSource(src)) { state.tab = 'movies'; render(); focusFirst(); }
-    else { const m = src.lastError; state.sources = state.sources.filter((s) => s !== src); saveSources(); toast(m); render(); }
+    state.sources.push(src); saveSources(); state.tab = 'home';
+    if (!(await syncSource(src))) { const m = src.lastError; state.sources = state.sources.filter((s) => s !== src); saveSources(); toast(m); render(); }
+    else focusFirst();
   } else if (act === 'sync') { const s = state.sources.find((x) => x.id === sid); if (s) syncSource(s); }
   else if (act === 'delete') {
     if (b.dataset.confirm !== '1') { b.dataset.confirm = '1'; b.textContent = '¿Seguro? Pulsa otra vez'; setTimeout(() => { if (b.isConnected) { b.dataset.confirm = ''; b.textContent = 'Eliminar'; } }, 4000); return; }
-    state.sources = state.sources.filter((x) => x.id !== sid); delete state.catalogs[sid]; saveSources(); idb.del('cat:' + sid); idb.del('file:' + sid); render(); focusFirst();
+    state.sources = state.sources.filter((x) => x.id !== sid); delete state.catalogs[sid]; rebuildIndex(); saveSources(); idb.del('cat:' + sid); idb.del('file:' + sid); render(); focusFirst();
   }
 });
 
@@ -610,7 +769,7 @@ function toggleFav(kind, sid, id) {
   return state.favorites.has(k);
 }
 
-document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => { state.tab = t.dataset.tab; state.category = null; state.detail = null; state.limit = PAGE; render(); }));
+document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => { state.tab = t.dataset.tab; state.category = null; state.detail = null; state.limit = PAGE; window.scrollTo(0, 0); render(); }));
 let qTimer;
 $('#search').addEventListener('input', (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { state.query = e.target.value; state.limit = PAGE; render(); }, 250); });
 $('#p-close').addEventListener('click', closePlayer);
@@ -671,10 +830,9 @@ document.addEventListener('keydown', (e) => {
 
 // ------------------------------------------------------------------ inicio
 (async () => {
+  render(); // pinta al instante (pantalla de entrada o estado de carga)
   await loadCatalogs();
-  if (state.sources.length && !Object.keys(state.catalogs).length) state.sources.forEach((s) => syncSource(s));
   render();
-  if (!state.sources.length) focusFirst();
-  const libs = !!window.Hls && !!window.mpegts;
-  if (!libs) console.warn('No se cargaron hls.js o mpegts.js: solo se reproducirán formatos nativos del navegador.');
+  for (const s of state.sources) if (!state.catalogs[s.id]) syncSource(s);
+  focusFirst();
 })();

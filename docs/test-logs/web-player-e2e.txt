@@ -1,14 +1,14 @@
-✔  Pantalla de entrada (Xtream por defecto)
+✔  Pantalla de entrada (Xtream por defecto)  visible en 148 ms
 ✔  Xtream: servidor inexistente da un error comprensible
 ✔  Xtream: pegar enlace get.php rellena los campos
-✔  Error comprensible con URL inexistente
-✔  Entrar con lista M3U por URL
-✔  Filtrar por categoría
-✔  Reproducir canal y cambiar de canal
+✔  Lista M3U inexistente: error comprensible
+✔  Entrar con lista M3U → Inicio premium
+✔  TV en vivo: categorías y reproducción con cambio de canal
 ✔  Navegación con flechas (mando)
-✔  Película: progreso y Continuar viendo
-✔  Serie con episodios
-✔  Favoritos
+✔  Película: ficha, reproducir y Continuar viendo
+✔  Serie: ficha con episodios
+✔  Mi lista
 ✔  Persistencia al recargar
+✔  Lista grande (20 000 canales, 15 000 películas, 3 000 episodios)  carga 342 ms · abrir Películas 89 ms · búsqueda 299 ms (incluye 250 ms de espera al teclear)
 ✔  Vista en teléfono
 13/13 pasos correctos
