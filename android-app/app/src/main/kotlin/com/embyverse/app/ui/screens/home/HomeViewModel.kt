@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 
 /** Elemento del banner principal: un banner publicado por el administrador o contenido destacado. */
@@ -80,6 +81,8 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
             catch (e: kotlinx.coroutines.CancellationException) { throw e }
             catch (e: Exception) { emptyList() } // las recomendaciones nunca deben cerrar la app
         }
+        // El inicio se muestra al momento; las recomendaciones (que recorren todo el catálogo) llegan después.
+        .onStart { emit(emptyList()) }
 
     val state: StateFlow<HomeUiState> = combine(
         combine(c.config.config, appearance, minuteTicker) { cfg, app, now -> Triple(cfg, ConfigResolver.sections(cfg, app), now) },
