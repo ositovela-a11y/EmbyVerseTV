@@ -178,6 +178,8 @@ class SmokeFlowTest {
             log("Canal en vivo: vista previa → pantalla completa al pulsar el recuadro")
             InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_LEFT)
             Thread.sleep(1_500); shot("07-lista-en-reproductor")
+            waitText(app.getString(R.string.player_channels), 10_000)
+            log("Reproductor: ◀ abre la lista de canales sin salir")
             back(); back()
             log("Recorrido completo sin cierres · ${memory()}")
         }

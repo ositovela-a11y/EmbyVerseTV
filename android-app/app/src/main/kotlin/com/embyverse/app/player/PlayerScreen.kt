@@ -90,7 +90,7 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit) {
                     setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { v -> vm.controlsVisible.value = v == View.VISIBLE })
                 }
             },
-            update = { view -> view.player = player },
+            update = { view -> view.player = player; if (listVisible) view.hideController() },
             onRelease = { view -> view.player = null },
         )
 
