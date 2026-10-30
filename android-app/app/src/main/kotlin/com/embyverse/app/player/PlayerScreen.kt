@@ -75,6 +75,7 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit) {
     val zap by vm.zapBanner.collectAsStateWithLifecycle()
 
     BackHandler { if (listVisible) vm.toggleChannelList() else onClose() }
+    KeepScreenOnWhilePlaying(player)
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         AndroidView(

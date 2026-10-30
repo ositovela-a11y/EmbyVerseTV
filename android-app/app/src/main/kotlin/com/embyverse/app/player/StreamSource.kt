@@ -2,6 +2,7 @@ package com.embyverse.app.player
 
 import android.content.Context
 import androidx.annotation.OptIn
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
@@ -24,7 +25,10 @@ object StreamSource {
             .setBufferDurationsMs(if (quickStart) 8_000 else 15_000, 50_000, 1_000, 2_000)
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
-        return ExoPlayer.Builder(context.applicationContext).setLoadControl(loadControl).build()
+        return ExoPlayer.Builder(context.applicationContext).setLoadControl(loadControl)
+            // Mantiene CPU y Wi-Fi activos mientras se reproduce, aunque no se toque el control.
+            .setWakeMode(C.WAKE_MODE_NETWORK)
+            .build()
     }
 
     /**

@@ -226,6 +226,7 @@ private fun PreviewBox(preview: LivePreview, onFullscreen: (ChannelEntity) -> Un
     val ch by preview.channel.collectAsStateWithLifecycle()
     val buffering by preview.buffering.collectAsStateWithLifecycle()
     val error by preview.error.collectAsStateWithLifecycle()
+    com.embyverse.app.player.KeepScreenOnWhilePlaying(player)
     FocusableSurface(onClick = { ch?.let(onFullscreen) }, modifier = modifier.aspectRatio(16f / 9f).testTag("preview"), focusScale = 1.02f) { focused ->
         Box(Modifier.fillMaxSize().background(Color.Black)) {
             if (ch != null) AndroidView(
