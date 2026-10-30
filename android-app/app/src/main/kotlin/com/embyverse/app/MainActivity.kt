@@ -12,6 +12,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.embyverse.app.ui.LocalAppContainer
@@ -44,6 +48,7 @@ class MainActivity : AppCompatActivity() {
                 val hasSourcesFlow = remember { container.sources.sources.map { it.isNotEmpty() } }
                 val hasSources by hasSourcesFlow.collectAsStateWithLifecycle(initialValue = null)
                 var splashDone by rememberSaveable { mutableStateOf(false) }
+                var crash by remember { mutableStateOf(CrashReport.take(this@MainActivity)) }
 
                 EmbyTheme(theme) {
                     NebulaBackground(Modifier.fillMaxSize()) {
@@ -57,8 +62,34 @@ class MainActivity : AppCompatActivity() {
                             }
                         }
                     }
+                    crash?.let { report -> CrashDialog(report) { crash = null } }
                 }
             }
         }
     }
+}
+
+@androidx.compose.runtime.Composable
+private fun CrashDialog(report: String, onClose: () -> Unit) {
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onClose,
+        title = { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.crash_title)) },
+        text = {
+            androidx.compose.foundation.layout.Column {
+                androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.crash_message))
+                androidx.compose.material3.Text(
+                    report.take(1200), style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 12.dp).heightIn(max = 220.dp).verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                )
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(report)); copied = true }) {
+                androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(if (copied) R.string.crash_copied else R.string.crash_copy))
+            }
+        },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onClose) { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.action_close)) } },
+    )
 }

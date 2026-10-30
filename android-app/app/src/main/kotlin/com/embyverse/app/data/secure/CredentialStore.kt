@@ -39,28 +39,40 @@ class CredentialStore(context: Context) {
         return gen.generateKey()
     }
 
+    /** Copia en memoria por si el Keystore del teléfono falla (algunos modelos): la sesión sigue funcionando. */
+    private val memory = HashMap<String, String>()
+
     @Synchronized
     fun put(sourceId: String, secret: String) {
-        val cipher = Cipher.getInstance(TRANSFORMATION).apply { init(Cipher.ENCRYPT_MODE, key()) }
-        val ct = cipher.doFinal(secret.toByteArray(Charsets.UTF_8))
-        val packed = Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + ":" + Base64.encodeToString(ct, Base64.NO_WRAP)
-        prefs.edit().putString("pw_$sourceId", packed).apply()
+        memory[sourceId] = secret
+        for (attempt in 0..1) {
+            try {
+                val cipher = Cipher.getInstance(TRANSFORMATION).apply { init(Cipher.ENCRYPT_MODE, key()) }
+                val ct = cipher.doFinal(secret.toByteArray(Charsets.UTF_8))
+                val packed = Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + ":" + Base64.encodeToString(ct, Base64.NO_WRAP)
+                prefs.edit().putString("pw_$sourceId", packed).apply()
+                return
+            } catch (e: Exception) {
+                // Clave dañada o Keystore inestable: se regenera una vez; si vuelve a fallar se usa solo la memoria.
+                runCatching { KeyStore.getInstance("AndroidKeyStore").apply { load(null) }.deleteEntry(KEY_ALIAS) }
+            }
+        }
     }
 
     /** Devuelve null si no existe o si la clave del Keystore se invalidó (el usuario deberá reintroducirla). */
     @Synchronized
     fun get(sourceId: String): String? {
-        val packed = prefs.getString("pw_$sourceId", null) ?: return null
+        val packed = prefs.getString("pw_$sourceId", null) ?: return memory[sourceId]
         return try {
             val (ivB64, ctB64) = packed.split(':', limit = 2)
             val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(TAG_BITS, Base64.decode(ivB64, Base64.NO_WRAP)))
             String(cipher.doFinal(Base64.decode(ctB64, Base64.NO_WRAP)), Charsets.UTF_8)
         } catch (e: Exception) {
-            null
+            memory[sourceId]
         }
     }
 
     @Synchronized
-    fun remove(sourceId: String) { prefs.edit().remove("pw_$sourceId").apply() }
+    fun remove(sourceId: String) { memory.remove(sourceId); prefs.edit().remove("pw_$sourceId").apply() }
 }

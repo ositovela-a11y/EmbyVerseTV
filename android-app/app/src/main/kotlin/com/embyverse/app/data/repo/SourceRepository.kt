@@ -14,7 +14,9 @@ import com.embyverse.app.data.prefs.PreferencesRepository
 import com.embyverse.app.data.secure.CredentialStore
 import com.embyverse.core.catalog.CatalogDiff
 import com.embyverse.core.m3u.M3uCatalogBuilder
+import android.util.Log
 import com.embyverse.core.model.Catalog
+import com.embyverse.core.model.ContentKind
 import com.embyverse.core.model.Episode
 import com.embyverse.core.model.Movie
 import com.embyverse.core.model.SourceSpec
@@ -58,6 +60,8 @@ sealed interface SyncState {
     data class Failed(val error: SourceError) : SyncState
 }
 
+private const val TAG = "EmbyVerse"
+
 class SourceRepository(
     private val context: Context,
     private val db: EmbyDatabase,
@@ -96,12 +100,12 @@ class SourceRepository(
     )
 
     /** Prueba la conexión sin guardar nada. Si se edita una fuente sin reescribir la contraseña, usa la guardada. */
-    suspend fun test(draft: SourceDraft): Outcome<ConnectionReport> {
+    suspend fun test(draft: SourceDraft): Outcome<ConnectionReport> = withContext(Dispatchers.IO) {
         val pw = draft.password?.takeIf { it.isNotEmpty() } ?: draft.id?.let { credentials.get(it) }
-        return adapter(draft.type).test(specOf(draft), pw)
+        adapter(draft.type).test(specOf(draft), pw)
     }
 
-    suspend fun save(draft: SourceDraft): String {
+    suspend fun save(draft: SourceDraft): String = withContext(Dispatchers.IO) {
         val id = draft.id ?: UUID.randomUUID().toString()
         val existing = db.sources().get(id)
         val spec = specOf(draft.copy(id = id))
@@ -121,7 +125,7 @@ class SourceRepository(
         if (draft.type == SourceType.M3U_FILE) runCatching {
             context.contentResolver.takePersistableUriPermission(Uri.parse(spec.location), android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        return id
+        id
     }
 
     suspend fun delete(id: String) = db.withTransaction {
@@ -143,7 +147,9 @@ class SourceRepository(
     }
 
     /** Descarga el catálogo y lo aplica a la base local sin duplicar (altas, cambios y bajas). */
-    suspend fun sync(id: String): SyncState {
+    suspend fun sync(id: String): SyncState = withContext(Dispatchers.IO) { syncInternal(id) }
+
+    private suspend fun syncInternal(id: String): SyncState {
         val src = db.sources().get(id) ?: return SyncState.Failed(SourceError.InvalidUrl)
         _syncState.update { it + (id to SyncState.Running) }
         val spec = specOf(src)
@@ -151,13 +157,31 @@ class SourceRepository(
         if (spec.type == SourceType.XTREAM && password == null) {
             return fail(id, SourceError.AuthFailed)
         }
-        val state = when (val r = adapter(spec.type).sync(spec, password)) {
+        val t0 = System.currentTimeMillis()
+        // Cada sección se guarda en cuanto llega: los canales aparecen en segundos aunque las
+        // películas (decenas de miles) sigan descargándose.
+        val applied = java.util.Collections.synchronizedSet(HashSet<ContentKind>())
+        val onSection: suspend (ContentKind, Catalog) -> Unit = { kind, part ->
+            applyKind(spec, password, kind, part)
+            applied += kind
+            Log.i(TAG, "sincronización: sección $kind lista en ${System.currentTimeMillis() - t0} ms")
+        }
+        val state = when (val r = adapter(spec.type).sync(spec, password, onSection)) {
             is Outcome.Fail -> fail(id, r.error)
             is Outcome.Ok -> {
-                val applied = classify { apply(spec, password, r.value) }
-                when (applied) {
-                    is Outcome.Ok -> SyncState.Done(r.value.live.size, r.value.movies.size, r.value.series.size, r.value.warnings)
-                    is Outcome.Fail -> fail(id, applied.error)
+                val c = r.value
+                val done = classify {
+                    // M3U: todo llega a la vez. Xtream: una sección que falló NO borra lo que ya había.
+                    for (k in listOf(ContentKind.LIVE, ContentKind.MOVIE, ContentKind.SERIES)) {
+                        if (k !in applied && spec.type != SourceType.XTREAM) applyKind(spec, password, k, c)
+                    }
+                    val detectedEpg = if (spec.type == SourceType.XTREAM) null else c.epgUrl
+                    db.sources().setSynced(spec.id, System.currentTimeMillis(), c.live.size, c.movies.size, c.series.size, detectedEpg)
+                }
+                Log.i(TAG, "sincronización completa en ${System.currentTimeMillis() - t0} ms")
+                when (done) {
+                    is Outcome.Ok -> SyncState.Done(c.live.size, c.movies.size, c.series.size, c.warnings)
+                    is Outcome.Fail -> fail(id, done.error)
                 }
             }
         }
@@ -188,46 +212,48 @@ class SourceRepository(
         return stored.replace("/{u}/{p}/", "/${enc(src.username.orEmpty())}/${enc(pw)}/")
     }
 
-    private suspend fun apply(spec: SourceSpec, password: String?, c: Catalog) = withContext(Dispatchers.IO) {
+    /** Aplica una sección a la base local sin duplicar (altas, cambios y bajas) y sus categorías. */
+    private suspend fun applyKind(spec: SourceSpec, password: String?, kind: ContentKind, c: Catalog) = withContext(Dispatchers.IO) {
         val sid = spec.id
         db.withTransaction {
-            // Canales
-            val ch = c.live.mapIndexed { i, x ->
-                ChannelEntity(sid, x.providerId, x.name, M3uCatalogBuilder.normalize(x.name), tokenize(x.streamUrl, spec, password),
-                    x.logoUrl, x.categoryName, x.epgChannelId, x.number, x.headers.userAgent, x.headers.referrer, x.catchupDays,
-                    i, 31 * x.hashCode() + i)
+            when (kind) {
+                ContentKind.LIVE -> {
+                    val ch = c.live.mapIndexed { i, x ->
+                        ChannelEntity(sid, x.providerId, x.name, M3uCatalogBuilder.normalize(x.name), tokenize(x.streamUrl, spec, password),
+                            x.logoUrl, x.categoryName, x.epgChannelId, x.number, x.headers.userAgent, x.headers.referrer, x.catchupDays,
+                            i, 31 * x.hashCode() + i)
+                    }
+                    val plan = CatalogDiff.plan(db.channels().fingerprints(sid).associate { it.providerId to it.fingerprint }, ch, { it.providerId }, { it.fingerprint })
+                    plan.upsert.chunked(500).forEach { db.channels().upsert(it) }
+                    plan.deleteIds.chunked(500).forEach { db.channels().delete(sid, it) }
+                }
+                ContentKind.MOVIE -> {
+                    val mv = c.movies.mapIndexed { i, x -> movieEntity(sid, x, spec, password, i) }
+                    val plan = CatalogDiff.plan(db.movies().fingerprints(sid).associate { it.providerId to it.fingerprint }, mv, { it.providerId }, { it.fingerprint })
+                    plan.upsert.chunked(500).forEach { db.movies().upsert(it) }
+                    plan.deleteIds.chunked(500).forEach { db.movies().delete(sid, it) }
+                }
+                else -> {
+                    // Series (y episodios cuando la lista ya los trae, como en M3U)
+                    val se = c.series.mapIndexed { i, x ->
+                        SeriesEntity(sid, x.providerId, x.title, M3uCatalogBuilder.normalize(x.title), x.posterUrl, x.backdropUrl, x.categoryName,
+                            x.plot, x.year, x.rating, x.genres.joinToString("|"), x.addedAtEpochSeconds, i, 31 * x.hashCode() + i,
+                            episodesLoaded = x.episodes.isNotEmpty())
+                    }
+                    val plan = CatalogDiff.plan(db.series().fingerprints(sid).associate { it.providerId to it.fingerprint }, se, { it.providerId }, { it.fingerprint })
+                    plan.upsert.chunked(500).forEach { db.series().upsert(it) }
+                    plan.deleteIds.chunked(500).forEach { db.series().delete(sid, it) }
+                    val changed = plan.upsert.map { it.providerId }.toSet()
+                    c.series.filter { it.providerId in changed && it.episodes.isNotEmpty() }.forEach { s ->
+                        db.episodes().deleteForSeries(sid, s.providerId)
+                        db.episodes().upsert(s.episodes.map { episodeEntity(sid, it, spec, password) }.distinctBy { it.providerId })
+                    }
+                    db.episodes().deleteOrphans(sid)
+                }
             }
-            val chPlan = CatalogDiff.plan(db.channels().fingerprints(sid).associate { it.providerId to it.fingerprint }, ch, { it.providerId }, { it.fingerprint })
-            chPlan.upsert.chunked(500).forEach { db.channels().upsert(it) }
-            chPlan.deleteIds.chunked(500).forEach { db.channels().delete(sid, it) }
-
-            // Películas
-            val mv = c.movies.mapIndexed { i, x -> movieEntity(sid, x, spec, password, i) }
-            val mvPlan = CatalogDiff.plan(db.movies().fingerprints(sid).associate { it.providerId to it.fingerprint }, mv, { it.providerId }, { it.fingerprint })
-            mvPlan.upsert.chunked(500).forEach { db.movies().upsert(it) }
-            mvPlan.deleteIds.chunked(500).forEach { db.movies().delete(sid, it) }
-
-            // Series (y episodios cuando la lista ya los trae, como en M3U)
-            val se = c.series.mapIndexed { i, x ->
-                SeriesEntity(sid, x.providerId, x.title, M3uCatalogBuilder.normalize(x.title), x.posterUrl, x.backdropUrl, x.categoryName,
-                    x.plot, x.year, x.rating, x.genres.joinToString("|"), x.addedAtEpochSeconds, i, 31 * x.hashCode() + i,
-                    episodesLoaded = x.episodes.isNotEmpty())
-            }
-            val sePlan = CatalogDiff.plan(db.series().fingerprints(sid).associate { it.providerId to it.fingerprint }, se, { it.providerId }, { it.fingerprint })
-            sePlan.upsert.chunked(500).forEach { db.series().upsert(it) }
-            sePlan.deleteIds.chunked(500).forEach { db.series().delete(sid, it) }
-            val changedSeries = sePlan.upsert.map { it.providerId }.toSet()
-            c.series.filter { it.providerId in changedSeries && it.episodes.isNotEmpty() }.forEach { s ->
-                db.episodes().deleteForSeries(sid, s.providerId)
-                db.episodes().upsert(s.episodes.map { episodeEntity(sid, it, spec, password) })
-            }
-            db.episodes().deleteOrphans(sid)
-
-            db.categories().deleteForSource(sid)
-            db.categories().upsert(c.categories.mapIndexed { i, cat -> CategoryEntity(sid, cat.kind.name, cat.name, i) }.distinctBy { it.kind to it.name })
-
-            val detectedEpg = if (spec.type == SourceType.XTREAM) null else c.epgUrl
-            db.sources().setSynced(sid, System.currentTimeMillis(), c.live.size, c.movies.size, c.series.size, detectedEpg)
+            val k = if (kind == ContentKind.EPISODE) ContentKind.SERIES else kind
+            db.categories().deleteForSourceKind(sid, k.name)
+            db.categories().upsert(c.categories.filter { it.kind == k }.mapIndexed { i, cat -> CategoryEntity(sid, cat.kind.name, cat.name, i) }.distinctBy { it.name })
         }
     }
 
@@ -250,8 +276,8 @@ class SourceRepository(
     }
 
     /** Temporadas y episodios bajo demanda (proveedores Xtream). */
-    suspend fun loadEpisodes(sourceId: String, seriesId: String): Outcome<Int> = classify {
-        val (spec, creds) = xtreamCreds(sourceId) ?: return@classify db.episodes().forSeries(sourceId, seriesId).size
+    suspend fun loadEpisodes(sourceId: String, seriesId: String): Outcome<Int> = classify { withContext(Dispatchers.IO) {
+        val (spec, creds) = xtreamCreds(sourceId) ?: return@withContext db.episodes().forSeries(sourceId, seriesId).size
         val eps = xtreamClient.seriesEpisodes(sourceId, creds, seriesId)
         db.withTransaction {
             db.episodes().deleteForSeries(sourceId, seriesId)
@@ -259,10 +285,12 @@ class SourceRepository(
             db.series().setEpisodesLoaded(sourceId, seriesId, true)
         }
         eps.size
-    }
+    } }
 
     /** Sinopsis y metadatos ampliados de una película (proveedores Xtream). */
-    suspend fun loadMovieDetails(sourceId: String, movieId: String) {
+    suspend fun loadMovieDetails(sourceId: String, movieId: String) { classify { withContext(Dispatchers.IO) { loadMovieDetailsInternal(sourceId, movieId) } } }
+
+    private suspend fun loadMovieDetailsInternal(sourceId: String, movieId: String) {
         val (_, creds) = xtreamCreds(sourceId) ?: return
         val m = db.movies().get(sourceId, movieId) ?: return
         if (m.detailsLoaded) return

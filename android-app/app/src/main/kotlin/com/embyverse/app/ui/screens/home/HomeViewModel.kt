@@ -75,7 +75,11 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     private val recommended = combine(c.library.history(100), c.library.favorites()) { h, f -> h to f }
-        .mapLatest { (h, f) -> c.catalog.cardsFor(c.catalog.recommendations(h, f, 30)) }
+        .mapLatest { (h, f) ->
+            try { c.catalog.cardsFor(c.catalog.recommendations(h, f, 30)) }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { emptyList() } // las recomendaciones nunca deben cerrar la app
+        }
 
     val state: StateFlow<HomeUiState> = combine(
         combine(c.config.config, appearance, minuteTicker) { cfg, app, now -> Triple(cfg, ConfigResolver.sections(cfg, app), now) },

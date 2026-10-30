@@ -23,7 +23,16 @@ import com.embyverse.core.util.objects
 import com.embyverse.core.util.parseDurationSeconds
 import com.embyverse.core.util.splitGenres
 import com.embyverse.core.util.str
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.DecodeSequenceMode
+import kotlinx.serialization.json.decodeToSequence
+import com.embyverse.core.net.readLimited
+import com.embyverse.core.source.LimitedInputStream
+import java.io.BufferedInputStream
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -71,6 +80,7 @@ class XtreamClient(
     private val http: HttpFetcher,
     private val json: Json = Json { ignoreUnknownKeys = true; isLenient = true },
     private val maxBodyBytes: Int = 64 * 1024 * 1024,
+    private val maxStreamBytes: Long = 512L * 1024 * 1024,
 ) {
     companion object {
         /** Normaliza la URL base: quita barras finales y endpoints pegados por el usuario. */
@@ -111,20 +121,69 @@ class XtreamClient(
         return if (action == null) base else "$base&action=$action$extra"
     }
 
-    private suspend fun getJson(url: String, allowNotXtream: Boolean = false): JsonElement {
+    private fun checkStatus(code: Int, allowNotXtream: Boolean) {
+        when {
+            code == 401 || code == 403 -> throw SourceException(SourceError.AuthFailed)
+            code == 404 -> throw SourceException(if (allowNotXtream) SourceError.Http(404) else SourceError.NotXtream)
+            code !in 200..299 -> throw SourceException(SourceError.Http(code))
+        }
+    }
+
+    // IMPORTANTE: la descarga y lectura se hacen SIEMPRE en Dispatchers.IO. Antes el cuerpo se leía en
+    // el hilo de quien llamaba (la pantalla) y Android cerraba la app (NetworkOnMainThreadException)
+    // al abrir series o sincronizar desde la lista de fuentes.
+    private suspend fun getJson(url: String, allowNotXtream: Boolean = false): JsonElement = withContext(Dispatchers.IO) {
         if (!UrlSafety.isHttpUrl(url)) throw SourceException(SourceError.InvalidUrl)
         http.get(url, mapOf("Accept" to "application/json")).use { r ->
-            when {
-                r.code == 401 || r.code == 403 -> throw SourceException(SourceError.AuthFailed)
-                r.code == 404 -> throw SourceException(if (allowNotXtream) SourceError.Http(404) else SourceError.NotXtream)
-                r.code !in 200..299 -> throw SourceException(SourceError.Http(r.code))
-            }
+            checkStatus(r.code, allowNotXtream)
             val text = r.readText(maxBodyBytes).trim()
-            if (text.isEmpty()) return JsonArray(emptyList())
+            if (text.isEmpty()) return@withContext JsonArray(emptyList())
             if (!(text.startsWith("{") || text.startsWith("["))) throw SourceException(SourceError.NotXtream)
-            return try { json.parseToJsonElement(text) } catch (e: Exception) {
+            try { json.parseToJsonElement(text) } catch (e: Exception) {
                 throw SourceException(SourceError.InvalidResponse("JSON no válido"))
             }
+        }
+    }
+
+    /**
+     * Listas grandes (canales, películas, series): se leen EN STREAMING objeto a objeto y se convierten
+     * al momento con [map]. Así 80 000 películas no ocupan cientos de MB de texto y árbol JSON a la vez
+     * (eso agotaba la memoria de muchos teléfonos y la app se cerraba al cargar la lista).
+     */
+    @OptIn(ExperimentalSerializationApi::class)
+    private suspend fun <T> streamObjects(url: String, beforeParse: suspend () -> Unit = {}, map: (JsonObject) -> T?): List<T> = withContext(Dispatchers.IO) {
+        if (!UrlSafety.isHttpUrl(url)) throw SourceException(SourceError.InvalidUrl)
+        http.get(url, mapOf("Accept" to "application/json")).use { r ->
+            checkStatus(r.code, false)
+            beforeParse()
+            val input = BufferedInputStream(LimitedInputStream(r.body, maxStreamBytes), 128 * 1024)
+            // Saltar BOM y espacios para ver si es un array (lo normal) o un objeto (algunos paneles).
+            input.mark(64)
+            var skip = 0; var first = -1
+            while (skip < 64) {
+                val b = input.read()
+                if (b < 0) break
+                if (b == 0xEF || b == 0xBB || b == 0xBF || b == ' '.code || b == '\n'.code || b == '\r'.code || b == '\t'.code) { skip++; continue }
+                first = b; break
+            }
+            input.reset(); input.skip(skip.toLong())
+            val out = ArrayList<T>()
+            when (first) {
+                -1 -> Unit
+                '['.code -> try {
+                    json.decodeToSequence(input, JsonElement.serializer(), DecodeSequenceMode.ARRAY_WRAPPED).forEach { el ->
+                        (el as? JsonObject)?.let(map)?.let(out::add)
+                    }
+                } catch (e: SerializationException) { if (out.isEmpty()) throw SourceException(SourceError.InvalidResponse("JSON no válido")) }
+                '{'.code -> {
+                    val el = try { json.parseToJsonElement(String(readLimited(input, maxBodyBytes), Charsets.UTF_8)) } catch (e: SerializationException) {
+                        throw SourceException(SourceError.InvalidResponse("JSON no válido"))
+                    }
+                    el.objects().forEach { o -> map(o)?.let(out::add) }
+                }
+                else -> throw SourceException(SourceError.NotXtream)
+            }
+            out
         }
     }
 
@@ -183,6 +242,7 @@ class XtreamClient(
         c: XtreamCredentials,
         account: XtreamAccount,
         preferred: LiveFormat = LiveFormat.TS,
+        onSection: (suspend (ContentKind, Catalog) -> Unit)? = null,
     ): Catalog {
         val format = pickFormat(account.allowedOutputFormats, preferred)
 
@@ -193,14 +253,32 @@ class XtreamClient(
         suspend fun <T> section(kind: ContentKind, catAction: String, action: String, label: String, map: (JsonObject, Map<String, String>) -> T?, id: (T) -> String): Part<T> =
             coroutineScope {
                 val namesD = async { runCatching { categories(c, catAction) } }
-                val streamsD = async { runCatching { getJson(api(c, action)) } }
+                // La lista se pide a la vez que las categorías; se espera a éstas solo antes de leerla.
+                val streamsD = async {
+                    runCatching {
+                        var names: Map<String, String> = emptyMap()
+                        streamObjects(api(c, action), beforeParse = { names = namesD.await().getOrDefault(emptyMap()) }) { o -> map(o, names) }
+                    }
+                }
                 val names = namesD.await().getOrElse { streamsD.cancel(); return@coroutineScope Part(emptyList(), emptyList(), null, false) }
                 val streams = streamsD.await().getOrElse {
+                    if (it is kotlinx.coroutines.CancellationException) throw it
                     return@coroutineScope Part(emptyList(), emptyList(),
                         "No se pudieron cargar $label: ${(it as? SourceException)?.error?.userMessage ?: it.javaClass.simpleName}", true)
                 }
-                val items = streams.objects().mapNotNull { map(it, names) }.distinctBy(id)
-                Part(items, names.map { (cid, n) -> Category(sourceId, kind, cid, n) }, null, true)
+                val items = streams.distinctBy(id)
+                val cats = names.map { (cid, n) -> Category(sourceId, kind, cid, n) }
+                // Entrega inmediata: los canales (rápidos) se guardan y muestran sin esperar a las películas.
+                if (onSection != null) {
+                    @Suppress("UNCHECKED_CAST")
+                    val part = when (kind) {
+                        ContentKind.LIVE -> Catalog(sourceId, live = items as List<LiveChannel>, categories = cats)
+                        ContentKind.MOVIE -> Catalog(sourceId, movies = items as List<Movie>, categories = cats)
+                        else -> Catalog(sourceId, series = items as List<Series>, categories = cats)
+                    }
+                    onSection(kind, part)
+                }
+                Part(items, cats, null, true)
             }
 
         val (liveP, movieP, seriesP) = coroutineScope {

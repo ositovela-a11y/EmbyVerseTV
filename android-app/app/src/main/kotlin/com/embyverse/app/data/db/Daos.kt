@@ -157,6 +157,9 @@ interface CategoryDao {
     @Query("DELETE FROM categories WHERE sourceId = :sourceId")
     suspend fun deleteForSource(sourceId: String)
 
+    @Query("DELETE FROM categories WHERE sourceId = :sourceId AND kind = :kind")
+    suspend fun deleteForSourceKind(sourceId: String, kind: String)
+
     @Upsert suspend fun upsert(items: List<CategoryEntity>)
 
     @Query("SELECT DISTINCT name FROM categories WHERE kind = :kind ORDER BY sourceId, position")

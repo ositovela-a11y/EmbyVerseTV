@@ -32,15 +32,39 @@ const norm = (s) => String(s || '').normalize('NFD').replace(/\p{M}+/gu, '').toL
 const uid = () => Math.random().toString(36).slice(2, 10);
 const isHttp = (u) => /^https?:\/\/[^\s/]+/i.test(String(u || '').trim());
 const pageIsHttps = location.protocol === 'https:';
-const insecureOnHttps = (u) => pageIsHttps && /^http:\/\//i.test(u);
-const safeImg = (u) => (u && /^https?:\/\//i.test(u) && !insecureOnHttps(u) ? u : '');
 
 class UserError extends Error {}
-// Modo local (EmbyVerse Web Local en la PC): listas, API y video pasan por el programa, que evita CORS y http.
+// Intermediarios: el navegador no puede abrir proveedores http:// ni los que bloquean CORS. Con un
+// intermediario, listas, API y video pasan por él y funcionan en cualquier navegador.
+//  - Modo local: EmbyVerse Web Local en la PC sirve la web y hace de intermediario (/proxy).
+//  - EmbyVerse Relay: intermediario en la nube (Deno Deploy o Cloudflare). Se configura para todos en
+//    relay-config.js o en «Fuentes» para este navegador; también con ?relay=https://… en la dirección.
 const LOCAL = !!window.EV_LOCAL;
-const px = (u) => (LOCAL && /^https?:\/\//i.test(u) ? '/proxy?u=' + encodeURIComponent(u) : u);
-const LOCAL_HINT = 'Para ver estos canales en el navegador usa «EmbyVerse Web Local» en tu PC (descárgalo desde la página del proyecto) o la app Android.';
-const MIXED_MSG = 'Esta dirección usa http:// (sin cifrar) y el navegador la bloquea en una página https. ' + 'Para ver estos canales en el navegador usa «EmbyVerse Web Local» en tu PC o la app Android.';
+(() => {
+  try {
+    const q = new URLSearchParams(location.search).get('relay');
+    if (q != null) { store.set('relay', q.trim() || 'off'); history.replaceState(null, '', location.pathname); }
+  } catch { /* sin acceso a la URL */ }
+})();
+const relayFrom = (raw) => {
+  raw = String(raw || '').trim();
+  if (!raw || raw === 'off') return null;
+  try { const u = new URL(raw.includes('://') ? raw : 'https://' + raw); return /^https?:$/.test(u.protocol) ? { base: u.origin, key: u.searchParams.get('k') || '' } : null; } catch { return null; }
+};
+const RELAY_USER = store.get('relay', '');
+const RELAY = LOCAL ? null : relayFrom(RELAY_USER === 'off' ? '' : RELAY_USER || window.EV_RELAY);
+const PROXIED = LOCAL || !!RELAY;
+const px = (u) => {
+  if (!/^https?:\/\//i.test(u)) return u;
+  if (LOCAL) return '/proxy?u=' + enc(u);
+  if (RELAY) return `${RELAY.base}/p?${RELAY.key ? 'k=' + enc(RELAY.key) + '&' : ''}u=${enc(u)}`;
+  return u;
+};
+const insecureOnHttps = (u) => pageIsHttps && !PROXIED && /^http:\/\//i.test(u);
+// Carátulas http:// en una página https: por el intermediario si hay; si no, se omiten.
+const safeImg = (u) => (!u || !/^https?:\/\//i.test(u) ? '' : pageIsHttps && /^http:\/\//i.test(u) ? (PROXIED ? px(u) : '') : u);
+const LOCAL_HINT = 'Activa el servidor intermediario en «Fuentes» (funciona en iPhone, Android, PC y TV) o usa la app Android.';
+const MIXED_MSG = 'Esta dirección usa http:// (sin cifrar) y el navegador la bloquea en una página https. ' + LOCAL_HINT;
 
 async function fetchText(url, { timeout = 30000, json = false } = {}) {
   if (!isHttp(url)) throw new UserError('La dirección no es válida. Debe empezar por http:// o https://');
@@ -51,7 +75,7 @@ async function fetchText(url, { timeout = 30000, json = false } = {}) {
   try { r = await fetch(px(url), { signal: ctl.signal, credentials: 'omit' }); }
   catch (e) {
     if (e.name === 'AbortError') throw new UserError('El servidor tardó demasiado en responder.');
-    throw new UserError(LOCAL ? 'No se pudo conectar con el servidor del proveedor. Revisa la dirección y tu conexión.' : 'No se pudo conectar. El servidor no está disponible o no permite el acceso desde navegadores. ' + LOCAL_HINT);
+    throw new UserError(PROXIED ? 'No se pudo conectar con el servidor del proveedor. Revisa la dirección y tu conexión.' : 'No se pudo conectar. El servidor no está disponible o no permite el acceso desde navegadores. ' + LOCAL_HINT);
   } finally { clearTimeout(timer); }
   if (r.status === 401 || r.status === 403) throw new UserError(`El servidor rechazó el acceso (HTTP ${r.status}). Revisa usuario y contraseña.`);
   if (r.status === 404) throw new UserError('No se encontró nada en esa dirección (HTTP 404).');
@@ -356,8 +380,9 @@ function renderWelcome() {
       </div>
       ${addForm('Iniciar sesión', 'Entrar')}
       <button class="link" data-act="demo" data-focus>Probar con la lista de demostración</button>
+      ${PROXIED ? '' : `<details class="relay-box"><summary data-focus>¿Tu proveedor usa http://? Configura el intermediario</summary>${relayCard()}</details>`}
     </section>`;
-  wireForm();
+  wireForm(); wireRelay();
   focusFirst();
 }
 
@@ -533,7 +558,7 @@ function addForm(title, button) {
         <label class="field">Nombre (opcional)<input id="f-name" name="name" maxlength="40" placeholder="Mi proveedor" data-focus></label>
         <p class="err" id="f-err" hidden></p>
         <button class="btn primary wide-btn" data-focus>${button}</button>
-        <p class="fine">${LOCAL ? 'Modo local activo: tu PC hace de intermediario, funcionan listas http:// y https://. ' : pageIsHttps ? 'En el navegador solo funcionan servidores y listas <b>https://</b>. Si tu proveedor usa http://, usa «EmbyVerse Web Local» en tu PC o la app Android. ' : ''}Usa solo servicios a los que tengas derecho de acceso. Tus datos se guardan solo en este navegador.</p>
+        <p class="fine">${PROXIED ? 'Intermediario activo: funcionan listas y servidores http:// y https://. ' : pageIsHttps ? 'Sin intermediario solo funcionan servidores <b>https://</b> que permiten navegadores. Para proveedores http:// configura el intermediario en «Fuentes». ' : ''}Usa solo servicios a los que tengas derecho de acceso. Tus datos se guardan solo en este navegador.</p>
       </form>`;
 }
 
@@ -564,9 +589,49 @@ function renderSources() {
             <button class="btn danger" data-act="delete" data-sid="${esc(s.id)}" data-focus>Eliminar</button>
           </div>
         </article>`).join('')}
+      ${relayCard()}
       ${addForm('Añadir otra fuente', 'Añadir')}
     </section>`;
-  wireForm();
+  wireForm(); wireRelay();
+}
+
+function relayCard() {
+  if (LOCAL) return `<article class="source relay"><div><b>Intermediario</b><small class="ok">Modo local activo (EmbyVerse Web Local en tu PC).</small></div></article>`;
+  const val = RELAY_USER && RELAY_USER !== 'off' ? RELAY_USER : '';
+  return `
+    <article class="source relay">
+      <div><b>Servidor intermediario</b>
+        <small class="${RELAY ? 'ok' : ''}">${RELAY ? 'Activo: ' + esc(RELAY.base) + (RELAY_USER ? '' : ' (predeterminado)') : 'Sin configurar: los proveedores http:// no abrirán en el navegador.'}</small>
+        <small>Permite ver proveedores http:// o que bloquean navegadores en iPhone, Android, PC y TV.</small>
+      </div>
+      <form id="relay-form" class="relay-form" autocomplete="off">
+        <input id="relay-url" inputmode="url" placeholder="https://tu-intermediario.deno.net" value="${esc(val)}" aria-label="Dirección del intermediario" data-focus>
+        <button class="btn" data-focus>Guardar</button>
+        ${RELAY_USER ? '<button class="btn" type="button" id="relay-reset" data-focus>Usar el predeterminado</button>' : ''}
+      </form>
+      <p class="err" id="relay-err" hidden></p>
+    </article>`;
+}
+
+function wireRelay() {
+  const f = $('#relay-form'); if (!f) return;
+  $('#relay-reset')?.addEventListener('click', () => { try { localStorage.removeItem('ev.relay'); } catch { /* */ } location.reload(); });
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = $('#relay-err'), raw = $('#relay-url').value.trim(), btn = f.querySelector('button');
+    const show = (m) => { err.textContent = m; err.hidden = !m; };
+    if (!raw) { store.set('relay', 'off'); location.reload(); return; }
+    const r = relayFrom(raw);
+    if (!r) return show('La dirección no es válida.');
+    if (pageIsHttps && r.base.startsWith('http:')) return show('El intermediario debe usar https://');
+    btn.disabled = true; btn.textContent = 'Comprobando…'; show('');
+    try {
+      const ctl = new AbortController(); setTimeout(() => ctl.abort(), 10000);
+      const j = await (await fetch(r.base + '/health', { signal: ctl.signal })).json();
+      if (!j || !j.ok) throw new Error();
+      store.set('relay', raw); location.reload();
+    } catch { show('No responde como un intermediario de EmbyVerse. Revisa la dirección.'); btn.disabled = false; btn.textContent = 'Guardar'; }
+  });
 }
 
 async function onAddSource(e) {
@@ -676,7 +741,7 @@ function candidatesFor(item) {
   return [{ url: item.url, mode: 'file' }];
 }
 
-const MIXED_STREAM_MSG = 'Tu proveedor entrega el video por http:// (sin cifrar) y el navegador lo bloquea en esta página segura. ' + 'Para ver estos canales en el navegador usa «EmbyVerse Web Local» en tu PC o la app Android.';
+const MIXED_STREAM_MSG = 'Tu proveedor entrega el video por http:// (sin cifrar) y el navegador lo bloquea en esta página segura. ' + LOCAL_HINT;
 
 async function start(item, attempt = 0) {
   destroyEngines();
@@ -732,7 +797,7 @@ async function start(item, attempt = 0) {
       if (d.type === Hls.ErrorTypes.MEDIA_ERROR && player.retries < 1) { player.retries++; h.recoverMediaError(); return; }
       fail(code === 401 || code === 403 ? 'El proveedor denegó el acceso (credenciales o límite de conexiones alcanzado).'
         : code === 404 ? 'El proveedor dice que este canal no existe o está fuera de servicio (404).'
-        : lastProblem || (d.type === Hls.ErrorTypes.NETWORK_ERROR ? (LOCAL ? 'No se pudo cargar el canal: el proveedor no responde.' : 'No se pudo cargar el canal: tu proveedor no permite reproducir desde una página web. ' + LOCAL_HINT) : 'Este canal usa un formato que el navegador no puede reproducir.'),
+        : lastProblem || (d.type === Hls.ErrorTypes.NETWORK_ERROR ? (PROXIED ? 'No se pudo cargar el canal: el proveedor no responde.' : 'No se pudo cargar el canal: tu proveedor no permite reproducir desde una página web. ' + LOCAL_HINT) : 'Este canal usa un formato que el navegador no puede reproducir.'),
         `${d.type} · ${d.details}${code ? ' · HTTP ' + code : ''}`);
     });
     h.loadSource(src); h.attachMedia(v);
@@ -746,7 +811,7 @@ async function start(item, attempt = 0) {
     const p = mpegts.createPlayer({ type: 'mpegts', isLive: true, url: abs }, { enableWorker: true, lazyLoad: false, liveBufferLatencyChasing: true });
     player.ts = p; p.attachMediaElement(v); p.load();
     p.on(mpegts.Events.ERROR, (type, detail, info) => fail(
-      type === mpegts.ErrorTypes.NETWORK_ERROR ? (LOCAL ? 'El proveedor no entregó este canal (puede estar caído o haber alcanzado el límite de conexiones).' : 'Tu proveedor no permite reproducir este canal desde una página web. ' + LOCAL_HINT) : 'Este canal usa un formato que el navegador no puede reproducir.',
+      type === mpegts.ErrorTypes.NETWORK_ERROR ? (PROXIED ? 'El proveedor no entregó este canal (puede estar caído o haber alcanzado el límite de conexiones).' : 'Tu proveedor no permite reproducir este canal desde una página web. ' + LOCAL_HINT) : 'Este canal usa un formato que el navegador no puede reproducir.',
       `${type} · ${detail}${info && info.code ? ' · HTTP ' + info.code : ''}`));
     v.addEventListener('loadedmetadata', onReady, { once: true });
     return;

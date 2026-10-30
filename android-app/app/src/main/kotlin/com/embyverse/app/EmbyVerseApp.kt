@@ -13,6 +13,7 @@ class EmbyVerseApp : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        CrashReport.install(this)
         container = AppContainer(this)
         container.config.onAppStart()
         SyncWorker.schedule(this)

@@ -52,6 +52,10 @@
     <string name="config_rolled_back">The previous design was restored</string>
     <string name="config_up_to_date">Up to date</string>
     <string name="config_updated">Updated to version %1$d</string>
+    <string name="crash_copied">Report copied</string>
+    <string name="crash_copy">Copy report</string>
+    <string name="crash_message">Sorry. Copy this report and send it to support so it can be fixed. It contains no usernames or passwords.</string>
+    <string name="crash_title">The app closed unexpectedly last time</string>
     <string name="epg_title">Program guide</string>
     <string name="epg_unavailable">No guide available for this channel.</string>
     <string name="episodes_empty">No episodes available</string>

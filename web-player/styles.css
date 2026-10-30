@@ -175,6 +175,12 @@ body.signed-out .tabs, body.signed-out #search { display: none; }
 .source { display: flex; gap: 14px; justify-content: space-between; align-items: flex-start; background: rgba(10, 19, 36, .8); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; flex-wrap: wrap; }
 .source > div:first-child { min-width: 0; flex: 1; display: grid; gap: 3px; }
 .source-actions { display: flex; gap: 8px; }
+.source.relay { border-color: rgba(34, 211, 238, .35); }
+.source.relay > div { flex: 1 1 260px; }
+.relay-form { display: flex; gap: 8px; flex-wrap: wrap; flex: 1 1 320px; align-items: center; }
+.relay-form input { flex: 1 1 220px; min-width: 0; padding: 11px 14px; border-radius: 10px; border: 1px solid var(--line); background: rgba(2, 5, 12, .75); color: var(--text); font-size: .95rem; }
+.relay-form input:focus { border-color: var(--cyan); outline: none; box-shadow: 0 0 0 3px rgba(34, 211, 238, .18); }
+.source.relay .err { flex-basis: 100%; }
 .add { display: grid; gap: 14px; background: rgba(10, 19, 36, .82); backdrop-filter: blur(10px); border-radius: 18px; padding: 24px; border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0, 0, 0, .35); }
 .field { display: grid; gap: 6px; font-weight: 600; font-size: .84rem; color: var(--muted); }
 .field input { padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: rgba(2, 5, 12, .75); color: var(--text); font-weight: 400; width: 100%; font-size: .95rem; }
@@ -246,3 +252,6 @@ body.playing .toast { bottom: 90px; }
 .sync-note { display: flex; align-items: center; gap: 10px; margin: 0; padding: 0 var(--pad); color: var(--muted); font-size: .88rem; }
 .spinner.tiny { width: 16px; height: 16px; border-width: 2px; }
 .lib-more { height: 1px; }
+.relay-box { width: 100%; max-width: 560px; color: var(--muted); }
+.relay-box summary { cursor: pointer; padding: 8px 0; color: var(--cyan); }
+.relay-box .source { margin-top: 8px; text-align: left; }

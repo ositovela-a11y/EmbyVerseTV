@@ -1,0 +1,4 @@
+# Cloudflare Workers (alternativa): botón "Deploy to Cloudflare" o `npx wrangler deploy` desde esta carpeta.
+name = "embyverse-relay"
+main = "worker.js"
+compatibility_date = "2026-06-01"

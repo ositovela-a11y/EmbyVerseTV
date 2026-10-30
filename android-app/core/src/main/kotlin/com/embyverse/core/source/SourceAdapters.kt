@@ -3,6 +3,7 @@ package com.embyverse.core.source
 import com.embyverse.core.m3u.M3uCatalogBuilder
 import com.embyverse.core.m3u.M3uParser
 import com.embyverse.core.model.Catalog
+import com.embyverse.core.model.ContentKind
 import com.embyverse.core.model.SourceSpec
 import com.embyverse.core.model.SourceType
 import com.embyverse.core.net.HttpFetcher
@@ -17,6 +18,8 @@ import com.embyverse.core.xtream.XtreamCapabilities
 import com.embyverse.core.xtream.XtreamClient
 import com.embyverse.core.xtream.XtreamCredentials
 import java.io.InputStream
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.InputStreamReader
 
 data class ConnectionReport(
@@ -29,9 +32,12 @@ data class ConnectionReport(
 )
 
 /** Cada tipo de fuente tiene su adaptador. La contraseña se recibe aparte y nunca se guarda en [SourceSpec]. */
+/** Recibe cada sección (canales, películas o series) en cuanto está lista, para mostrarla sin esperar al resto. */
+typealias SectionSink = suspend (ContentKind, Catalog) -> Unit
+
 interface SourceAdapter {
     suspend fun test(spec: SourceSpec, password: String?): Outcome<ConnectionReport>
-    suspend fun sync(spec: SourceSpec, password: String?): Outcome<Catalog>
+    suspend fun sync(spec: SourceSpec, password: String?, onSection: SectionSink? = null): Outcome<Catalog>
 }
 
 class M3uSourceAdapter(
@@ -44,12 +50,13 @@ class M3uSourceAdapter(
 ) : SourceAdapter {
 
     override suspend fun test(spec: SourceSpec, password: String?): Outcome<ConnectionReport> =
-        when (val r = sync(spec, password)) {
+        when (val r = sync(spec, password, null)) {
             is Outcome.Ok -> Outcome.Ok(ConnectionReport(r.value.live.size, r.value.movies.size, r.value.series.size, warnings = r.value.warnings))
             is Outcome.Fail -> r
         }
 
-    override suspend fun sync(spec: SourceSpec, password: String?): Outcome<Catalog> = classify {
+    // La lectura y el análisis van en Dispatchers.IO: nunca en el hilo de la pantalla.
+    override suspend fun sync(spec: SourceSpec, password: String?, onSection: SectionSink?): Outcome<Catalog> = classify { withContext(Dispatchers.IO) {
         val catalog = when (spec.type) {
             SourceType.M3U_URL -> {
                 if (!UrlSafety.isHttpUrl(spec.location)) throw SourceException(SourceError.InvalidUrl)
@@ -67,7 +74,7 @@ class M3uSourceAdapter(
         }
         if (catalog.isEmpty) throw SourceException(SourceError.Empty)
         if (spec.epgUrl != null) catalog.copy(epgUrl = spec.epgUrl) else catalog
-    }
+    } }
 }
 
 class XtreamSourceAdapter(
@@ -95,10 +102,10 @@ class XtreamSourceAdapter(
             })
     }
 
-    override suspend fun sync(spec: SourceSpec, password: String?): Outcome<Catalog> = classify {
+    override suspend fun sync(spec: SourceSpec, password: String?, onSection: SectionSink?): Outcome<Catalog> = classify {
         val c = creds(spec, password)
         val account = client.authenticate(c)
-        val catalog = client.loadCatalog(spec.id, c, account, liveFormat())
+        val catalog = client.loadCatalog(spec.id, c, account, liveFormat(), onSection)
         if (spec.epgUrl != null) catalog.copy(epgUrl = spec.epgUrl) else catalog
     }
 }

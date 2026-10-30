@@ -1,0 +1,5 @@
+✔  Sin intermediario: el proveedor se bloquea y el aviso explica qué hacer  «No se pudo conectar. El servidor no está disponible o no permite el acceso desde navegadores. Activa…»
+✔  Configurar el intermediario desde la pantalla de entrada (vista iPhone)  guardado y página recargada
+✔  Entrar con Xtream http:// sin CORS a través del intermediario  catálogo cargado
+✔  Canal en vivo HLS por el intermediario  reproduciendo
+✔  Película por el intermediario (con saltos de posición)  reproduce y salta

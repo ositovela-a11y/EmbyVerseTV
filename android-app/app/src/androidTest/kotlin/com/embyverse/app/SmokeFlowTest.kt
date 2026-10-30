@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.printToLog
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.espresso.Espresso
@@ -44,11 +45,19 @@ class SmokeFlowTest {
 
     private fun log(msg: String) { Log.i("EVTEST", msg) }
 
+    /** Espera una condición; si no se cumple, deja en logcat el árbol de la pantalla y falla con un mensaje claro. */
+    private fun waitFor(what: String, timeoutMs: Long, cond: () -> Boolean) {
+        try { compose.waitUntil(timeoutMs, cond) } catch (e: ComposeTimeoutException) {
+            runCatching { compose.onAllNodes(SemanticsMatcher("raíz") { it.parent == null }, useUnmergedTree = true).printToLog("EVTREE") }
+            fail("No apareció: $what (${timeoutMs / 1000} s)")
+        }
+    }
+
     private fun waitTag(tag: String, timeoutMs: Long = 20_000) =
-        compose.waitUntil(timeoutMs) { compose.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        waitFor("etiqueta $tag", timeoutMs) { compose.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
 
     private fun waitText(text: String, timeoutMs: Long = 20_000) =
-        compose.waitUntil(timeoutMs) { compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty() }
+        waitFor("texto «$text»", timeoutMs) { compose.onAllNodesWithText(text, substring = true, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
 
     private fun memory(): String {
         val rt = Runtime.getRuntime()
@@ -98,7 +107,7 @@ class SmokeFlowTest {
                 openCard("MOVIE", (index + 1).toString(), index)
                 waitText("Reproducir")
                 log("Película #$index: ficha en ${System.currentTimeMillis() - t} ms")
-                playAndCheck("Película #$index") { compose.onAllNodesWithText("Reproducir")[0].performClick() }
+                playAndCheck("Película #$index") { compose.onAllNodesWithText("Reproducir", useUnmergedTree = true)[0].performClick() }
                 Espresso.pressBack() // volver a la cuadrícula
                 waitTag("grid")
             }
@@ -138,12 +147,12 @@ class SmokeFlowTest {
     }
 
     private fun waitCards(timeoutMs: Long = 30_000) =
-        compose.waitUntil(timeoutMs) { compose.onAllNodes(hasTagPrefix("card:"), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        waitFor("tarjetas", timeoutMs) { compose.onAllNodes(hasTagPrefix("card:"), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
 
     /** Desplaza la cuadrícula hasta el elemento y lo abre por su id del proveedor. */
     private fun openCard(kind: String, id: String, gridIndex: Int) {
         compose.onNodeWithTag("grid").performScrollToIndex(gridIndex)
-        compose.waitUntil(10_000) { compose.onAllNodesWithTag("card:$kind:$id", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        waitFor("tarjeta $kind $id", 10_000) { compose.onAllNodesWithTag("card:$kind:$id", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("card:$kind:$id", useUnmergedTree = true).performClick()
     }
 
@@ -154,5 +163,20 @@ class SmokeFlowTest {
         val r = c.sources.sync(id)
         log("M3U: sincronización ${System.currentTimeMillis() - t0} ms → $r · ${memory()}")
         assertTrue("sincronización M3U: $r", r is SyncState.Done)
+    }
+
+    /** Lo que hacen los botones (probar conexión, actualizar, abrir serie/película) se ejecuta en el hilo principal. */
+    @Test fun d_operacionesDesdeElHiloPrincipal() = runBlocking(kotlinx.coroutines.Dispatchers.Main) {
+        val c = app.container
+        val draft = SourceDraft(name = "Hilo principal", type = SourceType.XTREAM, location = base, username = "user", password = "pass")
+        assertTrue("probar conexión", c.sources.test(draft) is com.embyverse.core.net.Outcome.Ok)
+        val id = c.sources.save(draft)
+        val t0 = System.currentTimeMillis()
+        val r = c.sources.sync(id)
+        log("Actualizar desde la pantalla: ${System.currentTimeMillis() - t0} ms → $r")
+        assertTrue("sincronizar: $r", r is SyncState.Done)
+        assertTrue("episodios", c.sources.loadEpisodes(id, "1") is com.embyverse.core.net.Outcome.Ok)
+        c.sources.loadMovieDetails(id, "1")
+        log("Hilo principal: probar, actualizar, episodios y ficha sin cierres")
     }
 }

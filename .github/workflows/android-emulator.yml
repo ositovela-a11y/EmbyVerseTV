@@ -11,6 +11,8 @@ on:
     branches: [main]
     paths: ['android-app/**', 'tests/android/**', '.github/workflows/android-emulator.yml']
 concurrency: { group: emulator, cancel-in-progress: true }
+permissions:
+  contents: write
 jobs:
   emulator:
     runs-on: ubuntu-latest
@@ -64,6 +66,13 @@ jobs:
           grep -A25 "FATAL EXCEPTION\|OutOfMemoryError\|ANR in" logcat.txt | head -80 | sed 's/^/::error::/' || true
           grep -E "FAILURES|OK \(|Process crashed|shortMsg|INSTRUMENTATION_FAILED|Error in|AssertionError|Exception" instrument.txt | head -20 | sed 's/^/::warning::/' || true
           grep -q "^OK (" instrument.txt
+      - name: Publicar registros (release ci-logs)
+        if: always()
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          grep -E "EVTEST|EVTREE|EmbyVerse|AndroidRuntime|FATAL|OutOfMemory|ANR in|TestRunner" logcat.txt > resumen.txt || true
+          gh release view ci-logs >/dev/null 2>&1 || gh release create ci-logs --prerelease --title "Registros de pruebas" --notes "Registros automáticos de la prueba en emulador."
+          gh release upload ci-logs resumen.txt instrument.txt --clobber || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:

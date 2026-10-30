@@ -74,6 +74,8 @@ sealed interface Outcome<out T> {
 /** Ejecuta [block] traduciendo excepciones de red a [SourceError]. */
 suspend fun <T> classify(block: suspend () -> T): Outcome<T> = try {
     Outcome.Ok(block())
+} catch (e: kotlinx.coroutines.CancellationException) {
+    throw e // la cancelación (salir de la pantalla) no es un error
 } catch (e: SourceException) {
     Outcome.Fail(e.error)
 } catch (e: java.net.SocketTimeoutException) {
@@ -82,12 +84,20 @@ suspend fun <T> classify(block: suspend () -> T): Outcome<T> = try {
     Outcome.Fail(SourceError.TooLarge(e.limit))
 } catch (e: java.net.MalformedURLException) {
     Outcome.Fail(SourceError.InvalidUrl)
+} catch (e: kotlinx.serialization.SerializationException) {
+    Outcome.Fail(SourceError.InvalidResponse("JSON no válido"))
 } catch (e: IllegalArgumentException) {
     Outcome.Fail(SourceError.InvalidUrl)
 } catch (e: java.io.IOException) {
     // Algunos clientes envuelven el timeout en otra IOException
     if (e.cause is java.net.SocketTimeoutException || e.message?.contains("timeout", true) == true) Outcome.Fail(SourceError.Timeout)
     else Outcome.Fail(SourceError.Network(e.javaClass.simpleName))
+} catch (e: OutOfMemoryError) {
+    // Lista enorme para la memoria del dispositivo: se informa en vez de cerrar la app.
+    Outcome.Fail(SourceError.TooLarge(0))
+} catch (e: Exception) {
+    // Cualquier dato inesperado del proveedor se muestra como error, nunca cierra la app.
+    Outcome.Fail(SourceError.InvalidResponse(e.javaClass.simpleName))
 }
 
 object UrlSafety {

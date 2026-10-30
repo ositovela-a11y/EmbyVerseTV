@@ -53,6 +53,10 @@
     <string name="config_rolled_back">Se restauró el diseño anterior</string>
     <string name="config_up_to_date">Actualizado</string>
     <string name="config_updated">Actualizado a la versión %1$d</string>
+    <string name="crash_copied">Informe copiado</string>
+    <string name="crash_copy">Copiar informe</string>
+    <string name="crash_message">Lo sentimos. Copia este informe y envíalo al soporte para corregirlo. No incluye usuarios ni contraseñas.</string>
+    <string name="crash_title">La app se cerró la última vez</string>
     <string name="epg_title">Guía de programación</string>
     <string name="epg_unavailable">Este canal no tiene guía disponible.</string>
     <string name="episodes_empty">No hay episodios disponibles</string>
