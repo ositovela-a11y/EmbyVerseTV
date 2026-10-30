@@ -38,7 +38,7 @@ jobs:
         working-directory: android-app
         run: |
           set -o pipefail
-          ./gradlew --no-daemon --stacktrace -Pembyverse.testRelease=true :app:assembleRelease :app:assembleReleaseAndroidTest 2>&1 | tee build.log || {
+          ./gradlew --no-daemon --stacktrace :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease 2>&1 | tee build.log || {
             { grep -E '^e: |ERROR|Missing class|R8:' build.log | head -30; awk '/What went wrong:/{f=1} /\* Try:/{f=0} f' build.log | head -30; } > errors.txt
             split -l 6 errors.txt chunk_ || true
             for f in $(ls chunk_* 2>/dev/null | head -10); do msg=$(sed 's/%/%25/g' "$f" | awk 'BEGIN{ORS="%0A"} {print}'); echo "::error::$msg"; done
@@ -59,8 +59,8 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
-            adb install -r android-app/app/build/outputs/apk/release/app-release.apk
-            adb install -r android-app/app/build/outputs/apk/androidTest/release/app-release-androidTest.apk
+            adb install -r android-app/app/build/outputs/apk/debug/app-debug.apk
+            adb install -r android-app/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
             adb shell settings put secure immersive_mode_confirmations confirmed
             adb shell settings put global hide_error_dialogs 1
             adb logcat -c
@@ -69,6 +69,16 @@ jobs:
             sleep 2
             adb shell getprop dalvik.vm.heapgrowthlimit; adb shell getprop dalvik.vm.heapsize
             adb pull /sdcard/Android/data/com.embyverse.app.debug/files/capturas capturas || true
+            # APK optimizado (el que se entrega): se instala encima, se abre y se recorre con el control.
+            adb install -r android-app/app/build/outputs/apk/release/app-release.apk
+            adb logcat -c
+            adb shell am start -W -n com.embyverse.app.debug/com.embyverse.app.MainActivity | tee release-start.txt
+            sleep 8
+            for k in 20 20 22 22 20 23 4 21 21 19 19 22 23; do adb shell input keyevent $k; sleep 0.6; done
+            sleep 3
+            adb exec-out screencap -p > release-pantalla.png || true
+            if adb shell pidof com.embyverse.app.debug > /dev/null; then echo "EVTEST release: la app optimizada abrió y respondió al control sin cerrarse" | tee -a release-start.txt; else echo "EVTEST release: LA APP OPTIMIZADA SE CERRÓ" | tee -a release-start.txt; fi
+            adb logcat -d | grep -A30 "FATAL EXCEPTION" | head -60 >> release-start.txt || true
       - name: Resultado
         if: always()
         run: |
@@ -83,6 +93,7 @@ jobs:
           grep -E "EVTEST|EVTREE|EmbyVerse|AndroidRuntime|FATAL|OutOfMemory|ANR in|TestRunner" logcat.txt > resumen.txt || true
           gh release view ci-logs >/dev/null 2>&1 || gh release create ci-logs --prerelease --title "Registros de pruebas" --notes "Registros automáticos de la prueba en emulador."
           gh release upload ci-logs resumen.txt instrument.txt --clobber || true
+          for f in release-start.txt release-pantalla.png; do [ -f "$f" ] && gh release upload ci-logs "$f" --clobber; done || true
           for f in capturas/*.png; do [ -f "$f" ] && gh release upload ci-logs "$f" --clobber; done || true
       - uses: actions/upload-artifact@v4
         if: always()
