@@ -160,11 +160,14 @@ private fun HeroCarousel(items: List<HeroItem>, nav: Navigator) {
     // Banner a todo lo ancho, proporción cinematográfica.
     val height = when { t.device.isTv -> 380.dp; cfgW >= 600 -> 340.dp; else -> 300.dp }
     // Cada novedad dura 6.5 s (tiempo para leerla); la barra del indicador muestra cuánto falta.
-    val progress = remember { androidx.compose.animation.core.Animatable(0f) }
+    // Se avanza con un temporizador ligero (no una animación continua): menos trabajo para el TV.
+    val progress = remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     LaunchedEffect(pager.currentPage, items.size) {
         if (items.size < 2) return@LaunchedEffect
-        progress.snapTo(0f)
-        progress.animateTo(1f, androidx.compose.animation.core.tween(6_500, easing = androidx.compose.animation.core.LinearEasing))
+        val total = 6_500L; val step = 100L
+        var elapsed = 0L
+        progress.floatValue = 0f
+        while (elapsed < total) { delay(step); elapsed += step; progress.floatValue = elapsed / total.toFloat() }
         if (!pager.isScrollInProgress) pager.animateScrollToPage((pager.currentPage + 1) % items.size,
             animationSpec = androidx.compose.animation.core.tween(650, easing = androidx.compose.animation.core.FastOutSlowInEasing))
     }
@@ -214,7 +217,7 @@ private fun HeroCarousel(items: List<HeroItem>, nav: Navigator) {
             repeat(items.size) { i ->
                 val active = i == pager.currentPage
                 Box(Modifier.size(width = if (active) 28.dp else 6.dp, height = 6.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.3f))) {
-                    if (active) Box(Modifier.fillMaxHeight().fillMaxWidth(progress.value.coerceIn(0.05f, 1f)).background(t.primary))
+                    if (active) Box(Modifier.fillMaxHeight().fillMaxWidth(progress.floatValue.coerceIn(0.05f, 1f)).background(t.primary))
                 }
             }
         }
