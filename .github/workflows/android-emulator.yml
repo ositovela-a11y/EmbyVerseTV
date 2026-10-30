@@ -38,7 +38,7 @@ jobs:
         working-directory: android-app
         run: |
           set -o pipefail
-          ./gradlew --no-daemon --stacktrace :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease 2>&1 | tee build.log || {
+          { ./gradlew --no-daemon --stacktrace :app:assembleDebug :app:assembleDebugAndroidTest && ./gradlew --no-daemon --stacktrace :app:assembleRelease; } 2>&1 | tee build.log || {
             { grep -E '^e: |ERROR|Missing class|R8:' build.log | head -30; awk '/What went wrong:/{f=1} /\* Try:/{f=0} f' build.log | head -30; } > errors.txt
             split -l 6 errors.txt chunk_ || true
             for f in $(ls chunk_* 2>/dev/null | head -10); do msg=$(sed 's/%/%25/g' "$f" | awk 'BEGIN{ORS="%0A"} {print}'); echo "::error::$msg"; done
