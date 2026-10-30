@@ -151,10 +151,12 @@ fun GuideScreen(nav: Navigator) {
                         IconButton(onClick = { vm.shift(+1) }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, stringResource(R.string.guide_later), tint = t.onBackground) }
                     }
                     Box(Modifier.width(timelineW).fillMaxHeight()) {
-                        for (i in 0 until WINDOW_MIN / 30) {
-                            val sec = s.from + i * 1800
-                            Text(fmt.format(Date(sec * 1000)), style = MaterialTheme.typography.labelMedium, color = t.textSecondary,
-                                modifier = Modifier.offset(x = dpPerSec * (i * 1800f)).padding(start = 4.dp).align(Alignment.CenterStart))
+                        // En pantallas angostas (celular) una marca por hora para que las horas no se encimen.
+                        val step = if (dpPerSec * 1800f < 84.dp) 3600 else 1800
+                        for (i in 0 until WINDOW_MIN * 60 / step) {
+                            val sec = s.from + i * step
+                            Text(fmt.format(Date(sec * 1000)), style = MaterialTheme.typography.labelMedium, color = t.textSecondary, maxLines = 1,
+                                modifier = Modifier.offset(x = dpPerSec * (i * step.toFloat())).padding(start = 4.dp).align(Alignment.CenterStart))
                         }
                     }
                 }
