@@ -1,0 +1,247 @@
+{
+  "schemaVersion": 1,
+  "version": 1,
+  "publishedAt": "2026-10-29T00:00:00Z",
+  "minAppVersionCode": 1,
+  "brand": {
+    "appName": "Demo Vendedor",
+    "logo": {
+      "variant": "bundled_full"
+    },
+    "tagline": "Tu universo de entretenimiento"
+  },
+  "theme": {
+    "palette": {
+      "primary": "#FF8A00",
+      "secondary": "#1E6BFF",
+      "accent": "#22D3EE",
+      "background": "#03070F",
+      "surface": "#0A1324",
+      "surfaceVariant": "#13213B",
+      "onBackground": "#EAF2FF",
+      "onSurface": "#DCE6F5",
+      "textSecondary": "#8FA3BF",
+      "onPrimary": "#04110A",
+      "buttonBackground": "#FF8A00",
+      "buttonText": "#04110A",
+      "focusRing": "#22D3EE",
+      "error": "#FF5A6E"
+    },
+    "background": {
+      "style": "nebula",
+      "gradientStart": "#03070F",
+      "gradientEnd": "#071A33"
+    },
+    "typography": {
+      "family": "poppins",
+      "scale": 1.0
+    },
+    "shape": {
+      "cardRadius": 14,
+      "buttonRadius": 24,
+      "bannerRadius": 20
+    },
+    "spacing": {
+      "screenPadding": 20,
+      "sectionGap": 26,
+      "cardGap": 12
+    },
+    "glow": {
+      "enabled": true,
+      "intensity": 0.35
+    },
+    "buttonStyle": "filled",
+    "navigation": {
+      "style": "bottom_bar",
+      "showLabels": true
+    }
+  },
+  "themes": [
+    {
+      "id": "embyverse",
+      "name": "EmbyVerse (original)",
+      "palette": {}
+    },
+    {
+      "id": "deep_space",
+      "name": "Espacio profundo",
+      "palette": {
+        "primary": "#22D3EE",
+        "accent": "#7BE52F",
+        "buttonBackground": "#22D3EE",
+        "focusRing": "#7BE52F"
+      }
+    },
+    {
+      "id": "electric",
+      "name": "Azul eléctrico",
+      "palette": {
+        "primary": "#3B82FF",
+        "accent": "#22D3EE",
+        "buttonBackground": "#3B82FF",
+        "buttonText": "#FFFFFF",
+        "onPrimary": "#FFFFFF"
+      }
+    },
+    {
+      "id": "midnight",
+      "name": "Medianoche",
+      "palette": {
+        "background": "#000000",
+        "surface": "#0B0F17",
+        "surfaceVariant": "#151B26"
+      }
+    }
+  ],
+  "userCustomization": {
+    "allowThemeSelection": true,
+    "allowAccentColor": true,
+    "accentChoices": [
+      "#7BE52F",
+      "#22D3EE",
+      "#1E6BFF",
+      "#A855F7",
+      "#F59E0B",
+      "#F43F5E"
+    ],
+    "allowCardSize": true,
+    "allowHideSections": true,
+    "allowReorderSections": true,
+    "lockedSections": [
+      "hero"
+    ]
+  },
+  "home": {
+    "sections": [
+      {
+        "id": "hero",
+        "type": "hero_banner",
+        "enabled": true,
+        "title": "Destacado",
+        "layout": "hero",
+        "card": {
+          "aspect": "landscape",
+          "size": "l"
+        },
+        "maxItems": 5
+      },
+      {
+        "id": "promos",
+        "type": "promo_banners",
+        "enabled": true,
+        "title": "Novedades EmbyVerse",
+        "layout": "carousel",
+        "card": {
+          "aspect": "landscape",
+          "size": "m"
+        },
+        "maxItems": 6
+      },
+      {
+        "id": "continue",
+        "type": "continue_watching",
+        "enabled": true,
+        "title": "Continuar viendo",
+        "layout": "carousel",
+        "card": {
+          "aspect": "landscape",
+          "size": "m"
+        },
+        "maxItems": 20
+      },
+      {
+        "id": "live",
+        "type": "live_tv",
+        "enabled": true,
+        "title": "TV EN VIVO",
+        "subtitle": "Canales de tus fuentes",
+        "layout": "carousel",
+        "card": {
+          "aspect": "landscape",
+          "size": "s"
+        },
+        "maxItems": 30
+      },
+      {
+        "id": "movies",
+        "type": "movies",
+        "enabled": true,
+        "title": "PELÍCULAS",
+        "layout": "carousel",
+        "card": {
+          "aspect": "poster",
+          "size": "m"
+        },
+        "maxItems": 30
+      },
+      {
+        "id": "series",
+        "type": "series",
+        "enabled": true,
+        "title": "SERIES",
+        "layout": "carousel",
+        "card": {
+          "aspect": "poster",
+          "size": "m"
+        },
+        "maxItems": 30
+      },
+      {
+        "id": "new",
+        "type": "recently_added",
+        "enabled": true,
+        "title": "Novedades",
+        "subtitle": "Lo último añadido",
+        "layout": "carousel",
+        "card": {
+          "aspect": "poster",
+          "size": "m"
+        },
+        "maxItems": 20
+      },
+      {
+        "id": "favorites",
+        "type": "favorites",
+        "enabled": true,
+        "title": "Favoritos",
+        "layout": "carousel",
+        "card": {
+          "aspect": "poster",
+          "size": "m"
+        },
+        "maxItems": 30
+      },
+      {
+        "id": "recommended",
+        "type": "recommended",
+        "enabled": true,
+        "title": "Recomendado para ti",
+        "layout": "grid",
+        "card": {
+          "aspect": "poster",
+          "size": "s"
+        },
+        "maxItems": 12
+      }
+    ]
+  },
+  "banners": [
+    {
+      "id": "welcome",
+      "placement": "hero",
+      "title": "Bienvenido a EmbyVerse",
+      "subtitle": "Añade tus listas M3U o tu proveedor IPTV y empieza a ver.",
+      "imageUrl": null,
+      "action": {
+        "route": "sources"
+      },
+      "startsAt": null,
+      "endsAt": null
+    }
+  ],
+  "texts": {
+    "home.greeting": "Hola",
+    "home.emptySources": "Aún no tienes fuentes. Añade una lista M3U o un proveedor para ver contenido.",
+    "support.contact": "soporte@ejemplo.com"
+  }
+}
