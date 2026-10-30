@@ -308,3 +308,5 @@ input[type=range] { width: 100%; accent-color: var(--blue); }
 .group-body > *, .list-detail > *, .sec-edit > *, .field, .seg-wrap { min-width: 0; }
 .seg button { white-space: normal; line-height: 1.25; }
 input[type=datetime-local] { min-width: 0; }
+.gh-steps { text-align: left; margin: 0 0 12px; padding-left: 18px; line-height: 1.6; } .gh-steps a { color: inherit; text-decoration: underline; }
+.upload-logo { display: inline-flex; margin-top: 10px; cursor: pointer; }

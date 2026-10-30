@@ -19,7 +19,7 @@ const ROUTE_NAMES: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------- IDENTIDAD
-export function IdentityPanel({ ed, canEdit, assets, publicBase }: PanelProps) {
+export function IdentityPanel({ ed, canEdit, assets, publicBase, onUpload }: PanelProps) {
   const c = ed.config;
   const logos = assets.filter((a) => a.kind === 'logo');
   const approved = logos.filter((a) => a.approved);
@@ -44,6 +44,15 @@ export function IdentityPanel({ ed, canEdit, assets, publicBase }: PanelProps) {
             </button>
           ))}
         </div>
+        {canEdit && (
+          <label className="btn upload-logo">Subir mi logotipo
+            <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={async (e) => {
+              const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
+              const a = await onUpload(f, 'logo'); if (a && a.approved) ed.update((d) => { d.brand.logo = { variant: 'asset', url: a.url }; });
+            }} />
+          </label>
+        )}
+        <p className="hint">PNG cuadrado (512×512 o más) con fondo transparente u oscuro. El logotipo y el nombre también cambian el ícono y el nombre de la APK (se genera una APK nueva al publicar).</p>
         {logos.length > approved.length && <p className="hint">{logos.length - approved.length} variante(s) pendiente(s) de aprobación en Recursos.</p>}
         {variant === 'asset' && c.brand.logo.url && !approved.some((a) => a.url === c.brand.logo.url) && (
           <Notice kind="error">El logotipo seleccionado ya no está aprobado. <img src={assetPreviewUrl(c.brand.logo.url, publicBase) ?? ''} alt="" height={20} /></Notice>

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEve
 import { createRoot } from 'react-dom/client';
 import type { UserAppearance } from '../../backend/src/config/resolve';
 import type { RemoteConfig } from '../../backend/src/config/schema';
-import { api, ApiError, type Asset, type User, type Validation } from './api';
+import { api, ApiError, IS_GITHUB, type Asset, type User, type Validation } from './api';
 import { AccountPanel, AssetsPanel, AuditPanel, PublishDialog, UsersPanel, VersionsPanel } from './components/manage';
 import { AppearancePanel, BannersPanel, ColorsPanel, HomeBuilderPanel, IdentityPanel, TextsPanel, UserOptionsPanel, type PanelProps } from './components/panels';
 import { Notice, Segmented } from './components/ui';
@@ -16,7 +16,36 @@ const DESIGN_VIEWS: { id: View; label: string }[] = [
   { id: 'appearance', label: 'Formas y menú' }, { id: 'banners', label: 'Banners' }, { id: 'user', label: 'Opciones del usuario' }, { id: 'texts', label: 'Textos' },
 ];
 
+function GitHubLogin({ onDone }: { onDone: (u: User) => void }) {
+  const [tok, setTok] = useState('');
+  const [error, setError] = useState<string | null>(null); const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault(); setBusy(true); setError(null);
+    try { onDone(await api.login('', tok)); } catch (err) { setError(err instanceof ApiError ? err.message : 'No se pudo conectar con GitHub'); } finally { setBusy(false); }
+  };
+  return (
+    <main className="login">
+      <form onSubmit={submit} className="login-card">
+        <img src="/brand/embyverse-logo.webp" alt="EmbyVerse" className="login-logo" />
+        <h1>Design Studio</h1>
+        <p className="hint">Cambia nombre, logo, colores, inicio y banners de tu app y tu web. Se entra con un <b>token de GitHub</b> (solo se guarda en este navegador).</p>
+        <ol className="hint gh-steps">
+          <li>Abre <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">crear token de GitHub</a>.</li>
+          <li>Nombre: <i>Design Studio</i>. Caducidad: la que quieras.</li>
+          <li><b>Repository access</b> → <i>Only select repositories</i> → <b>EmbyVerseTV</b>.</li>
+          <li><b>Permissions</b> → <i>Contents</i> → <b>Read and write</b>.</li>
+          <li><b>Generate token</b>, cópialo y pégalo aquí.</li>
+        </ol>
+        {error && <Notice kind="error">{error}</Notice>}
+        <div className="field"><label htmlFor="tok">Token de GitHub</label><input id="tok" type="password" autoComplete="off" required value={tok} onChange={(e) => setTok(e.target.value)} placeholder="github_pat_…" /></div>
+        <button className="btn btn-wide" disabled={busy}>{busy ? 'Comprobando…' : 'Entrar'}</button>
+      </form>
+    </main>
+  );
+}
+
 function Login({ onDone }: { onDone: (u: User) => void }) {
+  if (IS_GITHUB) return <GitHubLogin onDone={onDone} />;
   const [email, setEmail] = useState(''); const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null); const [busy, setBusy] = useState(false);
   const submit = async (e: FormEvent) => {
@@ -144,7 +173,7 @@ function StudioLoaded({ user, loaded, reloadDraft, onLogout, flash }: { user: Us
         if (e instanceof ApiError && e.code === 'stale_draft' && confirm(`${e.message}\n\n¿Publicar de todos modos este borrador?`)) return api.publish(note, true);
         throw e;
       });
-      setPublishing(false); flash('ok', `Publicada la versión ${r.version}`); await reloadDraft();
+      setPublishing(false); flash('ok', IS_GITHUB ? `Publicada la versión ${r.version}. Llega a la app y la web en 1–2 minutos (al abrirlas). Si cambiaste el nombre o el logo, en unos 10 minutos habrá una APK nueva.` : `Publicada la versión ${r.version}`); await reloadDraft();
     } catch (e) { flash('error', e instanceof ApiError ? e.message : 'No se pudo publicar'); }
   };
 
@@ -172,7 +201,7 @@ function StudioLoaded({ user, loaded, reloadDraft, onLogout, flash }: { user: Us
     { id: 'versions', label: 'Versiones', show: true },
     { id: 'users', label: 'Usuarios', show: user.permissions.includes('users:manage') },
     { id: 'audit', label: 'Auditoría', show: user.permissions.includes('audit:read') },
-    { id: 'account', label: 'Mi cuenta', show: true },
+    { id: 'account', label: 'Mi cuenta', show: !IS_GITHUB },
   ];
 
   return (

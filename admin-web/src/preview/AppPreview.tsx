@@ -1,3 +1,4 @@
+import { GH } from '../api-github';
 import type { CSSProperties, ReactNode } from 'react';
 import { activeBanners, resolvePalette, resolveSections, type UserAppearance } from '../../../backend/src/config/resolve';
 import type { Banner, RemoteConfig, SectionSpec } from '../../../backend/src/config/schema';
@@ -19,6 +20,9 @@ function hue(s: string) { let h = 0; for (const c of s) h = (h * 31 + c.charCode
 
 export function assetPreviewUrl(url: string | null | undefined, publicBase: string): string | null {
   if (!url) return null;
+  // Modo GitHub: la imagen está en el repositorio al instante; GitHub Pages tarda 1–2 minutos en servirla.
+  const gh = `${GH.pagesBase}/assets/`;
+  if (url.startsWith(gh)) return `https://raw.githubusercontent.com/${GH.owner}/${GH.repo}/${GH.branch}/${GH.assetsDir}/${url.slice(gh.length)}`;
   // Las imágenes de la biblioteca se muestran desde este mismo servidor (la URL pública puede ser un CDN).
   const prefix = `${publicBase.replace(/\/$/, '')}/api/v1/public/assets/`;
   return url.startsWith(prefix) ? `/api/v1/public/assets/${url.slice(prefix.length)}` : url;

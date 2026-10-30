@@ -85,6 +85,8 @@ class ConfigRepository(context: Context, private val client: OkHttpClient) {
         if (base.isEmpty()) return null
         val isLocalDebug = BuildConfig.DEBUG && Regex("^http://(10\\.0\\.2\\.2|localhost|127\\.0\\.0\\.1)(:\\d+)?$").matches(base)
         if (!base.startsWith("https://") && !isLocalDebug) return null // sólo HTTPS en producción
+        // Diseño publicado como archivo (Design Studio en GitHub Pages): se usa la URL tal cual.
+        if (base.endsWith(".json")) return base
         return "$base/api/v1/public/config?platform=android&appVersion=${BuildConfig.VERSION_CODE}"
     }
 

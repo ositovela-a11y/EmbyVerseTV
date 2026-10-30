@@ -6,9 +6,13 @@ export interface Validation { ok: boolean; errors: string[]; warnings: string[];
 export interface Asset { id: string; filename: string; mime: string; size: number; width: number; height: number; kind: 'image' | 'banner' | 'logo'; approved: boolean; url: string; previewUrl: string; created_at: number }
 export interface VersionInfo { version: number; published_at: number; published_by: string | null; note: string | null; rollback_of: number | null }
 
-export class ApiError extends Error {
-  constructor(public status: number, public code: string, message: string, public details?: unknown) { super(message); }
-}
+export { ApiError } from './errors';
+import { ApiError } from './errors';
+import { githubApi } from './api-github';
+
+/** Compilación para GitHub Pages (sin servidor): build.mjs --github define __GITHUB__ = true. */
+declare const __GITHUB__: boolean | undefined;
+export const IS_GITHUB = typeof __GITHUB__ !== 'undefined' && !!__GITHUB__;
 
 let csrf = '';
 
@@ -24,7 +28,7 @@ async function call<T>(method: string, path: string, body?: unknown, init: Reque
   return json as T;
 }
 
-export const api = {
+const serverApi = {
   async me() { const r = await call<{ user: User; csrfToken: string }>('GET', '/api/v1/auth/me'); csrf = r.csrfToken; return r.user; },
   async login(email: string, password: string) { const r = await call<{ user: User; csrfToken: string }>('POST', '/api/v1/auth/login', { email, password }); csrf = r.csrfToken; return r.user; },
   logout: () => call('POST', '/api/v1/auth/logout'),
@@ -52,3 +56,5 @@ export const api = {
   updateUser: (id: number, patch: Record<string, unknown>) => call('PATCH', `/api/v1/users/${id}`, patch),
   deleteUser: (id: number) => call('DELETE', `/api/v1/users/${id}`),
 };
+
+export const api = (IS_GITHUB ? githubApi : serverApi) as typeof serverApi;

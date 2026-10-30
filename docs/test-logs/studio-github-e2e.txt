@@ -1,0 +1,5 @@
+✔  Entrar con token de GitHub  panel abierto
+✔  Cambiar nombre y lema, subir logotipo  logotipo subido al repositorio y seleccionado
+✔  Publicar: se escribe web-player/config/app.json con versión nueva  versión 2, commit «Diseño v2: publicado desde Design Studio»
+✔  Historial de versiones desde los commits  versión 2 listada
+✔  La web aplica el nombre y el lema publicados  título y lema cambiados

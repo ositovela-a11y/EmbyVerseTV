@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /** Elemento del banner principal: un banner publicado por el administrador o contenido destacado. */
 data class HeroItem(
@@ -34,6 +35,10 @@ data class HeroItem(
     val imageUrl: String?,
     val route: AppRoute? = null,
     val item: ItemRef? = null,
+    /** Novedades: póster (si no hay imagen panorámica) y fecha en que el proveedor lo agregó. */
+    val posterUrl: String? = null,
+    val addedAtEpochSeconds: Long? = null,
+    val isNew: Boolean = false,
 )
 
 data class HomeUiState(
@@ -70,9 +75,36 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
             SectionType.MOVIES to movies, SectionType.SERIES to series)
     }
 
-    private val recent = combine(c.catalog.recentMovies(40), c.catalog.recentSeries(40)) { m, s ->
+    private val recentRaw = combine(c.catalog.recentMovies(40), c.catalog.recentSeries(40)) { m, s -> m to s }
+
+    private val recent = recentRaw.map { (m, s) ->
         (m.map { (it.addedAt ?: 0) to it.toCard() } + s.map { (it.addedAt ?: 0) to it.toCard() })
             .sortedByDescending { it.first }.map { it.second }
+    }
+
+    /**
+     * Banner principal con las NOVEDADES de tus listas: lo último que agregó el proveedor (se actualiza
+     * solo en cada carga de la lista). Para las películas nuevas se descarga en segundo plano su ficha
+     * (sinopsis e imagen panorámica) para que el banner se vea completo.
+     */
+    private val novedades = recentRaw.map { (m, s) ->
+        val movies = m.map { Triple(it.addedAt ?: 0L, HeroItem(it.providerId, it.title, it.plot?.take(160), it.backdropUrl,
+            item = ItemRef(com.embyverse.core.model.ContentKind.MOVIE, it.sourceId, it.providerId), posterUrl = it.posterUrl,
+            addedAtEpochSeconds = it.addedAt, isNew = true), it) }
+        val series = s.map { Triple(it.addedAt ?: 0L, HeroItem(it.providerId, it.title, it.plot?.take(160), it.backdropUrl,
+            item = ItemRef(com.embyverse.core.model.ContentKind.SERIES, it.sourceId, it.providerId), posterUrl = it.posterUrl,
+            addedAtEpochSeconds = it.addedAt, isNew = true), null) }
+        (movies + series).sortedByDescending { it.first }.filter { it.second.imageUrl != null || it.second.posterUrl != null }
+    }
+    private val detailsRequested = HashSet<String>()
+
+    init {
+        viewModelScope.launch {
+            novedades.collect { list ->
+                list.take(8).mapNotNull { it.third }.filter { !it.detailsLoaded && detailsRequested.add("${it.sourceId}|${it.providerId}") }
+                    .forEach { m -> launch { c.sources.loadMovieDetails(m.sourceId, m.providerId) } }
+            }
+        }
     }
 
     private val recommended = combine(c.library.history(100), c.library.favorites()) { h, f -> h to f }
@@ -86,17 +118,16 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
 
     val state: StateFlow<HomeUiState> = combine(
         combine(c.config.config, appearance, minuteTicker) { cfg, app, now -> Triple(cfg, ConfigResolver.sections(cfg, app), now) },
-        lists, recent, recommended, combine(profileName, c.sources.sources) { n, s -> n to s.isNotEmpty() },
-    ) { (cfg, sections, now), base, rec, recs, (name, hasSources) ->
+        lists, combine(recent, novedades) { r, n -> r to n }, recommended, combine(profileName, c.sources.sources) { n, s -> n to s.isNotEmpty() },
+    ) { (cfg, sections, now), base, (rec, news), recs, (name, hasSources) ->
         val content = base + mapOf(SectionType.RECENTLY_ADDED to rec, SectionType.RECOMMENDED to recs)
         val heroBanners = ConfigResolver.banners(cfg, BannerPlacement.HERO, now).map { HeroItem(it.id, it.title, it.subtitle, it.imageUrl, it.route) }
         val heroMax = sections.firstOrNull { it.type == SectionType.HERO_BANNER }?.maxItems ?: 5
-        val featured = rec.filter { it.backdropUrl != null || it.imageUrl != null }.take(heroMax).map {
-            HeroItem(it.ref.id, it.title, it.subtitle, it.backdropUrl ?: it.imageUrl, item = it.ref)
-        }
+        val featured = news.take(heroMax).map { it.second }
         HomeUiState(
             config = cfg, sections = sections, content = content,
-            hero = (heroBanners + featured).take(heroMax),
+            // Banners del Design Studio primero y después las novedades de tus listas.
+            hero = heroBanners + featured,
             promos = ConfigResolver.banners(cfg, BannerPlacement.PROMO, now),
             profileName = name, hasSources = hasSources, loading = false,
         )

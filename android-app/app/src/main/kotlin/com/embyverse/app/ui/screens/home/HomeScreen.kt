@@ -36,6 +36,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -168,6 +170,11 @@ private fun HeroCarousel(items: List<HeroItem>, nav: Navigator) {
             val open = { if (h.item != null) nav.openItem(h.item) else h.route?.let(nav::appRoute) ?: Unit }
             Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(t.secondary.copy(alpha = 0.55f), t.surface, t.primary.copy(alpha = 0.3f))))) {
                 if (h.imageUrl != null) MediaImage(h.imageUrl, ContentKind.MOVIE, Modifier.fillMaxSize(), fallbackText = null)
+                // Sin imagen panorámica: póster a la derecha, como en las apps de streaming.
+                else if (h.posterUrl != null) Box(Modifier.align(Alignment.CenterEnd).padding(end = t.screenPadding + 8.dp, top = 24.dp)
+                    .fillMaxHeight(0.78f).aspectRatio(2f / 3f).clip(RoundedCornerShape(t.cardRadius))) {
+                    MediaImage(h.posterUrl, ContentKind.MOVIE, Modifier.fillMaxSize(), fallbackText = null)
+                }
                 // Degradados: oscurece la izquierda (texto) y funde abajo con el fondo de la app.
                 Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(t.background.copy(alpha = 0.92f), t.background.copy(alpha = 0.55f), Color.Transparent))))
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to t.background)))
@@ -176,7 +183,14 @@ private fun HeroCarousel(items: List<HeroItem>, nav: Navigator) {
                         .fillMaxWidth(if (t.device.isTv || cfgW >= 600) 0.5f else 0.92f),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    if (h.item != null) Text(stringResource(R.string.hero_featured), style = MaterialTheme.typography.labelLarge, color = t.primary)
+                    if (h.item != null) {
+                        val kind = stringResource(if (h.item.kind == ContentKind.SERIES) R.string.hero_new_series else R.string.hero_new_movie)
+                        val ago = h.addedAtEpochSeconds?.takeIf { it > 0 }?.let {
+                            android.text.format.DateUtils.getRelativeTimeSpanString(it * 1000, System.currentTimeMillis(), android.text.format.DateUtils.DAY_IN_MILLIS).toString()
+                        }
+                        Text(listOfNotNull(if (h.isNew) kind else stringResource(R.string.hero_featured), ago).joinToString("  ·  ").uppercase(),
+                            style = MaterialTheme.typography.labelLarge, color = t.primary)
+                    }
                     Text(h.title, style = MaterialTheme.typography.displaySmall, color = t.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     h.subtitle?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = t.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis) }
                     Spacer(Modifier.height(6.dp))

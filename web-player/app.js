@@ -374,8 +374,8 @@ function renderWelcome() {
   view.innerHTML = `
     <section class="welcome">
       <div class="welcome-copy">
-        <img class="welcome-logo" src="${$('.logo').src}" alt="EmbyVerse">
-        <h1>Tu universo de entretenimiento</h1>
+        <img class="welcome-logo" src="${$('.logo').src}" alt="${esc(BRAND.name)}">
+        <h1>${esc(BRAND.tagline)}</h1>
         <p>Entra con los datos de tu proveedor para ver canales en vivo, películas y series.</p>
       </div>
       ${addForm('Iniciar sesión', 'Entrar')}
@@ -386,6 +386,41 @@ function renderWelcome() {
   focusFirst();
 }
 
+const ago = (sec) => {
+  if (!sec) return '';
+  const d = Math.floor((Date.now() / 1000 - sec) / 86400);
+  return d <= 0 ? 'hoy' : d === 1 ? 'ayer' : d < 30 ? `hace ${d} días` : d < 365 ? `hace ${Math.floor(d / 30)} meses` : '';
+};
+function heroSlide(news, i) {
+  const [kind, hero] = news[i];
+  return `<div class="hero-slide" style="--h:${hue(titleOf(hero))}">
+      <div class="hero-bg">${img(hero.backdrop || hero.poster)}</div>
+      <div class="hero-body">
+        <span class="eyebrow">${[kind === 'series' ? 'Nueva serie' : 'Nueva película', ago(hero.added)].filter(Boolean).join(' · ')}</span>
+        <h1>${esc(hero.title)}</h1>
+        <p class="hero-meta">${[hero.year, hero.rating ? `★ ${hero.rating.toFixed(1)}` : null, hero.group].filter(Boolean).map(esc).join('<i></i>')}</p>
+        ${hero.plot ? `<p class="hero-plot">${esc(hero.plot)}</p>` : ''}
+        <div class="hero-actions">
+          <button class="btn primary" data-act="${kind === 'series' ? 'open' : 'play'}" data-kind="${kind}" data-sid="${esc(hero.sid)}" data-id="${esc(hero.id)}" data-focus>▶ ${kind === 'series' ? 'Ver episodios' : 'Reproducir'}</button>
+          <button class="btn glass" data-act="open" data-kind="${kind}" data-sid="${esc(hero.sid)}" data-id="${esc(hero.id)}" data-focus>Más información</button>
+        </div>
+        ${news.length > 1 ? `<div class="hero-dots">${news.map((_, j) => `<button class="${j === i ? 'on' : ''}" data-hero="${j}" aria-label="Novedad ${j + 1}"></button>`).join('')}</div>` : ''}
+      </div>
+      ${safeImg(hero.poster) ? `<div class="hero-poster">${img(hero.poster)}</div>` : ''}
+    </div>`;
+}
+// Rotación automática de las novedades (se detiene si el usuario está navegando dentro del banner).
+let heroTimer = null;
+function startHero(news) {
+  clearInterval(heroTimer);
+  const el = $('#hero'); if (!el || news.length < 2) return;
+  let i = 0;
+  const show = (n) => { i = (n + news.length) % news.length; el.innerHTML = heroSlide(news, i); };
+  el.onclick = (e) => { const d = e.target.closest('[data-hero]'); if (d) { show(+d.dataset.hero); startHero.restart(); } };
+  startHero.restart = () => { clearInterval(heroTimer); heroTimer = setInterval(() => { if (!document.hidden && !el.contains(document.activeElement) && $('#hero') === el) show(i + 1); else if ($('#hero') !== el) clearInterval(heroTimer); }, 8000); };
+  startHero.restart();
+}
+
 function renderHome() {
   const anyContent = index.live.length + index.movies.length + index.series.length;
   if (!anyContent) {
@@ -394,28 +429,14 @@ function renderHome() {
       : `<p class="empty">Tus fuentes aún no tienen contenido. <button class="link" data-act="goto" data-tab="sources" data-focus>Revisar fuentes</button></p>`;
     return;
   }
-  // Destacado: título reciente con imagen, cambia cada día
-  const pool = [...index.recentMovies.slice(0, 30), ...index.recentSeries.slice(0, 20)].filter((x) => safeImg(x.backdrop || x.poster));
-  const hero = pool.length ? pool[new Date().getDate() % pool.length] : null;
-  const heroKind = hero && (index.byKey.has(`series|${hero.sid}|${hero.id}`) ? 'series' : 'movie');
+  // NOVEDADES: lo último que agregó tu proveedor (se actualiza solo con cada carga de la lista).
+  const news = [...index.recentMovies.slice(0, 20).map((x) => ['movie', x]), ...index.recentSeries.slice(0, 20).map((x) => ['series', x])]
+    .filter(([, x]) => safeImg(x.backdrop || x.poster)).sort((p, q) => (q[1].added || 0) - (p[1].added || 0)).slice(0, 6);
   const cont = continueItems();
   const topCats = (k, n) => index.cats[k].slice().sort((a, b) => b[1] - a[1]).slice(0, n).map(([c]) => c);
   const byCat = (k, c) => index[k].filter((x) => (x.group || 'Sin categoría') === c).slice(0, 24);
   view.innerHTML = `
-    ${hero ? `<section class="hero" style="--h:${hue(titleOf(hero))}">
-      <div class="hero-bg">${img(hero.backdrop || hero.poster)}</div>
-      <div class="hero-body">
-        <span class="eyebrow">${heroKind === 'series' ? 'Serie destacada' : 'Película destacada'}</span>
-        <h1>${esc(hero.title)}</h1>
-        <p class="hero-meta">${[hero.year, hero.rating ? `★ ${hero.rating.toFixed(1)}` : null, hero.group].filter(Boolean).map(esc).join('<i></i>')}</p>
-        ${hero.plot ? `<p class="hero-plot">${esc(hero.plot)}</p>` : ''}
-        <div class="hero-actions">
-          <button class="btn primary" data-act="${heroKind === 'series' ? 'open' : 'play'}" data-kind="${heroKind}" data-sid="${esc(hero.sid)}" data-id="${esc(hero.id)}" data-focus>▶ ${heroKind === 'series' ? 'Ver episodios' : 'Reproducir'}</button>
-          <button class="btn glass" data-act="open" data-kind="${heroKind}" data-sid="${esc(hero.sid)}" data-id="${esc(hero.id)}" data-focus>Más información</button>
-        </div>
-      </div>
-      ${safeImg(hero.poster) ? `<div class="hero-poster">${img(hero.poster)}</div>` : ''}
-    </section>` : ''}
+    ${news.length ? `<section class="hero" id="hero">${heroSlide(news, 0)}</section>` : ''}
     <div class="rows">
       ${state.sources.filter((x) => x.syncing).map((x) => `<p class="sync-note"><span class="spinner tiny"></span><span data-step="${esc(x.id)}">${esc(x.step || 'Actualizando…')}</span></p>`).join('')}
       ${cont.length ? `<section class="row"><div class="row-head"><h2>Continuar viendo</h2></div><div class="strip strip-wide">${cont.join('')}</div></section>` : ''}
@@ -425,6 +446,7 @@ function renderHome() {
       ${topCats('movies', 4).map((c) => row(c, 'movie', byCat('movies', c), { tab: 'movies', cat: c })).join('')}
       ${topCats('series', 3).map((c) => row(c, 'series', byCat('series', c), { tab: 'series', cat: c })).join('')}
     </div>`;
+  startHero(news);
 }
 
 function continueItems() {
@@ -978,8 +1000,33 @@ document.addEventListener('keydown', (e) => {
   if (dir && !(typing && (dir === 'left' || dir === 'right'))) { e.preventDefault(); moveFocus(dir); }
 });
 
+// ------------------------------------------------------------------ marca (Design Studio)
+// El diseño publicado desde el Design Studio (config/app.json) cambia nombre, logotipo, lema y
+// colores de la web igual que en la app. Si no existe o falla, se queda el diseño integrado.
+const BRAND = { name: 'EmbyVerse', tagline: 'Tu universo de entretenimiento' };
+async function applyBrand() {
+  let c;
+  try { const r = await fetch('config/app.json', { cache: 'no-cache' }); if (!r.ok) return; c = await r.json(); } catch { return; }
+  const b = c && c.brand || {}, p = (c && c.theme && c.theme.palette) || {};
+  const color = (v) => (typeof v === 'string' && /^#([0-9a-f]{6}|[0-9a-f]{8})$/i.test(v) ? (v.length === 9 ? '#' + v.slice(3) : v) : null);
+  const root = document.documentElement.style;
+  [['--green', p.primary], ['--green-ink', p.onPrimary], ['--cyan', p.accent], ['--blue', p.secondary], ['--bg', p.background],
+    ['--surface', p.surface], ['--surface-2', p.surfaceVariant], ['--text', p.onBackground], ['--muted', p.textSecondary], ['--red', p.error]]
+    .forEach(([k, v]) => { const x = color(v); if (x) root.setProperty(k, x); });
+  if (typeof b.appName === 'string' && b.appName.trim()) {
+    BRAND.name = b.appName.trim().slice(0, 30);
+    document.title = BRAND.name + ' Web';
+    $('.logo')?.setAttribute('alt', BRAND.name);
+  }
+  if (typeof b.tagline === 'string' && b.tagline.trim()) BRAND.tagline = b.tagline.trim().slice(0, 80);
+  const logo = b.logo && b.logo.variant === 'asset' && typeof b.logo.url === 'string' && /^https:\/\//.test(b.logo.url) ? b.logo.url : null;
+  if (logo) $('.logo')?.setAttribute('src', logo);
+  if (!state.sources.length) render();
+}
+
 // ------------------------------------------------------------------ inicio
 (async () => {
+  applyBrand();
   render(); // pinta al instante (pantalla de entrada o estado de carga)
   await loadCatalogs();
   render();

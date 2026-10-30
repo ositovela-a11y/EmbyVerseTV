@@ -67,6 +67,8 @@
     <string name="filter_favorites">Favoritos</string>
     <string name="filter_history">Historial</string>
     <string name="hero_featured">Destacado</string>
+    <string name="hero_new_movie">Nueva película</string>
+    <string name="hero_new_series">Nueva serie</string>
     <string name="history_clear">Borrar historial de este perfil</string>
     <string name="history_title">Historial</string>
     <string name="home_greeting">Hola</string>

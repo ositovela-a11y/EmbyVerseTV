@@ -255,3 +255,10 @@ body.playing .toast { bottom: 90px; }
 .relay-box { width: 100%; max-width: 560px; color: var(--muted); }
 .relay-box summary { cursor: pointer; padding: 8px 0; color: var(--cyan); }
 .relay-box .source { margin-top: 8px; text-align: left; }
+/* Novedades: carrusel del inicio */
+.hero-slide { display: contents; }
+.hero-slide .hero-body, .hero-slide .hero-poster { animation: heroIn .5s ease both; }
+@keyframes heroIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.hero-dots { display: flex; gap: 6px; margin-top: 10px; }
+.hero-dots button { width: 8px; height: 8px; border-radius: 99px; border: 0; padding: 0; background: rgba(255, 255, 255, .35); cursor: pointer; transition: width .2s; }
+.hero-dots button.on { width: 24px; background: var(--green); }

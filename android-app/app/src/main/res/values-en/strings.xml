@@ -66,6 +66,8 @@
     <string name="filter_favorites">Favorites</string>
     <string name="filter_history">History</string>
     <string name="hero_featured">Featured</string>
+    <string name="hero_new_movie">New movie</string>
+    <string name="hero_new_series">New series</string>
     <string name="history_clear">Clear this profile\'s history</string>
     <string name="history_title">History</string>
     <string name="home_greeting">Hi</string>

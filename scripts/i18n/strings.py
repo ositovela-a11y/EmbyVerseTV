@@ -13,7 +13,7 @@ S = {
 "action_resume": ("Continuar", "Resume"), "action_retry": ("Reintentar", "Retry"), "action_save": ("Guardar", "Save"), "action_sync": ("Actualizar ahora", "Refresh now"),
 "action_test_connection": ("Probar conexión", "Test connection"), "action_toggle_password": ("Mostrar u ocultar contraseña", "Show or hide password"),
 "action_watch": ("Ver ahora", "Watch now"),
-"action_more_info": ("Más información", "More info"), "hero_featured": ("Destacado", "Featured"),
+"action_more_info": ("Más información", "More info"), "hero_featured": ("Destacado", "Featured"), "hero_new_movie": ("Nueva película", "New movie"), "hero_new_series": ("Nueva serie", "New series"),
 "crash_title": ("La app se cerró la última vez", "The app closed unexpectedly last time"),
 "crash_message": ("Lo sentimos. Copia este informe y envíalo al soporte para corregirlo. No incluye usuarios ni contraseñas.", "Sorry. Copy this report and send it to support so it can be fixed. It contains no usernames or passwords."),
 "crash_copy": ("Copiar informe", "Copy report"), "crash_copied": ("Informe copiado", "Report copied"),

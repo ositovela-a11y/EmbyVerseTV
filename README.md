@@ -24,7 +24,7 @@ Aplicación OTT/IPTV para Android (teléfono, tableta y Android TV) con reproduc
   Atajo corto (navegador o Downloader): `ositovela-a11y.github.io/EmbyVerseTV/a`
 - **EmbyVerse Web:** https://ositovela-a11y.github.io/EmbyVerseTV/
   Para proveedores `http://` o que bloquean navegadores, activa el **intermediario en la nube** ([docs/RELAY.md](docs/RELAY.md)): funciona en iPhone, Android, PC y TV. Alternativa sin nube: el programa para PC [EmbyVerse Web Local](docs/WEB-LOCAL.md).
-- **Cambiar nombre, logo y colores:** [docs/MARCA.md](docs/MARCA.md)
+- **Panel de diseño (nombre, logo, colores, banners):** https://ositovela-a11y.github.io/EmbyVerseTV/studio/ — guía: [docs/PANEL.md](docs/PANEL.md). Cambios a mano: [docs/MARCA.md](docs/MARCA.md)
 
 ## Lo que NO se pudo hacer en el entorno de la primera entrega
 
