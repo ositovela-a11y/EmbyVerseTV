@@ -1,0 +1,4 @@
+✔  Sin el programa: el proveedor sin CORS se bloquea (control)  mensaje: «No se pudo conectar. El servidor no está disponible o no permite el acceso desde navegador…»
+✔  Con el programa: entra con Xtream http:// sin CORS  catálogo cargado a través de /proxy
+✔  Canal en vivo HLS (lista + segmentos reescritos) se reproduce  video avanzando (2.0 s)
+✔  Película http:// sin CORS se reproduce  película reproduciéndose

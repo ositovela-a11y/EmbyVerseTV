@@ -1,0 +1,23 @@
+name: EmbyVerse Web Local
+on:
+  push:
+    branches: [main]
+    paths: ['local-server/**', 'web-player/**', 'scripts/build-local-server.sh', '.github/workflows/web-local.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with: { go-version: '1.25.x', cache: false }
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: bash scripts/build-local-server.sh
+      - name: Publicar
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          gh release view web-local >/dev/null 2>&1 || gh release create web-local --title "EmbyVerse Web Local (PC)" --notes "Programa para la PC que permite reproducir en el navegador listas http:// y proveedores sin CORS. Windows: EmbyVerse-Web-Local.exe"
+          gh release upload web-local out/EmbyVerse-Web-Local.exe out/EmbyVerse-Web-Local-mac out/EmbyVerse-Web-Local-linux --clobber

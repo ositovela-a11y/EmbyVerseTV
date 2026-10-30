@@ -36,7 +36,11 @@ const insecureOnHttps = (u) => pageIsHttps && /^http:\/\//i.test(u);
 const safeImg = (u) => (u && /^https?:\/\//i.test(u) && !insecureOnHttps(u) ? u : '');
 
 class UserError extends Error {}
-const MIXED_MSG = 'Esta dirección usa http:// (sin cifrar) y el navegador la bloquea en una página https. Usa una lista o servidor https://, o la app Android de EmbyVerse.';
+// Modo local (EmbyVerse Web Local en la PC): listas, API y video pasan por el programa, que evita CORS y http.
+const LOCAL = !!window.EV_LOCAL;
+const px = (u) => (LOCAL && /^https?:\/\//i.test(u) ? '/proxy?u=' + encodeURIComponent(u) : u);
+const LOCAL_HINT = 'Para ver estos canales en el navegador usa «EmbyVerse Web Local» en tu PC (descárgalo desde la página del proyecto) o la app Android.';
+const MIXED_MSG = 'Esta dirección usa http:// (sin cifrar) y el navegador la bloquea en una página https. ' + 'Para ver estos canales en el navegador usa «EmbyVerse Web Local» en tu PC o la app Android.';
 
 async function fetchText(url, { timeout = 30000, json = false } = {}) {
   if (!isHttp(url)) throw new UserError('La dirección no es válida. Debe empezar por http:// o https://');
@@ -44,10 +48,10 @@ async function fetchText(url, { timeout = 30000, json = false } = {}) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeout);
   let r;
-  try { r = await fetch(url, { signal: ctl.signal, credentials: 'omit' }); }
+  try { r = await fetch(px(url), { signal: ctl.signal, credentials: 'omit' }); }
   catch (e) {
     if (e.name === 'AbortError') throw new UserError('El servidor tardó demasiado en responder.');
-    throw new UserError('No se pudo conectar. El servidor no está disponible o no permite el acceso desde navegadores (CORS). En ese caso usa la app Android.');
+    throw new UserError(LOCAL ? 'No se pudo conectar con el servidor del proveedor. Revisa la dirección y tu conexión.' : 'No se pudo conectar. El servidor no está disponible o no permite el acceso desde navegadores. ' + LOCAL_HINT);
   } finally { clearTimeout(timer); }
   if (r.status === 401 || r.status === 403) throw new UserError(`El servidor rechazó el acceso (HTTP ${r.status}). Revisa usuario y contraseña.`);
   if (r.status === 404) throw new UserError('No se encontró nada en esa dirección (HTTP 404).');
@@ -529,7 +533,7 @@ function addForm(title, button) {
         <label class="field">Nombre (opcional)<input id="f-name" name="name" maxlength="40" placeholder="Mi proveedor" data-focus></label>
         <p class="err" id="f-err" hidden></p>
         <button class="btn primary wide-btn" data-focus>${button}</button>
-        <p class="fine">${pageIsHttps ? 'En el navegador solo funcionan servidores y listas <b>https://</b>. Si tu proveedor usa http://, usa la app Android. ' : ''}Usa solo servicios a los que tengas derecho de acceso. Tus datos se guardan solo en este navegador.</p>
+        <p class="fine">${LOCAL ? 'Modo local activo: tu PC hace de intermediario, funcionan listas http:// y https://. ' : pageIsHttps ? 'En el navegador solo funcionan servidores y listas <b>https://</b>. Si tu proveedor usa http://, usa «EmbyVerse Web Local» en tu PC o la app Android. ' : ''}Usa solo servicios a los que tengas derecho de acceso. Tus datos se guardan solo en este navegador.</p>
       </form>`;
 }
 
@@ -608,15 +612,19 @@ const fmtTime = (s) => { s = Math.max(0, Math.floor(s || 0)); const h = Math.flo
 
 // Los motores HLS y MPEG-TS se descargan solo al reproducir algo que los necesite (antes
 // retrasaban la apertura de la web).
-const LIBS = { Hls: 'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js', mpegts: 'https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.js' };
+// En modo local el programa trae su propia copia (no depende de internet); si faltara, se usa la de internet.
+const CDN = { Hls: 'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js', mpegts: 'https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.js' };
+const LIBS = { Hls: [...(LOCAL ? ['vendor/hls.min.js'] : []), CDN.Hls], mpegts: [...(LOCAL ? ['vendor/mpegts.js'] : []), CDN.mpegts] };
 const libPromises = {};
 function loadLib(name) {
   if (window[name]) return Promise.resolve(window[name]);
-  return libPromises[name] ||= new Promise((res) => {
-    const s = document.createElement('script'); s.src = LIBS[name]; s.async = true;
-    s.onload = () => res(window[name] || null); s.onerror = () => { delete libPromises[name]; res(null); };
+  const tryUrl = (i, res) => {
+    if (i >= LIBS[name].length) { delete libPromises[name]; return res(null); }
+    const s = document.createElement('script'); s.src = LIBS[name][i]; s.async = true;
+    s.onload = () => (window[name] ? res(window[name]) : tryUrl(i + 1, res)); s.onerror = () => { s.remove(); tryUrl(i + 1, res); };
     document.head.appendChild(s);
-  });
+  };
+  return libPromises[name] ||= new Promise((res) => tryUrl(0, res));
 }
 // Precarga silenciosa tras abrir la web, para que el primer canal arranque rápido.
 setTimeout(() => { loadLib('Hls'); }, 2500);
@@ -668,13 +676,14 @@ function candidatesFor(item) {
   return [{ url: item.url, mode: 'file' }];
 }
 
-const MIXED_STREAM_MSG = 'Tu proveedor entrega el video por http:// (sin cifrar) y el navegador lo bloquea en esta página segura. Este canal funciona en la app Android de EmbyVerse.';
+const MIXED_STREAM_MSG = 'Tu proveedor entrega el video por http:// (sin cifrar) y el navegador lo bloquea en esta página segura. ' + 'Para ver estos canales en el navegador usa «EmbyVerse Web Local» en tu PC o la app Android.';
 
 async function start(item, attempt = 0) {
   destroyEngines();
   clearTimeout(player.watchdog);
   const urls = candidatesFor(item);
   const { url, mode } = urls[attempt], v = player.video;
+  const src = px(url), abs = new URL(src, location.href).href;
   player.expectSrc = null;
   const token = player.token = (player.token || 0) + 1; // invalida intentos anteriores
   const alive = () => player.item === item && player.token === token;
@@ -701,13 +710,13 @@ async function start(item, attempt = 0) {
     // 8 s para el intento nativo; si no arranca se pasa a hls.js y después a MPEG-TS.
     clearTimeout(player.watchdog);
     player.watchdog = setTimeout(() => fail(lastProblem || 'El canal no envió video a tiempo.', 'nativo sin imagen tras 8 s'), 8000);
-    player.expectSrc = url; v.src = url; v.addEventListener('loadedmetadata', onReady, { once: true });
+    player.expectSrc = abs; v.src = src; v.addEventListener('loadedmetadata', onReady, { once: true });
     return;
   }
   if (mode === 'hls') {
     const Hls = await loadLib('Hls');
     if (!alive()) return;
-    if (!Hls || !Hls.isSupported()) { if (!Hls) return fail("No se pudo descargar el reproductor HLS. Revisa tu conexión y pulsa Reintentar.", "hls.js no cargó"); player.expectSrc = url; v.src = url; v.addEventListener('loadedmetadata', onReady, { once: true }); return; }
+    if (!Hls || !Hls.isSupported()) { if (!Hls) return fail("No se pudo descargar el reproductor HLS. Revisa tu conexión y pulsa Reintentar.", "hls.js no cargó"); player.expectSrc = abs; v.src = src; v.addEventListener('loadedmetadata', onReady, { once: true }); return; }
     const h = new Hls({
       enableWorker: true, maxBufferLength: 20, startFragPrefetch: true,
       manifestLoadingTimeOut: 8000, manifestLoadingMaxRetry: 1, levelLoadingTimeOut: 8000, levelLoadingMaxRetry: 1,
@@ -723,10 +732,10 @@ async function start(item, attempt = 0) {
       if (d.type === Hls.ErrorTypes.MEDIA_ERROR && player.retries < 1) { player.retries++; h.recoverMediaError(); return; }
       fail(code === 401 || code === 403 ? 'El proveedor denegó el acceso (credenciales o límite de conexiones alcanzado).'
         : code === 404 ? 'El proveedor dice que este canal no existe o está fuera de servicio (404).'
-        : lastProblem || (d.type === Hls.ErrorTypes.NETWORK_ERROR ? 'No se pudo cargar el canal: el servidor no responde o no permite reproducir desde navegadores (CORS). Prueba en la app Android.' : 'Este canal usa un formato que el navegador no puede reproducir.'),
+        : lastProblem || (d.type === Hls.ErrorTypes.NETWORK_ERROR ? (LOCAL ? 'No se pudo cargar el canal: el proveedor no responde.' : 'No se pudo cargar el canal: tu proveedor no permite reproducir desde una página web. ' + LOCAL_HINT) : 'Este canal usa un formato que el navegador no puede reproducir.'),
         `${d.type} · ${d.details}${code ? ' · HTTP ' + code : ''}`);
     });
-    h.loadSource(url); h.attachMedia(v);
+    h.loadSource(src); h.attachMedia(v);
     return;
   }
   if (mode === 'ts') {
@@ -734,15 +743,15 @@ async function start(item, attempt = 0) {
     if (!alive()) return;
     if (!mpegts) return fail('No se pudo descargar el reproductor de canales. Revisa tu conexión a Internet y pulsa Reintentar.', 'mpegts.js no cargó');
     if (!mpegts.getFeatureList().mseLivePlayback) return fail('Este navegador no puede reproducir canales MPEG-TS. Usa la app Android.', 'MSE no disponible');
-    const p = mpegts.createPlayer({ type: 'mpegts', isLive: true, url }, { enableWorker: true, lazyLoad: false, liveBufferLatencyChasing: true });
+    const p = mpegts.createPlayer({ type: 'mpegts', isLive: true, url: abs }, { enableWorker: true, lazyLoad: false, liveBufferLatencyChasing: true });
     player.ts = p; p.attachMediaElement(v); p.load();
     p.on(mpegts.Events.ERROR, (type, detail, info) => fail(
-      type === mpegts.ErrorTypes.NETWORK_ERROR ? 'Tu proveedor no permite reproducir este canal desde un navegador web. Se probaron los 3 métodos disponibles. Este canal sí funciona en la app Android de EmbyVerse.' : 'Este canal usa un formato que el navegador no puede reproducir.',
+      type === mpegts.ErrorTypes.NETWORK_ERROR ? (LOCAL ? 'El proveedor no entregó este canal (puede estar caído o haber alcanzado el límite de conexiones).' : 'Tu proveedor no permite reproducir este canal desde una página web. ' + LOCAL_HINT) : 'Este canal usa un formato que el navegador no puede reproducir.',
       `${type} · ${detail}${info && info.code ? ' · HTTP ' + info.code : ''}`));
     v.addEventListener('loadedmetadata', onReady, { once: true });
     return;
   }
-  player.expectSrc = url; v.src = url; v.addEventListener('loadedmetadata', onReady, { once: true });
+  player.expectSrc = abs; v.src = src; v.addEventListener('loadedmetadata', onReady, { once: true });
 }
 player.video.addEventListener('playing', () => { clearTimeout(player.watchdog); $('#p-loading').hidden = true; $('#p-tap').hidden = true; player.retries = 0; });
 player.video.addEventListener('waiting', () => { if ($('#p-err').hidden) $('#p-loading').hidden = false; });

@@ -1,4 +1,4 @@
-✔  Pantalla de entrada (Xtream por defecto)  visible en 143 ms
+✔  Pantalla de entrada (Xtream por defecto)  visible en 155 ms
 ✔  Xtream: servidor inexistente da un error comprensible
 ✔  Xtream: pegar enlace get.php rellena los campos
 ✔  Lista M3U inexistente: error comprensible
@@ -9,6 +9,7 @@
 ✔  Serie: ficha con episodios
 ✔  Mi lista
 ✔  Persistencia al recargar
-✔  Lista grande (20 000 canales, 15 000 películas, 3 000 episodios)  carga 344 ms · abrir Películas 95 ms · búsqueda 299 ms (incluye 250 ms de espera al teclear)
+✔  Lista grande (20 000 canales, 15 000 películas, 3 000 episodios)  carga 367 ms · abrir Películas 105 ms · búsqueda 284 ms (incluye 250 ms de espera al teclear)
 ✔  Vista en teléfono
+
 13/13 pasos correctos
