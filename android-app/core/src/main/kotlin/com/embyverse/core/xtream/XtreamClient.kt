@@ -23,8 +23,6 @@ import com.embyverse.core.util.objects
 import com.embyverse.core.util.parseDurationSeconds
 import com.embyverse.core.util.splitGenres
 import com.embyverse.core.util.str
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
@@ -252,14 +250,14 @@ class XtreamClient(
         // de ~10 peticiones seguidas se pasa a 2 "rondas", lo que reduce mucho la primera carga.
         // Si las categorías de una sección fallan, el proveedor no la ofrece y se omite (igual que antes).
         class Part<T>(val items: List<T>, val cats: List<Category>, val warning: String?, val available: Boolean)
-        suspend fun <T> section(kind: ContentKind, catAction: String, action: String, label: String, map: (JsonObject, Map<String, String>) -> T?, id: (T) -> String, gate: Deferred<Unit>? = null): Part<T> =
+        suspend fun <T> section(kind: ContentKind, catAction: String, action: String, label: String, map: (JsonObject, Map<String, String>) -> T?, id: (T) -> String): Part<T> =
             coroutineScope {
                 val namesD = async { runCatching { categories(c, catAction) } }
                 // La lista se pide a la vez que las categorías; se espera a éstas solo antes de leerla.
                 val streamsD = async {
                     runCatching {
                         var names: Map<String, String> = emptyMap()
-                        streamObjects(api(c, action), beforeParse = { names = namesD.await().getOrDefault(emptyMap()); gate?.await() }) { o -> map(o, names) }
+                        streamObjects(api(c, action), beforeParse = { names = namesD.await().getOrDefault(emptyMap()) }) { o -> map(o, names) }
                     }
                 }
                 val names = namesD.await().getOrElse { streamsD.cancel(); return@coroutineScope Part(emptyList(), emptyList(), null, false) }
@@ -283,12 +281,9 @@ class XtreamClient(
                 Part(items, cats, null, true)
             }
 
-        // Prioridad a los canales: películas y series se DESCARGAN a la vez, pero se leen y guardan
-        // cuando los canales ya están listos (en teléfonos modestos aparecen en segundos, no en un minuto).
-        val liveReady = CompletableDeferred<Unit>()
         val (liveP, movieP, seriesP) = coroutineScope {
             val l = async {
-                try { section(ContentKind.LIVE, "get_live_categories", "get_live_streams", "los canales en vivo", { o, names ->
+                section(ContentKind.LIVE, "get_live_categories", "get_live_streams", "los canales en vivo", { o, names ->
                     val id = o.str("stream_id") ?: return@section null
                     LiveChannel(
                         sourceId = sourceId, providerId = id, name = o.str("name") ?: "Canal $id",
@@ -298,7 +293,7 @@ class XtreamClient(
                         epgChannelId = o.str("epg_channel_id"), number = o.int("num"),
                         catchupDays = if (o.bool("tv_archive") == true) o.int("tv_archive_duration") ?: 0 else 0,
                     )
-                }, { it.providerId }) } finally { liveReady.complete(Unit) }
+                }, { it.providerId })
             }
             val m = async {
                 section(ContentKind.MOVIE, "get_vod_categories", "get_vod_streams", "las películas", { o, names ->
@@ -314,7 +309,7 @@ class XtreamClient(
                         genres = splitGenres(o.str("genre")),
                         addedAtEpochSeconds = o.long("added"), containerExtension = ext,
                     )
-                }, { it.providerId }, liveReady)
+                }, { it.providerId })
             }
             val sr = async {
                 section(ContentKind.SERIES, "get_series_categories", "get_series", "las series", { o, names ->
@@ -329,7 +324,7 @@ class XtreamClient(
                         genres = splitGenres(o.str("genre")),
                         addedAtEpochSeconds = o.long("last_modified"),
                     )
-                }, { it.providerId }, liveReady)
+                }, { it.providerId })
             }
             Triple(l.await(), m.await(), sr.await())
         }
