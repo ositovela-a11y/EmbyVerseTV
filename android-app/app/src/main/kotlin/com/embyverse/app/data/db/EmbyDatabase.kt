@@ -33,11 +33,16 @@ abstract class EmbyDatabase : RoomDatabase() {
                 .addMigrations(MIGRATION_1_2)
                 .build()
 
-        /** v2: índices por posición para abrir listas grandes (decenas de miles) sin ordenar en memoria. */
+        /**
+         * v2: índice por posición para abrir listas grandes (decenas de miles) sin ordenar en memoria, y
+         * se quita el índice de búsqueda: las búsquedas usan LIKE '%texto%', que no puede aprovecharlo,
+         * y solo frenaba el guardado de las listas.
+         */
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 for (t in listOf("channels", "movies", "series")) {
                     db.execSQL("CREATE INDEX IF NOT EXISTS `index_${t}_sourceId_position` ON `$t` (`sourceId`, `position`)")
+                    db.execSQL("DROP INDEX IF EXISTS `index_${t}_searchKey`")
                 }
             }
         }

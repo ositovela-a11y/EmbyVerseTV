@@ -48,6 +48,7 @@ jobs:
           arch: x86_64
           target: google_apis
           ram-size: 3072M
+          profile: pixel_6
           heap-size: ${{ github.event.inputs.heap || '256M' }}
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
@@ -59,6 +60,7 @@ jobs:
             adb shell am instrument -w -r -e class com.embyverse.app.SmokeFlowTest -e mockBase http://10.0.2.2:8800 com.embyverse.app.debug.test/androidx.test.runner.AndroidJUnitRunner | tee instrument.txt
             sleep 2
             adb shell getprop dalvik.vm.heapgrowthlimit; adb shell getprop dalvik.vm.heapsize
+            adb pull /sdcard/Android/data/com.embyverse.app.debug/files/capturas capturas || true
       - name: Resultado
         if: always()
         run: |
@@ -73,6 +75,7 @@ jobs:
           grep -E "EVTEST|EVTREE|EmbyVerse|AndroidRuntime|FATAL|OutOfMemory|ANR in|TestRunner" logcat.txt > resumen.txt || true
           gh release view ci-logs >/dev/null 2>&1 || gh release create ci-logs --prerelease --title "Registros de pruebas" --notes "Registros automáticos de la prueba en emulador."
           gh release upload ci-logs resumen.txt instrument.txt --clobber || true
+          for f in capturas/*.png; do [ -f "$f" ] && gh release upload ci-logs "$f" --clobber; done || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:

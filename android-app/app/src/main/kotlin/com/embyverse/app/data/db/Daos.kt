@@ -81,7 +81,7 @@ interface MovieDao {
     @Query("SELECT * FROM movies WHERE (:category IS NULL OR category = :category) ORDER BY sourceId, position LIMIT :limit")
     fun observe(category: String?, limit: Int): Flow<List<MovieEntity>>
 
-    @Query("SELECT * FROM movies ORDER BY addedAt IS NULL, addedAt DESC LIMIT :limit")
+    @Query("SELECT * FROM movies ORDER BY addedAt DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<MovieEntity>>
 
     @Query("SELECT * FROM movies WHERE searchKey LIKE '%' || :q || '%' ORDER BY position LIMIT :limit")
@@ -113,7 +113,7 @@ interface SeriesDao {
     @Query("SELECT * FROM series WHERE (:category IS NULL OR category = :category) ORDER BY sourceId, position LIMIT :limit")
     fun observe(category: String?, limit: Int): Flow<List<SeriesEntity>>
 
-    @Query("SELECT * FROM series ORDER BY addedAt IS NULL, addedAt DESC LIMIT :limit")
+    @Query("SELECT * FROM series ORDER BY addedAt DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<SeriesEntity>>
 
     @Query("SELECT * FROM series WHERE searchKey LIKE '%' || :q || '%' ORDER BY position LIMIT :limit")

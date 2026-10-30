@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.printToLog
+import androidx.compose.ui.test.isRoot
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.espresso.Espresso
@@ -48,7 +49,8 @@ class SmokeFlowTest {
     /** Espera una condición; si no se cumple, deja en logcat el árbol de la pantalla y falla con un mensaje claro. */
     private fun waitFor(what: String, timeoutMs: Long, cond: () -> Boolean) {
         try { compose.waitUntil(timeoutMs, cond) } catch (e: ComposeTimeoutException) {
-            runCatching { compose.onAllNodes(SemanticsMatcher("raíz") { it.parent == null }, useUnmergedTree = true).printToLog("EVTREE") }
+            runCatching { compose.onAllNodes(isRoot(), useUnmergedTree = true).printToLog("EVTREE", maxDepth = Int.MAX_VALUE) }
+            shot("fallo")
             fail("No apareció: $what (${timeoutMs / 1000} s)")
         }
     }
@@ -58,6 +60,13 @@ class SmokeFlowTest {
 
     private fun waitText(text: String, timeoutMs: Long = 20_000) =
         waitFor("texto «$text»", timeoutMs) { compose.onAllNodesWithText(text, substring = true, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+
+    /** Captura de pantalla en la carpeta de la app (el flujo de CI la descarga y publica). */
+    private fun shot(name: String) = runCatching {
+        val bmp = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: return@runCatching
+        val dir = java.io.File(app.getExternalFilesDir(null), "capturas").apply { mkdirs() }
+        java.io.File(dir, "$name.png").outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 90, it) }
+    }
 
     private fun memory(): String {
         val rt = Runtime.getRuntime()
@@ -75,6 +84,7 @@ class SmokeFlowTest {
         assertTrue("$label: error de reproducción ${PlaybackProbe.lastError}", PlaybackProbe.readyCount > 0)
         log("$label: reproduciendo en ${System.currentTimeMillis() - t0} ms")
         Thread.sleep(2_500)
+        shot("reproductor-" + label.lowercase().replace(Regex("[^a-z0-9]+"), "-"))
         Espresso.pressBack() // cerrar reproductor
         compose.waitForIdle()
     }
@@ -96,17 +106,20 @@ class SmokeFlowTest {
             val t0 = System.currentTimeMillis()
             waitTag("nav_movies", 30_000)
             log("Inicio visible en ${System.currentTimeMillis() - t0} ms")
+            Thread.sleep(1500); shot("01-inicio")
 
             // ---- Películas
             var t = System.currentTimeMillis()
             compose.onNodeWithTag("nav_movies", useUnmergedTree = true).performClick()
             waitCards()
             log("Películas: cuadrícula en ${System.currentTimeMillis() - t} ms · ${memory()}")
+            shot("02-peliculas")
             for (index in listOf(0, 1, 3)) { // .mp4, .mkv y .avi en el catálogo (el simulador entrega el mismo clip)
                 t = System.currentTimeMillis()
                 openCard("MOVIE", (index + 1).toString(), index)
                 waitText("Reproducir")
                 log("Película #$index: ficha en ${System.currentTimeMillis() - t} ms")
+                if (index == 0) shot("03-ficha-pelicula")
                 playAndCheck("Película #$index") { compose.onAllNodesWithText("Reproducir", useUnmergedTree = true)[0].performClick() }
                 Espresso.pressBack() // volver a la cuadrícula
                 waitTag("grid")
@@ -128,6 +141,7 @@ class SmokeFlowTest {
                 } else {
                     waitTag("episode", 30_000)
                     log("Serie #$index: episodios en ${System.currentTimeMillis() - t} ms")
+                    if (index == 0) shot("04-ficha-serie")
                     playAndCheck("Serie #$index episodio") { compose.onAllNodesWithTag("episode", useUnmergedTree = true)[0].performClick() }
                 }
                 Espresso.pressBack()
@@ -137,6 +151,7 @@ class SmokeFlowTest {
             // ---- TV en vivo (.ts continuo)
             compose.onNodeWithTag("nav_live", useUnmergedTree = true).performClick()
             waitTag("channel", 30_000)
+            shot("05-tv-en-vivo")
             playAndCheck("Canal en vivo") { compose.onAllNodesWithTag("channel", useUnmergedTree = true)[0].performClick() }
             log("Recorrido completo sin cierres · ${memory()}")
         }

@@ -162,6 +162,7 @@ class SourceRepository(
         // películas (decenas de miles) sigan descargándose.
         val applied = java.util.Collections.synchronizedSet(HashSet<ContentKind>())
         val onSection: suspend (ContentKind, Catalog) -> Unit = { kind, part ->
+            Log.i(TAG, "sincronización: sección $kind descargada y leída en ${System.currentTimeMillis() - t0} ms")
             applyKind(spec, password, kind, part)
             applied += kind
             Log.i(TAG, "sincronización: sección $kind lista en ${System.currentTimeMillis() - t0} ms")
@@ -215,7 +216,9 @@ class SourceRepository(
     /** Aplica una sección a la base local sin duplicar (altas, cambios y bajas) y sus categorías. */
     private suspend fun applyKind(spec: SourceSpec, password: String?, kind: ContentKind, c: Catalog) = withContext(Dispatchers.IO) {
         val sid = spec.id
+        val t0 = System.currentTimeMillis()
         db.withTransaction {
+            Log.i(TAG, "guardar $kind: inicio (espera de la base ${System.currentTimeMillis() - t0} ms)")
             when (kind) {
                 ContentKind.LIVE -> {
                     val ch = c.live.mapIndexed { i, x ->
@@ -255,6 +258,7 @@ class SourceRepository(
             db.categories().deleteForSourceKind(sid, k.name)
             db.categories().upsert(c.categories.filter { it.kind == k }.mapIndexed { i, cat -> CategoryEntity(sid, cat.kind.name, cat.name, i) }.distinctBy { it.name })
         }
+        Log.i(TAG, "guardar $kind: ${System.currentTimeMillis() - t0} ms")
     }
 
     private fun movieEntity(sid: String, x: Movie, spec: SourceSpec, pw: String?, i: Int) = MovieEntity(
