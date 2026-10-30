@@ -274,7 +274,7 @@ private fun EventsRow(events: List<com.embyverse.app.data.repo.LiveEvent>, nav: 
                     .padding(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         e.timeLabel?.let {
-                            Text(it.uppercase(), style = MaterialTheme.typography.labelLarge, color = t.onPrimary,
+                            Text(it.uppercase(), style = MaterialTheme.typography.labelLarge, color = t.buttonText,
                                 modifier = Modifier.background(t.primary, RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 3.dp))
                             Spacer(Modifier.width(8.dp))
                         }

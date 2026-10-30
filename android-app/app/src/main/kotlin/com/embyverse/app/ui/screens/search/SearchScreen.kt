@@ -90,8 +90,8 @@ fun SearchScreen(nav: Navigator) {
                             .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                             .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, voicePrompt)) }
                     }, shape = androidx.compose.foundation.shape.CircleShape, modifier = Modifier.testTag("voice_search")) { _ ->
-                        androidx.compose.foundation.layout.Box(Modifier.size(52.dp).background(t.primary), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                            Icon(Icons.Rounded.Mic, stringResource(R.string.search_voice), tint = t.onPrimary)
+                        androidx.compose.foundation.layout.Box(Modifier.size(52.dp).background(t.buttonBackground), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                            Icon(Icons.Rounded.Mic, stringResource(R.string.search_voice), tint = t.buttonText)
                         }
                     }
                 }
