@@ -1,13 +1,12 @@
 // Design Studio en modo GitHub (web-player/studio/) contra una API de GitHub SIMULADA en el navegador:
-// entrar con token, cambiar nombre/lema, subir logotipo, publicar y ver el cambio aplicado en la web.
+// entrar con token, cambiar nombre/lema, subir logotipo, publicar, historial y apps de vendedores.
 //   BASE=http://localhost:8765 (sirve una copia de web-player/) node tests/e2e/studio-github.e2e.mjs
 import { createRequire } from 'node:module';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 const require = createRequire(import.meta.url);
 let pw; try { pw = require('playwright'); } catch { pw = require(process.env.PLAYWRIGHT_PATH); }
 const BASE = process.env.BASE ?? 'http://localhost:8765';
-const WEBDIR = process.env.WEBDIR; // carpeta servida en BASE (para comprobar que la web aplica lo publicado)
-const OUT = process.env.OUT ?? 'docs/screenshots/web';
+const OUT = process.env.OUT ?? 'docs/screenshots/panel';
 const results = [];
 const step = async (n, f) => { try { results.push(['✔', n, (await f()) ?? '']); } catch (e) { results.push(['✘', n, e.message.split('\n')[0]]); } };
 
@@ -80,10 +79,6 @@ await step('Publicar: se escribe web-player/config/app.json con versión nueva',
   if (cfg.version !== 2 || cfg.brand.appName !== 'Mi Marca TV' || cfg.brand.logo.variant !== 'asset') throw new Error(JSON.stringify(cfg.brand));
   const logoFile = [...files.keys()].find((k) => k.startsWith('web-player/config/assets/logo-'));
   if (!logoFile) throw new Error('no se subió el logotipo');
-  if (WEBDIR) {
-    writeFileSync(`${WEBDIR}/config/app.json`, JSON.stringify(cfg));
-    writeFileSync(`${WEBDIR}/config/assets/${logoFile.split('/').pop()}`, files.get(logoFile));
-  }
   return `versión ${cfg.version}, commit «${commits.at(-1).commit.message}»`;
 });
 await step('Historial de versiones desde los commits', async () => {
@@ -111,26 +106,7 @@ await step('Crear app de vendedor y editar su diseño por separado', async () =>
   if (v.brand.tagline !== 'La tele de Juan' || main.brand.appName !== 'Mi Marca TV') throw new Error('se mezclaron los diseños');
   await page.getByRole('button', { name: 'Vendedores' }).click();
   await page.screenshot({ path: `${OUT}/16-studio-vendedores.png` });
-  if (WEBDIR) { await import('node:fs').then((fs) => { fs.mkdirSync(`${WEBDIR}/config/vendors`, { recursive: true }); fs.writeFileSync(`${WEBDIR}/config/vendors/juantv.json`, JSON.stringify(v)); }); }
   return 'vendors/juantv.json publicado; la app principal no cambió';
-});
-if (WEBDIR) await step('La web del vendedor (?v=juantv) usa su marca', async () => {
-  const w = await browser.newPage();
-  await w.goto(`${BASE}/?v=juantv&relay=`);
-  await w.waitForFunction(() => document.title === 'Juan TV Web');
-  await w.locator('.welcome h1', { hasText: 'La tele de Juan' }).waitFor();
-  await w.evaluate(() => localStorage.removeItem('ev.vendor'));
-  await w.close();
-  return 'título y lema del vendedor';
-});
-if (WEBDIR) await step('La web aplica el nombre y el lema publicados', async () => {
-  const w = await browser.newPage();
-  await w.goto(`${BASE}/?relay=`);
-  await w.waitForFunction(() => document.title === 'Mi Marca TV Web');
-  await w.locator('.welcome h1', { hasText: 'Todo tu entretenimiento' }).waitFor();
-  await w.screenshot({ path: `${OUT}/15-web-marca-publicada.png` });
-  await w.close();
-  return 'título y lema cambiados';
 });
 await browser.close();
 for (const r of results) console.log(r.join('  '));

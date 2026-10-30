@@ -3,5 +3,3 @@
 ✔  Publicar: se escribe web-player/config/app.json con versión nueva  versión 2, commit «Diseño v2: publicado desde Design Studio»
 ✔  Historial de versiones desde los commits  versión 2 listada
 ✔  Crear app de vendedor y editar su diseño por separado  vendors/juantv.json publicado; la app principal no cambió
-✔  La web del vendedor (?v=juantv) usa su marca  título y lema del vendedor
-✔  La web aplica el nombre y el lema publicados  título y lema cambiados

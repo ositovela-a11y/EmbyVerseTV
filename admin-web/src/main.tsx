@@ -30,7 +30,7 @@ function GitHubLogin({ onDone }: { onDone: (u: User) => void }) {
       <form onSubmit={submit} className="login-card">
         <img src="/brand/embyverse-logo.webp" alt="EmbyVerse" className="login-logo" />
         <h1>Design Studio</h1>
-        <p className="hint">Cambia nombre, logo, colores, inicio y banners de tu app y tu web. Se entra con un <b>token de GitHub</b> (solo se guarda en este navegador).</p>
+        <p className="hint">Cambia nombre, logo, colores, inicio y banners de tu app y de las apps de tus vendedores. Se entra con un <b>token de GitHub</b> (solo se guarda en este navegador).</p>
         <ol className="hint gh-steps">
           <li>Abre <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">crear token de GitHub</a>.</li>
           <li>Nombre: <i>Design Studio</i>. Caducidad: la que quieras.</li>
@@ -179,7 +179,7 @@ function StudioLoaded({ user, loaded, reloadDraft, onLogout, flash }: { user: Us
         if (e instanceof ApiError && e.code === 'stale_draft' && confirm(`${e.message}\n\n¿Publicar de todos modos este borrador?`)) return api.publish(note, true);
         throw e;
       });
-      setPublishing(false); flash('ok', IS_GITHUB ? `Publicada la versión ${r.version}. Llega a la app y la web en 1–2 minutos (al abrirlas). Si cambiaste el nombre o el logo, en unos 10 minutos habrá una APK nueva.` : `Publicada la versión ${r.version}`); await reloadDraft();
+      setPublishing(false); flash('ok', IS_GITHUB ? `Publicada la versión ${r.version}. Llega a la app en 1–2 minutos (al abrirla). Si cambiaste el nombre o el logo, en unos 10 minutos habrá una APK nueva.` : `Publicada la versión ${r.version}`); await reloadDraft();
     } catch (e) { flash('error', e instanceof ApiError ? e.message : 'No se pudo publicar'); }
   };
 

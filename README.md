@@ -22,8 +22,7 @@ Aplicación OTT/IPTV para Android (teléfono, tableta y Android TV) con reproduc
 - **APK (última compilación):** https://github.com/ositovela-a11y/EmbyVerseTV/releases/download/apk-latest/EmbyVerse.apk
   Se recompila sola con cada cambio en `android-app/` (workflow `APK Android`). Firmada con la clave de depuración del proyecto, para que cada versión se instale encima de la anterior.
   Atajo corto (navegador o Downloader): `ositovela-a11y.github.io/EmbyVerseTV/a`
-- **EmbyVerse Web:** https://ositovela-a11y.github.io/EmbyVerseTV/
-  Para proveedores `http://` o que bloquean navegadores, activa el **intermediario en la nube** ([docs/RELAY.md](docs/RELAY.md)): funciona en iPhone, Android, PC y TV. Alternativa sin nube: el programa para PC [EmbyVerse Web Local](docs/WEB-LOCAL.md).
+- **Página de descarga:** https://ositovela-a11y.github.io/EmbyVerseTV/ (la reproducción es solo en la app Android; el reproductor web se retiró porque los navegadores bloquean los canales de la mayoría de proveedores)
 - **Panel de diseño (nombre, logo, colores, banners):** https://ositovela-a11y.github.io/EmbyVerseTV/studio/ — guía: [docs/PANEL.md](docs/PANEL.md). Cambios a mano: [docs/MARCA.md](docs/MARCA.md)
 
 ## Lo que NO se pudo hacer en el entorno de la primera entrega

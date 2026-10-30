@@ -1,3 +1,0 @@
-{ "name": "EmbyVerse Web", "short_name": "EmbyVerse", "start_url": "./", "display": "standalone",
-  "background_color": "#03070F", "theme_color": "#03070F", "lang": "es",
-  "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }] }

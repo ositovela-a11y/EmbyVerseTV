@@ -1,6 +1,6 @@
 # Cambiar nombre, logotipo y colores (marca blanca)
 
-Guía para vender la app con otro nombre o diseño. Todos los archivos se pueden editar desde el navegador del teléfono en GitHub: abre el archivo, pulsa el lápiz (✏️ *Edit*), cambia el texto y pulsa *Commit changes*. GitHub vuelve a compilar el APK y a publicar la web automáticamente.
+Guía para vender la app con otro nombre o diseño. **Lo más fácil es el panel:** [docs/PANEL.md](PANEL.md) (nombre, logo, colores y apps por vendedor sin tocar archivos). Esta guía es para cambios a mano. Todos los archivos se pueden editar desde el navegador del teléfono en GitHub: abre el archivo, pulsa el lápiz (✏️ *Edit*), cambia el texto y pulsa *Commit changes*. GitHub vuelve a compilar el APK y a publicar la web automáticamente.
 
 ## 1. Nombre de la app
 
@@ -9,9 +9,6 @@ Guía para vender la app con otro nombre o diseño. Todos los archivos se pueden
 | Nombre bajo el ícono (teléfono y TV) | `android-app/app/src/main/res/values/strings.xml` | `<string name="app_name" …>EmbyVerse</string>` |
 | Textos dentro de la app (inicio, bienvenida) | `shared/default-config.json` **y** `android-app/app/src/main/assets/default_config.json` (iguales) | `"appName"` y `"tagline"` |
 | Identificador único de la app | `android-app/app/build.gradle.kts` | `applicationId = "com.embyverse.app"` → por ejemplo `"com.tumarca.tv"` |
-| Pestaña del navegador (web) | `web-player/index.html` | `<title>EmbyVerse Web</title>` |
-| Web: textos de entrada | `web-player/app.js` | Busca `Tu universo de entretenimiento` |
-| Nombre al instalar la web como app | `web-player/manifest.webmanifest` | `"name"` y `"short_name"` |
 
 > Si cambias `applicationId`, Android la considera **otra app**: los clientes deberán instalarla de nuevo, no se actualizará encima de la anterior.
 
@@ -23,7 +20,6 @@ Guía para vender la app con otro nombre o diseño. Todos los archivos se pueden
    - Ícono: `android-app/app/src/main/res/mipmap-*/ic_launcher.webp` (48, 72, 96, 144, 192 px) y `drawable-nodpi/ic_launcher_foreground.webp` (432 px)
    - Banner de TV: `android-app/app/src/main/res/drawable-xhdpi/tv_banner.webp` (640 × 360 px)
    - Logo en la app: `android-app/app/src/main/res/drawable-nodpi/embyverse_logo.webp` y `embyverse_planet.webp`
-   - Web: el logo va incrustado en `web-player/index.html` (atributo `src="data:image/webp;base64,…"` de `class="logo"`); cámbialo por `src="logo.webp"` y sube `web-player/logo.webp`. Ícono: `web-player/icon-192.png`.
 
 ## 3. Colores
 
@@ -31,7 +27,6 @@ Guía para vender la app con otro nombre o diseño. Todos los archivos se pueden
 |---|---|---|
 | App Android (todo el diseño) | `shared/default-config.json` + copia en `android-app/app/src/main/assets/default_config.json` | Bloque `"palette"`: `primary` (botones y acentos, verde), `accent` (cian), `secondary` (azul), `background`, `surface`… También `"background"` (degradado) |
 | Pantalla de arranque de Android | `android-app/app/src/main/res/values/colors.xml` | `ev_background`, `ev_primary` |
-| Web | `web-player/styles.css` | Bloque `:root` al principio: `--green`, `--cyan`, `--blue`, `--bg`, `--surface`… |
 
 **Sin recompilar el APK:** si montas el panel *Design Studio* (carpeta `backend/` + `admin-web/`), puedes cambiar colores, logotipo aprobado, textos, banners y secciones del inicio desde el navegador. Las apps lo reciben al abrirse. Ver `docs/BUILD.md` › *Backend y panel*.
 
