@@ -104,7 +104,7 @@
     <string name="playback_subtitles">Activar subtítulos por defecto</string>
     <string name="playback_title">Reproducción</string>
     <string name="player_channels">Canales</string>
-    <string name="player_channels_hint">◀ Canales    ▲▼ Cambiar canal</string>
+    <string name="player_channels_hint">OK o ◀ Canales    ▲▼ Cambiar canal</string>
     <string name="player_error_drm">Este contenido está protegido con DRM y no se puede reproducir aquí.</string>
     <string name="player_error_forbidden">El proveedor denegó el acceso (credenciales o límite de conexiones).</string>
     <string name="player_error_format">El formato de este stream no es compatible con el dispositivo.</string>

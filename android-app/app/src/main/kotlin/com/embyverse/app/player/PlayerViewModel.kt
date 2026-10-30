@@ -45,6 +45,7 @@ data class NowPlaying(
 object PlaybackProbe {
     @Volatile var readyCount = 0
     @Volatile var lastError: String? = null
+    @Volatile var lastKey: String? = null
     fun reset() { readyCount = 0; lastError = null }
 }
 

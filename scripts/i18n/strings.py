@@ -20,7 +20,7 @@ S = {
 "preview_hint": ("Pulsa OK en un canal para verlo aquí. Otra vez OK: pantalla completa.", "Press OK on a channel to preview it here. Press OK again for full screen."),
 "preview_fullscreen": ("OK: pantalla completa", "OK: full screen"), "preview_now": ("En vista previa", "Previewing"),
 "preview_error": ("No se pudo cargar la vista previa de este canal.", "This channel's preview could not be loaded."),
-"player_channels_hint": ("◀ Canales    ▲▼ Cambiar canal", "◀ Channels    ▲▼ Change channel"),
+"player_channels_hint": ("OK o ◀ Canales    ▲▼ Cambiar canal", "OK or ◀ Channels    ▲▼ Change channel"),
 "source_locked_hint": ("Escribe el usuario y la contraseña que te dio tu proveedor.", "Enter the username and password from your provider."),
 "who_is_watching": ("¿Quién está viendo?", "Who's watching?"), "profile_manage": ("Administrar perfiles", "Manage profiles"), "crash_copied": ("Informe copiado", "Report copied"),
 "home_greeting": ("Hola", "Hi"), "home_no_sources_title": ("Todavía no hay contenido", "No content yet"),

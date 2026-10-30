@@ -185,7 +185,9 @@ class SmokeFlowTest {
             if (compose.onAllNodesWithTag("channel_list", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
                 InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_LEFT)
             Thread.sleep(1_100)
-            waitTag("channel_list", 10_000)
+            try { waitTag("channel_list", 10_000) } catch (e: Throwable) {
+                throw AssertionError("◀ no abrió la lista; última tecla vista por el reproductor: ${PlaybackProbe.lastKey}", e)
+            }
             shot("07-lista-en-reproductor")
             log("Reproductor: ◀ abre la lista de canales sin salir")
             back(); back()

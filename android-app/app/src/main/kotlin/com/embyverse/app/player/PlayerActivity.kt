@@ -84,18 +84,39 @@ class PlayerActivity : AppCompatActivity() {
     override fun onStop() { vm.detach(); super.onStop() }
 
     /** Mando a distancia: CH+/CH- (y arriba/abajo con los controles ocultos) cambian de canal en vivo. */
+    /** Teclas ya atendidas en ACTION_DOWN: su ACTION_UP también se consume para que no lleguen al PlayerView. */
+    private val consumed = mutableSetOf<Int>()
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.action == KeyEvent.ACTION_DOWN && vm.isLive) {
-            when (event.keyCode) {
-                KeyEvent.KEYCODE_CHANNEL_UP -> { vm.zap(+1); return true }
-                KeyEvent.KEYCODE_CHANNEL_DOWN -> { vm.zap(-1); return true }
-                KeyEvent.KEYCODE_DPAD_UP -> if (!vm.controlsVisible.value && !vm.channelListVisible.value) { vm.zap(-1); return true }
-                KeyEvent.KEYCODE_DPAD_DOWN -> if (!vm.controlsVisible.value && !vm.channelListVisible.value) { vm.zap(+1); return true }
-                KeyEvent.KEYCODE_GUIDE, KeyEvent.KEYCODE_MENU -> { vm.toggleChannelList(); return true }
-                // ◀ con los controles ocultos: lista de canales para elegir otro sin salir.
-                KeyEvent.KEYCODE_DPAD_LEFT -> if (!vm.channelListVisible.value) { vm.controlsVisible.value = false; vm.toggleChannelList(); return true }
-            }
+        PlaybackProbe.lastKey = "${event.keyCode}/${event.action} live=${vm.isLive} list=${vm.channelListVisible.value} ctl=${vm.controlsVisible.value}"
+        if (event.action == KeyEvent.ACTION_UP && consumed.remove(event.keyCode)) return true
+        if (event.action == KeyEvent.ACTION_DOWN && vm.isLive && handleLiveKey(event.keyCode)) {
+            consumed += event.keyCode
+            return true
         }
         return super.dispatchKeyEvent(event)
+    }
+
+    private fun handleLiveKey(code: Int): Boolean {
+        val list = vm.channelListVisible.value
+        val ctl = vm.controlsVisible.value
+        when (code) {
+            KeyEvent.KEYCODE_CHANNEL_UP -> vm.zap(+1)
+            KeyEvent.KEYCODE_CHANNEL_DOWN -> vm.zap(-1)
+            KeyEvent.KEYCODE_DPAD_UP -> if (!ctl && !list) vm.zap(-1) else return false
+            KeyEvent.KEYCODE_DPAD_DOWN -> if (!ctl && !list) vm.zap(+1) else return false
+            KeyEvent.KEYCODE_GUIDE, KeyEvent.KEYCODE_MENU -> vm.toggleChannelList()
+            // ◀, u OK con los controles ocultos: lista de canales para elegir otro sin salir.
+            KeyEvent.KEYCODE_DPAD_LEFT -> if (!list) openList() else return false
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER ->
+                if (!list && !ctl) openList() else return false
+            else -> return false
+        }
+        return true
+    }
+
+    private fun openList() {
+        vm.controlsVisible.value = false
+        if (!vm.channelListVisible.value) vm.toggleChannelList()
     }
 }

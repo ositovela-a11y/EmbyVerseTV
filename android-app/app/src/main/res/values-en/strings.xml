@@ -103,7 +103,7 @@
     <string name="playback_subtitles">Enable subtitles by default</string>
     <string name="playback_title">Playback</string>
     <string name="player_channels">Channels</string>
-    <string name="player_channels_hint">◀ Channels    ▲▼ Change channel</string>
+    <string name="player_channels_hint">OK or ◀ Channels    ▲▼ Change channel</string>
     <string name="player_error_drm">This content is DRM-protected and cannot be played here.</string>
     <string name="player_error_forbidden">The provider denied access (credentials or connection limit).</string>
     <string name="player_error_format">This stream format is not supported on this device.</string>
