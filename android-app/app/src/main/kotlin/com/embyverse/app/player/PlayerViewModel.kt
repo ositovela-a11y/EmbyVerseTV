@@ -247,7 +247,6 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
 
         override fun onPlayerError(e: PlaybackException) {
             buffering.value = false
-            PlaybackProbe.lastError = e.errorCodeName
             val p = player.value
             if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW && p != null) {
                 p.seekToDefaultPosition(); p.prepare(); return
@@ -281,6 +280,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
                 viewModelScope.launch { delay(1_000L shl retries); retry() }
                 return
             }
+            PlaybackProbe.lastError = e.errorCodeName
             error.value = PlayerUiError.Message(messageFor(e), e.errorCodeName)
         }
     }

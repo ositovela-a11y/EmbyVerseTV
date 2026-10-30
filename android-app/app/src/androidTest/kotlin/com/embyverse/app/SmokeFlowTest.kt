@@ -171,10 +171,12 @@ class SmokeFlowTest {
             PlaybackProbe.reset()
             compose.onAllNodesWithTag("channel", useUnmergedTree = true)[1].performClick()
             compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 || PlaybackProbe.lastError != null }
+            assertTrue("vista previa del canal que anuncia .ts y entrega HLS: ${PlaybackProbe.lastError}", PlaybackProbe.readyCount > 0)
+            log("Canal en vivo: formato distinto del anunciado rescatado en la vista previa")
             PlaybackProbe.reset()
             compose.onAllNodesWithTag("preview", useUnmergedTree = true)[0].performClick()
-            compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 || PlaybackProbe.lastError != null }
-            assertTrue("pantalla completa desde la vista previa", PlaybackProbe.readyCount > 0)
+            runCatching { compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 } }
+            assertTrue("pantalla completa desde la vista previa: ${PlaybackProbe.lastError}", PlaybackProbe.readyCount > 0)
             log("Canal en vivo: vista previa → pantalla completa al pulsar el recuadro")
             InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_LEFT)
             Thread.sleep(1_500); shot("07-lista-en-reproductor")
