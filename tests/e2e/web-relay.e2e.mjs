@@ -37,7 +37,7 @@ await step('Configurar el intermediario desde la pantalla de entrada (vista iPho
   await page.waitForLoadState('load');
   await page.locator('#f-loc').waitFor();
   const active = await page.evaluate(() => localStorage.getItem('ev.relay'));
-  if (!active || !active.includes('8790')) throw new Error('no se guardó: ' + active);
+  if (!active || !active.includes(new URL(RELAY).port)) throw new Error('no se guardó: ' + active);
   return 'guardado y página recargada';
 });
 await step('Entrar con Xtream http:// sin CORS a través del intermediario', async () => {
