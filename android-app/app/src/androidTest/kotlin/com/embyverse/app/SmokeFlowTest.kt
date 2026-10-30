@@ -68,6 +68,12 @@ class SmokeFlowTest {
         java.io.File(dir, "$name.png").outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 90, it) }
     }
 
+    /** Atrás del sistema (funciona aunque un aviso de Android tenga el foco). */
+    private fun back() {
+        InstrumentationRegistry.getInstrumentation().uiAutomation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
+        Thread.sleep(800); compose.waitForIdle()
+    }
+
     private fun memory(): String {
         val rt = Runtime.getRuntime()
         return "heap usado ${(rt.totalMemory() - rt.freeMemory()) / 1_048_576} MB de ${rt.maxMemory() / 1_048_576} MB"
@@ -85,7 +91,7 @@ class SmokeFlowTest {
         log("$label: reproduciendo en ${System.currentTimeMillis() - t0} ms")
         Thread.sleep(2_500)
         shot("reproductor-" + label.lowercase().replace(Regex("[^a-z0-9]+"), "-"))
-        Espresso.pressBack() // cerrar reproductor
+        back() // cerrar reproductor
         compose.waitForIdle()
     }
 
@@ -121,7 +127,7 @@ class SmokeFlowTest {
                 log("Película #$index: ficha en ${System.currentTimeMillis() - t} ms")
                 if (index == 0) shot("03-ficha-pelicula")
                 playAndCheck("Película #$index") { compose.onAllNodesWithText(app.getString(R.string.action_play), useUnmergedTree = true)[0].performClick() }
-                Espresso.pressBack() // volver a la cuadrícula
+                back() // volver a la cuadrícula
                 waitTag("grid")
             }
             t = System.currentTimeMillis()
@@ -144,7 +150,7 @@ class SmokeFlowTest {
                     if (index == 0) shot("04-ficha-serie")
                     playAndCheck("Serie #$index episodio") { compose.onAllNodesWithTag("episode", useUnmergedTree = true)[0].performClick() }
                 }
-                Espresso.pressBack()
+                back()
                 waitTag("grid")
             }
 

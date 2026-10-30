@@ -55,6 +55,7 @@ jobs:
           script: |
             adb install -r android-app/app/build/outputs/apk/debug/app-debug.apk
             adb install -r android-app/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell settings put secure immersive_mode_confirmations confirmed
             adb logcat -c
             (adb logcat -v time > logcat.txt &)
             adb shell am instrument -w -r -e class com.embyverse.app.SmokeFlowTest -e mockBase http://10.0.2.2:8800 com.embyverse.app.debug.test/androidx.test.runner.AndroidJUnitRunner | tee instrument.txt
