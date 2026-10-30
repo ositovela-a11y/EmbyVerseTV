@@ -97,3 +97,15 @@ jobs:
           gh release view apk-latest >/dev/null 2>&1 || gh release create apk-latest --title "EmbyVerse (última compilación)" --notes "$NOTES" --latest
           if [ -z "${{ matrix.slug }}" ]; then gh release edit apk-latest --notes "$NOTES"; fi
           gh release upload apk-latest "${{ matrix.asset }}" --clobber
+  # Borra del release las APK de vendedores que ya no existen.
+  cleanup:
+    needs: [targets, build]
+    if: always() && needs.targets.result == 'success'
+    runs-on: ubuntu-latest
+    env: { GH_TOKEN: '${{ github.token }}', MATRIX: '${{ needs.targets.outputs.matrix }}' }
+    steps:
+      - run: |
+          keep=$(echo "$MATRIX" | jq -r '.include[].asset')
+          for a in $(gh release view apk-latest -R "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep -E '^EmbyVerse-.+\.apk$' || true); do
+            echo "$keep" | grep -qx "$a" || { echo "Eliminando $a"; gh release delete-asset apk-latest "$a" -R "$GITHUB_REPOSITORY" -y; }
+          done
