@@ -70,6 +70,10 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     private var ref = startRef
     private var prefs = PlaybackPrefs()
     private var retries = 0
+    /** Formatos alternativos ya probados para el canal actual (ver StreamSource.alternatives). */
+    private var altIndex = -1
+    private var forcedMime: String? = null
+    private var originalUrl: String? = null
     private var resumeFrom: Long? = null
     private var progressJob: Job? = null
     private var appContext: Context? = null
@@ -128,7 +132,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         if (np == null) { error.value = PlayerUiError.Message(R.string.player_error_not_found); buffering.value = false; return }
         ref = target
         nowPlaying.value = np
-        retries = 0
+        retries = 0; altIndex = -1; forcedMime = null; originalUrl = null
         resumeFrom = when {
             target.kind == ContentKind.LIVE -> null
             firstLoad && context == "restart" -> 0L
@@ -161,7 +165,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
 
     private fun prepare(np: NowPlaying, startAt: Long?) {
         val p = player.value ?: return
-        p.setMediaSource(StreamSource.mediaSource(c.okHttp, np.url, np.userAgent, np.referrer, np.title, np.subtitle))
+        p.setMediaSource(StreamSource.mediaSource(c.okHttp, np.url, np.userAgent, np.referrer, np.title, np.subtitle, forcedMime))
         if (startAt != null && startAt > 0) p.seekTo(startAt)
         p.prepare()
         p.playWhenReady = true
@@ -247,6 +251,27 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
             val p = player.value
             if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW && p != null) {
                 p.seekToDefaultPosition(); p.prepare(); return
+            }
+            // El proveedor entregó otro formato del anunciado: se prueba HLS / .ts automáticamente.
+            val formatProblem = e.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ||
+                e.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED ||
+                e.errorCode == PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED ||
+                e.errorCode == PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED ||
+                (isLive && e.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS)
+            val cur = nowPlaying.value
+            if (formatProblem && cur != null) {
+                val alts = StreamSource.alternatives(originalUrl ?: cur.url)
+                if (originalUrl == null) originalUrl = cur.url
+                if (altIndex + 1 < alts.size) {
+                    altIndex++
+                    val (u, m) = alts[altIndex]
+                    forcedMime = m
+                    val np = cur.copy(url = u)
+                    nowPlaying.value = np
+                    error.value = null; buffering.value = true
+                    prepare(np, if (isLive) null else p?.currentPosition)
+                    return
+                }
             }
             val transient = e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
                 e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ||

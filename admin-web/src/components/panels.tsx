@@ -30,6 +30,12 @@ export function IdentityPanel({ ed, canEdit, assets, publicBase, onUpload }: Pan
         <TextField label="Nombre comercial" value={c.brand.appName} max={40} disabled={!canEdit} onChange={(v) => ed.update((d) => { d.brand.appName = v; }, 'appName')} />
         <TextField label="Lema" value={c.brand.tagline ?? ''} max={80} disabled={!canEdit} onChange={(v) => ed.update((d) => { d.brand.tagline = v || null; }, 'tagline')} />
       </Group>
+      <Group title="Servidor del proveedor" hint="Ya queda puesto en la app: el cliente solo escribe usuario y contraseña. Si lo cambias, las apps instaladas se pasan solas al nuevo servidor y actualizan sus listas (sin APK nueva).">
+        <TextField label="Servidor (host)" value={c.texts['provider.host'] ?? ''} max={200} placeholder="https://krnosmx.com:443" disabled={!canEdit}
+          onChange={(v) => ed.update((d) => { const x = v.trim(); if (x) d.texts['provider.host'] = x; else delete d.texts['provider.host']; }, 'host')} />
+        {c.texts['provider.host'] && !/^https?:\/\/[^\s/]+/i.test(c.texts['provider.host']) && <Notice kind="error">Debe empezar por http:// o https://</Notice>}
+        {!c.texts['provider.host'] && <p className="hint">Vacío = el de la APK (https://krnosmx.com:443).</p>}
+      </Group>
       <Group title="Logotipo" hint="Solo se pueden usar el logotipo oficial integrado o variantes aprobadas por un propietario en Recursos.">
         <div className="choice-grid">
           {([['bundled_full', 'Logotipo completo', '/brand/embyverse-logo.webp'], ['bundled_planet', 'Solo planeta', '/brand/embyverse-icon.png']] as const).map(([v, label, src]) => (

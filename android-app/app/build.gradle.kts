@@ -14,6 +14,9 @@ val localProps = Properties().apply {
 }
 fun prop(name: String): String? = (project.findProperty(name) as String?) ?: localProps.getProperty(name) ?: System.getenv(name.uppercase().replace('.', '_'))
 val configBaseUrl = prop("embyverse.configUrl") ?: ""
+// Servidor del proveedor ya puesto: el cliente solo escribe usuario y contraseña.
+// El panel puede cambiarlo sin APK nueva (texto «provider.host» del diseño publicado).
+val defaultHost = prop("embyverse.host") ?: "https://krnosmx.com:443"
 // App de un vendedor: identificador propio para que conviva con las demás en el mismo equipo.
 // Ejemplo: -Pembyverse.vendor=juan → com.embyverse.app.v.juan
 val vendor = (prop("embyverse.vendor") ?: "").lowercase().filter { it.isLetterOrDigit() }.takeIf { it.isNotEmpty() && it[0].isLetter() }
@@ -32,10 +35,11 @@ android {
         applicationId = if (vendor != null) "com.embyverse.app.v.$vendor" else "com.embyverse.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.4.0"
+        versionCode = 6
+        versionName = "1.4.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "CONFIG_BASE_URL", "\"${configBaseUrl.replace("\"", "")}\"")
+        buildConfigField("String", "DEFAULT_HOST", "\"${defaultHost.replace("\"", "")}\"")
         vectorDrawables.useSupportLibrary = true
     }
 

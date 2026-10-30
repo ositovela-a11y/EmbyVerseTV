@@ -162,6 +162,7 @@
     <string name="source_insecure_http">Unencrypted connection (HTTP)</string>
     <string name="source_last_sync">Updated: %1$s</string>
     <string name="source_legal_notice">Only use playlists and services you are entitled to access. EmbyVerse does not provide any content.</string>
+    <string name="source_locked_hint">Enter the username and password from your provider.</string>
     <string name="source_missing_location">Enter the playlist or server address.</string>
     <string name="source_name">Name</string>
     <string name="source_name_hint">e.g. My provider</string>

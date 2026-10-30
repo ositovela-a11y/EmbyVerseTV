@@ -27,12 +27,30 @@ object StreamSource {
         return ExoPlayer.Builder(context.applicationContext).setLoadControl(loadControl).build()
     }
 
-    fun mediaSource(client: OkHttpClient, url: String, userAgent: String?, referrer: String?, title: String? = null, subtitle: String? = null): MediaSource {
+    /**
+     * Formas alternativas de abrir un canal en vivo cuando el proveedor entrega otro formato del que
+     * anuncia (p. ej. pide .ts y responde una lista HLS → ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED).
+     * Devuelve (url, mime forzado) en el orden en que conviene probarlas.
+     */
+    fun alternatives(url: String): List<Pair<String, String?>> {
+        val ext = M3uCatalogBuilder.extension(url)
+        val swap = when (ext) {
+            "ts" -> url.substring(0, url.length - 2) + "m3u8"
+            "m3u8" -> url.substring(0, url.length - 4) + "ts"
+            else -> null
+        }
+        return buildList {
+            if (ext != "m3u8" && ext != "m3u") add(url to MimeTypes.APPLICATION_M3U8) // misma dirección, leída como HLS
+            if (swap != null) add(swap to null)
+        }
+    }
+
+    fun mediaSource(client: OkHttpClient, url: String, userAgent: String?, referrer: String?, title: String? = null, subtitle: String? = null, forcedMime: String? = null): MediaSource {
         // Cabeceras por stream (User-Agent / Referer declarados en la lista M3U).
         val ds = OkHttpDataSource.Factory(client)
             .setUserAgent(userAgent ?: Network.USER_AGENT)
             .setDefaultRequestProperties(buildMap { referrer?.let { put("Referer", it) } })
-        val mime = when (M3uCatalogBuilder.extension(url)) {
+        val mime = forcedMime ?: when (M3uCatalogBuilder.extension(url)) {
             "m3u8", "m3u" -> MimeTypes.APPLICATION_M3U8
             "mpd" -> MimeTypes.APPLICATION_MPD
             else -> null

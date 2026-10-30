@@ -34,13 +34,27 @@ class LivePreview(private val context: Context, private val c: AppContainer, @Su
     val buffering = MutableStateFlow(false)
     val error = MutableStateFlow(false)
     private var job: Job? = null
+    private var lastUrl: String? = null
+    private var altIndex = -1
 
     private val listener = object : Player.Listener {
         override fun onPlaybackStateChanged(state: Int) {
             buffering.value = state == Player.STATE_BUFFERING
             if (state == Player.STATE_READY) { error.value = false; PlaybackProbe.readyCount++ }
         }
-        override fun onPlayerError(e: PlaybackException) { buffering.value = false; error.value = true; PlaybackProbe.lastError = e.errorCodeName }
+        override fun onPlayerError(e: PlaybackException) {
+            // Mismo rescate que en pantalla completa: si el formato no es el anunciado, se prueba otro.
+            val alts = lastUrl?.let { StreamSource.alternatives(it) }.orEmpty()
+            val ch = _channel.value
+            val formatProblem = e.errorCode in 3000..3999 || e.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS
+            if (ch != null && formatProblem && altIndex + 1 < alts.size) {
+                altIndex++
+                val (u, m) = alts[altIndex]
+                _player.value?.let { p -> p.setMediaSource(StreamSource.mediaSource(c.okHttp, u, ch.userAgent, ch.referrer, ch.name, forcedMime = m)); p.prepare(); p.playWhenReady = true }
+                return
+            }
+            buffering.value = false; error.value = true; PlaybackProbe.lastError = e.errorCodeName
+        }
     }
 
     fun isPreviewing(ch: ChannelEntity) = _channel.value?.let { it.sourceId == ch.sourceId && it.providerId == ch.providerId } == true
@@ -51,6 +65,7 @@ class LivePreview(private val context: Context, private val c: AppContainer, @Su
         job?.cancel()
         job = scope.launch {
             val url = c.sources.resolveStreamUrl(ch.sourceId, ch.streamUrl)
+            lastUrl = url; altIndex = -1
             val p = _player.value ?: StreamSource.player(context).also { it.addListener(listener); it.volume = 1f; _player.value = it }
             p.setMediaSource(StreamSource.mediaSource(c.okHttp, url, ch.userAgent, ch.referrer, ch.name))
             p.prepare(); p.playWhenReady = true

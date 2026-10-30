@@ -209,8 +209,11 @@ class SourceEditViewModel(private val c: AppContainer, private val id: String?) 
     val test = MutableStateFlow<TestState>(TestState.Idle)
     val saving = MutableStateFlow(false)
     val existing = c.sources.sources
+    /** Servidor ya puesto (APK o panel): al añadir una cuenta solo se piden usuario y contraseña. */
+    val lockedHost: String? = if (id == null) com.embyverse.app.data.repo.ProviderHost.of(c.config.config.value) else null
 
     init {
+        lockedHost?.let { h -> form.value = SourceForm(SourceType.XTREAM, server = h) }
         if (id != null) viewModelScope.launch {
             c.database.sources().get(id)?.let { s ->
                 val type = SourceType.valueOf(s.type)
@@ -299,11 +302,13 @@ fun SourceEditScreen(nav: Navigator, id: String?, firstRun: Boolean, onDone: () 
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(t.screenPadding).widthIn(max = 720.dp).align(Alignment.CenterHorizontally),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text(stringResource(R.string.source_type), style = MaterialTheme.typography.titleSmall, color = t.textSecondary)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val locked = vm.lockedHost != null
+            if (!locked) Text(stringResource(R.string.source_type), style = MaterialTheme.typography.titleSmall, color = t.textSecondary)
+            if (!locked) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SourceType.entries.forEach { type -> CategoryChip(stringResource(typeLabel(type)), f.type == type) { vm.update { it.copy(type = type) } } }
             }
-            Field(f.name, { v -> vm.update { it.copy(name = v) } }, stringResource(R.string.source_name), stringResource(R.string.source_name_hint))
+            if (!locked) Field(f.name, { v -> vm.update { it.copy(name = v) } }, stringResource(R.string.source_name), stringResource(R.string.source_name_hint))
+            else Text(stringResource(R.string.source_locked_hint), style = MaterialTheme.typography.bodyMedium, color = t.textSecondary)
             when (f.type) {
                 SourceType.M3U_URL -> Field(f.url, { v -> vm.update { it.copy(url = v) } }, stringResource(R.string.source_url), "https://proveedor.example.com/lista.m3u", KeyboardType.Uri)
                 SourceType.M3U_FILE -> {
@@ -313,8 +318,10 @@ fun SourceEditScreen(nav: Navigator, id: String?, firstRun: Boolean, onDone: () 
                     if (pickerError) Text(stringResource(R.string.source_picker_unavailable), color = t.error, style = MaterialTheme.typography.bodySmall)
                 }
                 SourceType.XTREAM -> {
-                    Field(f.server, vm::onServerChanged, stringResource(R.string.source_server), "http://servidor.example.com:8080", KeyboardType.Uri)
-                    Text(stringResource(R.string.source_server_hint), style = MaterialTheme.typography.bodySmall, color = t.textSecondary)
+                    if (!locked) {
+                        Field(f.server, vm::onServerChanged, stringResource(R.string.source_server), "http://servidor.example.com:8080", KeyboardType.Uri)
+                        Text(stringResource(R.string.source_server_hint), style = MaterialTheme.typography.bodySmall, color = t.textSecondary)
+                    }
                     Field(f.username, { v -> vm.update { it.copy(username = v) } }, stringResource(R.string.source_username), null)
                     OutlinedTextField(
                         value = f.password, onValueChange = { v -> vm.update { it.copy(password = v) } }, singleLine = true, modifier = Modifier.fillMaxWidth(),
@@ -327,9 +334,11 @@ fun SourceEditScreen(nav: Navigator, id: String?, firstRun: Boolean, onDone: () 
                     )
                 }
             }
-            Text(stringResource(R.string.source_advanced), style = MaterialTheme.typography.titleSmall, color = t.textSecondary)
-            Field(f.epgUrl, { v -> vm.update { it.copy(epgUrl = v) } }, stringResource(R.string.source_epg_url), stringResource(R.string.source_epg_hint), KeyboardType.Uri)
-            if (f.type != SourceType.M3U_FILE) Field(f.userAgent, { v -> vm.update { it.copy(userAgent = v) } }, stringResource(R.string.source_user_agent), stringResource(R.string.optional))
+            if (!locked) {
+                Text(stringResource(R.string.source_advanced), style = MaterialTheme.typography.titleSmall, color = t.textSecondary)
+                Field(f.epgUrl, { v -> vm.update { it.copy(epgUrl = v) } }, stringResource(R.string.source_epg_url), stringResource(R.string.source_epg_hint), KeyboardType.Uri)
+                if (f.type != SourceType.M3U_FILE) Field(f.userAgent, { v -> vm.update { it.copy(userAgent = v) } }, stringResource(R.string.source_user_agent), stringResource(R.string.optional))
+            }
 
             TestResult(test)
 

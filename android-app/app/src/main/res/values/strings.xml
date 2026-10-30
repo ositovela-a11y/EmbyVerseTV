@@ -163,6 +163,7 @@
     <string name="source_insecure_http">Conexión sin cifrar (HTTP)</string>
     <string name="source_last_sync">Actualizada: %1$s</string>
     <string name="source_legal_notice">Usa solo listas y servicios a los que tengas derecho de acceso. EmbyVerse no proporciona contenido.</string>
+    <string name="source_locked_hint">Escribe el usuario y la contraseña que te dio tu proveedor.</string>
     <string name="source_missing_location">Indica la dirección de la lista o del servidor.</string>
     <string name="source_name">Nombre</string>
     <string name="source_name_hint">Ej.: Mi proveedor</string>
