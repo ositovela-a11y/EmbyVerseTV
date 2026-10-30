@@ -1,0 +1,34 @@
+Prueba en emulador Android 14 (API 34, Pixel 6) — GitHub Actions, 2026-10-30
+Proveedor simulado: 15 000 canales, 60 000 películas, 15 000 series (tests/android/mock-xtream.mjs)
+Resultado: OK (4 pruebas)
+
+sincronización: sección SERIES lista en 13352 ms
+sincronización: sección LIVE lista en 18204 ms
+sincronización: sección MOVIE lista en 40858 ms
+Xtream: sincronización 40880 ms → Done(live=14985, movies=59970, series=15000, warnings=[]) · heap usado 50 MB de 576 MB
+Xtream: guía EPG 3578 ms → Ok(value=7830)
+Inicio visible en 1357 ms
+Películas: cuadrícula en 3376 ms · heap usado 12 MB de 576 MB
+Película #0: ficha en 1450 ms
+Película #0: reproduciendo en 3575 ms
+Película #1: ficha en 452 ms
+Película #1: reproduciendo en 2325 ms
+Película #3: ficha en 683 ms
+Película #3: reproduciendo en 2372 ms
+Películas: desplazamiento hasta la 4500 en 655 ms
+Serie #0: episodios en 1450 ms
+Serie #0 episodio: reproduciendo en 2295 ms
+Serie #4: episodios en 887 ms
+Serie #4 episodio: reproduciendo en 1699 ms
+Serie #3: episodios en 1077 ms
+Serie #3 episodio: reproduciendo en 2317 ms
+aviso mostrado
+Canal en vivo: reproduciendo en 1975 ms
+Recorrido completo sin cierres · heap usado 28 MB de 576 MB
+M3U: sincronización 23978 ms → Done(live=14985, movies=60000, series=3000, warnings=[]) · heap usado 44 MB de 576 MB
+sincronización: sección LIVE lista en 3888 ms
+sincronización: sección SERIES lista en 6075 ms
+sincronización: sección MOVIE lista en 13029 ms
+Actualizar desde la pantalla: 13036 ms → Done(live=14985, movies=59970, series=15000, warnings=[])
+Hilo principal: probar, actualizar, episodios y ficha sin cierres
+
