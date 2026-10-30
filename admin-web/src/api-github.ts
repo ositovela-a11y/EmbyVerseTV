@@ -17,7 +17,26 @@ export const GH = {
 };
 
 const TOKEN_KEY = 'ev.studio.ghToken';
-const DRAFT_KEY = 'ev.studio.draft';
+const TARGET_KEY = 'ev.studio.target';
+
+// ---- Apps de vendedores: cada una tiene su propio diseño (web-player/config/vendors/<id>.json)
+export interface Vendor { slug: string; name: string; createdAt: string }
+export const VENDORS_INDEX = 'web-player/config/vendors/index.json';
+/** App que se está editando: '' = la principal, o el identificador de un vendedor. */
+export function currentTarget(): string { try { return localStorage.getItem(TARGET_KEY) || ''; } catch { return ''; } }
+export function setTarget(slug: string) { try { localStorage.setItem(TARGET_KEY, slug); } catch { /* */ } }
+const cfgPath = (t = currentTarget()) => (t ? `web-player/config/vendors/${t}.json` : GH.configPath);
+const draftKey = () => `ev.studio.draft:${currentTarget() || 'principal'}`;
+const DRAFT_KEY_LEGACY = 'ev.studio.draft';
+/** Enlaces públicos de una app (principal si slug = ''). */
+export function linksFor(slug: string) {
+  const site = 'https://ositovela-a11y.github.io/EmbyVerseTV';
+  return {
+    apk: `https://github.com/${GH.owner}/${GH.repo}/releases/download/apk-latest/${slug ? `EmbyVerse-${slug}.apk` : 'EmbyVerse.apk'}`,
+    short: `${site.replace('https://', '')}/a/${slug ? `?v=${slug}` : ''}`,
+    web: `${site}/${slug ? `?v=${slug}` : ''}`,
+  };
+}
 const API = `https://api.github.com/repos/${GH.owner}/${GH.repo}`;
 
 const token = () => { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; } };
@@ -49,9 +68,16 @@ const b64utf8 = (b64: string) => new TextDecoder().decode(Uint8Array.from(atob(b
 
 interface FileInfo { sha: string; content?: string; name: string; path: string; size: number; download_url: string | null }
 
-async function readConfig(ref = GH.branch): Promise<{ config: RemoteConfig; sha: string } | null> {
+async function readJsonFile<T>(path: string, ref = GH.branch): Promise<{ data: T; sha: string } | null> {
   try {
-    const f = await gh<FileInfo>('GET', `/contents/${GH.configPath}?ref=${encodeURIComponent(ref)}`);
+    const f = await gh<FileInfo>('GET', `/contents/${path}?ref=${encodeURIComponent(ref)}`);
+    return { data: JSON.parse(b64utf8(f.content ?? '')) as T, sha: f.sha };
+  } catch (e) { if (e instanceof ApiError && e.status === 404) return null; throw e; }
+}
+
+async function readConfig(ref = GH.branch, path = cfgPath()): Promise<{ config: RemoteConfig; sha: string } | null> {
+  try {
+    const f = await gh<FileInfo>('GET', `/contents/${path}?ref=${encodeURIComponent(ref)}`);
     return { config: JSON.parse(b64utf8(f.content ?? '')) as RemoteConfig, sha: f.sha };
   } catch (e) { if (e instanceof ApiError && e.status === 404) return null; throw e; }
 }
@@ -90,7 +116,7 @@ export const githubApi = {
     let config = pub?.config ?? null;
     let baseVersion = latestVersion;
     try {
-      const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null') as { config: RemoteConfig; base: number } | null;
+      const d = JSON.parse(localStorage.getItem(draftKey()) || 'null') as { config: RemoteConfig; base: number } | null;
       if (d) { config = d.config; baseVersion = d.base; }
     } catch { /* borrador dañado: se ignora */ }
     if (!config) config = (await import('../../shared/default-config.json')).default as unknown as RemoteConfig;
@@ -98,31 +124,31 @@ export const githubApi = {
   },
   async saveDraft(config: RemoteConfig) {
     const pub = await readConfig().catch(() => null);
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ config, base: pub?.config.version ?? 0 })); } catch { /* */ }
+    try { localStorage.setItem(draftKey(), JSON.stringify({ config, base: pub?.config.version ?? 0 })); } catch { /* */ }
     return { validation: toValidation(config) };
   },
-  async discardDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch { /* */ } },
+  async discardDraft() { try { localStorage.removeItem(draftKey()); } catch { /* */ } },
   async validate(config: RemoteConfig) { return toValidation(config); },
 
   async publish(note: string, _force = false, override?: RemoteConfig) {
     let d: RemoteConfig | null = override ?? null;
-    if (!d) { try { d = (JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null') as { config: RemoteConfig } | null)?.config ?? null; } catch { d = null; } }
+    if (!d) { try { d = (JSON.parse(localStorage.getItem(draftKey()) || 'null') as { config: RemoteConfig } | null)?.config ?? null; } catch { d = null; } }
     if (!d) throw new ApiError(400, 'no_draft', 'No hay cambios guardados para publicar.');
     const v = toValidation(d);
     if (!v.ok) throw new ApiError(422, 'invalid', 'El diseño tiene errores: ' + v.errors.join('; '));
     const pub = await readConfig();
     const version = (pub?.config.version ?? 0) + 1;
     const next = { ...d, version, publishedAt: new Date().toISOString().replace(/\.\d+Z$/, 'Z') } as RemoteConfig;
-    await gh('PUT', `/contents/${GH.configPath}`, {
+    await gh('PUT', `/contents/${cfgPath()}`, {
       message: `Diseño v${version}: ${note || 'publicado desde Design Studio'}`,
       content: utf8b64(JSON.stringify(next, null, 2) + '\n'), branch: GH.branch, ...(pub ? { sha: pub.sha } : {}),
     });
-    try { localStorage.removeItem(DRAFT_KEY); } catch { /* */ }
+    try { localStorage.removeItem(draftKey()); } catch { /* */ }
     return { version, warnings: v.warnings };
   },
 
   async versions(): Promise<{ versions: VersionInfo[] }> {
-    const commits = await gh<{ sha: string; commit: { message: string; author: { date: string; name: string } } }[]>('GET', `/commits?path=${encodeURIComponent(GH.configPath)}&per_page=40`);
+    const commits = await gh<{ sha: string; commit: { message: string; author: { date: string; name: string } } }[]>('GET', `/commits?path=${encodeURIComponent(cfgPath())}&per_page=40`);
     const versions = commits.map((c) => {
       const m = /^Diseño v(\d+):\s*(.*)$/s.exec(c.commit.message);
       return m ? { version: Number(m[1]), published_at: Date.parse(c.commit.author.date), published_by: c.commit.author.name, note: m[2].split('\n')[0] || null, rollback_of: null, sha: c.sha } : null;
@@ -160,6 +186,39 @@ export const githubApi = {
     const [sha, ...rest] = id.split(':'); const name = rest.join(':');
     await gh('DELETE', `/contents/${GH.assetsDir}/${name}`, { message: `Design Studio: elimina ${name}`, sha, branch: GH.branch });
   },
+  // ---- vendedores
+  async vendors(): Promise<Vendor[]> { return (await readJsonFile<Vendor[]>(VENDORS_INDEX))?.data ?? []; },
+  async createVendor(name: string): Promise<Vendor> {
+    const clean = name.trim().slice(0, 30);
+    if (clean.length < 2) throw new ApiError(400, 'github', 'Escribe el nombre del vendedor o de su marca.');
+    let base = clean.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20);
+    if (!/^[a-z]/.test(base)) base = 'v' + base;
+    if (base.length < 2) base = 'vendedor';
+    const idx = await readJsonFile<Vendor[]>(VENDORS_INDEX);
+    const list = idx?.data ?? [];
+    let slug = base; let n = 2;
+    while (list.some((v) => v.slug === slug)) slug = `${base}${n++}`;
+    // El vendedor empieza con una copia del diseño publicado de la app principal, con su nombre.
+    const main = await readConfig(GH.branch, GH.configPath);
+    const start = structuredClone(main?.config ?? (await import('../../shared/default-config.json')).default as unknown as RemoteConfig);
+    start.brand.appName = clean; start.version = 1; start.publishedAt = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+    await gh('PUT', `/contents/${cfgPath(slug)}`, { message: `Diseño v1: app del vendedor ${clean}`, content: utf8b64(JSON.stringify(start, null, 2) + '\n'), branch: GH.branch });
+    const v: Vendor = { slug, name: clean, createdAt: new Date().toISOString() };
+    await gh('PUT', `/contents/${VENDORS_INDEX}`, { message: `Design Studio: nuevo vendedor ${clean}`, content: utf8b64(JSON.stringify([...list, v], null, 2) + '\n'), branch: GH.branch, ...(idx ? { sha: idx.sha } : {}) });
+    return v;
+  },
+  async renameVendor(slug: string, name: string) {
+    const idx = await readJsonFile<Vendor[]>(VENDORS_INDEX); if (!idx) return;
+    const list = idx.data.map((v) => (v.slug === slug ? { ...v, name: name.trim().slice(0, 30) } : v));
+    await gh('PUT', `/contents/${VENDORS_INDEX}`, { message: `Design Studio: renombra vendedor ${slug}`, content: utf8b64(JSON.stringify(list, null, 2) + '\n'), branch: GH.branch, sha: idx.sha });
+  },
+  async deleteVendor(slug: string) {
+    const idx = await readJsonFile<Vendor[]>(VENDORS_INDEX); if (!idx) return;
+    await gh('PUT', `/contents/${VENDORS_INDEX}`, { message: `Design Studio: elimina vendedor ${slug}`, content: utf8b64(JSON.stringify(idx.data.filter((v) => v.slug !== slug), null, 2) + '\n'), branch: GH.branch, sha: idx.sha });
+    const f = await gh<FileInfo>('GET', `/contents/${cfgPath(slug)}?ref=${GH.branch}`).catch(() => null);
+    if (f) await gh('DELETE', `/contents/${cfgPath(slug)}`, { message: `Design Studio: elimina el diseño de ${slug}`, sha: f.sha, branch: GH.branch });
+    if (currentTarget() === slug) setTarget('');
+  },
   async audit() { return { entries: [] }; },
   async users() { return { users: [] }; },
   async createUser() { throw new ApiError(400, 'github', 'No disponible en el modo GitHub'); },
@@ -167,4 +226,5 @@ export const githubApi = {
   async deleteUser() { throw new ApiError(400, 'github', 'No disponible en el modo GitHub'); },
 };
 
+void DRAFT_KEY_LEGACY;
 let shaByVersion = new Map<number, string>();

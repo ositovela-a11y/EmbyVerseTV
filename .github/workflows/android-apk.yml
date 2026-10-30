@@ -10,7 +10,36 @@ permissions:
   contents: write
 concurrency: { group: apk, cancel-in-progress: true }
 jobs:
+  # Una APK por app: la principal y una por cada vendedor creado en el Design Studio
+  # (web-player/config/vendors/index.json). Cada una con su nombre, logotipo, colores e identificador.
+  targets:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: m
+        run: |
+          node -e '
+            const fs = require("fs");
+            const base = "https://ositovela-a11y.github.io/EmbyVerseTV/config";
+            const list = [{ slug: "", name: "Principal", config: "web-player/config/app.json", url: base + "/app.json", asset: "EmbyVerse.apk" }];
+            try {
+              for (const v of JSON.parse(fs.readFileSync("web-player/config/vendors/index.json", "utf8"))) {
+                if (!/^[a-z][a-z0-9]{1,30}$/.test(v.slug)) continue;
+                list.push({ slug: v.slug, name: v.name, config: `web-player/config/vendors/${v.slug}.json`, url: `${base}/vendors/${v.slug}.json`, asset: `EmbyVerse-${v.slug}.apk` });
+              }
+            } catch {}
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, "matrix=" + JSON.stringify({ include: list }) + "\n");
+            console.log(list.map((x) => x.asset).join(", "));
+          '
   build:
+    needs: targets
+    name: APK ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -34,17 +63,18 @@ jobs:
       - name: Aplicar nombre y logotipo del Design Studio
         run: |
           mkdir -p /tmp/sharp && (cd /tmp/sharp && npm init -y > /dev/null && npm i --silent sharp@0.34.4 > /dev/null)
-          SHARP_DIR=/tmp/sharp node scripts/apply-brand.mjs
+          SHARP_DIR=/tmp/sharp node scripts/apply-brand.mjs "${{ matrix.config }}"
       - name: Pruebas del núcleo y compilación
         id: build
         working-directory: android-app
         env:
           # La app lee el diseño publicado desde GitHub Pages (Design Studio).
-          EMBYVERSE_CONFIGURL: https://ositovela-a11y.github.io/EmbyVerseTV/config/app.json
+          EMBYVERSE_CONFIGURL: ${{ matrix.url }}
+          EMBYVERSE_VENDOR: ${{ matrix.slug }}
         run: |
           set -o pipefail
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace :core:test :app:assembleDebug 2>&1 | tee build.log
+          ./gradlew --no-daemon --stacktrace ${{ matrix.slug == '' && ':core:test' || '' }} :app:assembleDebug 2>&1 | tee build.log
       - name: Mostrar errores de compilación
         if: failure()
         working-directory: android-app
@@ -62,8 +92,8 @@ jobs:
         if: success()
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
-          cp android-app/app/build/outputs/apk/debug/app-debug.apk EmbyVerse.apk
+          cp android-app/app/build/outputs/apk/debug/app-debug.apk "${{ matrix.asset }}"
           NOTES="APK de prueba compilado desde ${GITHUB_SHA::7} el $(date -u '+%Y-%m-%d %H:%M UTC'). Firmado con la clave de depuración del proyecto."
           gh release view apk-latest >/dev/null 2>&1 || gh release create apk-latest --title "EmbyVerse (última compilación)" --notes "$NOTES" --latest
-          gh release edit apk-latest --notes "$NOTES"
-          gh release upload apk-latest EmbyVerse.apk --clobber
+          if [ -z "${{ matrix.slug }}" ]; then gh release edit apk-latest --notes "$NOTES"; fi
+          gh release upload apk-latest "${{ matrix.asset }}" --clobber

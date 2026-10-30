@@ -42,8 +42,8 @@ class UserError extends Error {}
 const LOCAL = !!window.EV_LOCAL;
 (() => {
   try {
-    const q = new URLSearchParams(location.search).get('relay');
-    if (q != null) { store.set('relay', q.trim() || 'off'); history.replaceState(null, '', location.pathname); }
+    const sp = new URLSearchParams(location.search), q = sp.get('relay');
+    if (q != null) { store.set('relay', q.trim() || 'off'); sp.delete('relay'); history.replaceState(null, '', location.pathname + (sp.toString() ? '?' + sp : '')); }
   } catch { /* sin acceso a la URL */ }
 })();
 const relayFrom = (raw) => {
@@ -1005,8 +1005,15 @@ document.addEventListener('keydown', (e) => {
 // colores de la web igual que en la app. Si no existe o falla, se queda el diseño integrado.
 const BRAND = { name: 'EmbyVerse', tagline: 'Tu universo de entretenimiento' };
 async function applyBrand() {
+  // Web de un vendedor: ?v=<id> (se recuerda en este navegador) usa su diseño en lugar del principal.
+  let vendor = '';
+  try {
+    const q = new URLSearchParams(location.search).get('v');
+    if (q != null) { store.set('vendor', /^[a-z][a-z0-9]{1,30}$/.test(q) ? q : ''); }
+    vendor = store.get('vendor', '');
+  } catch { /* */ }
   let c;
-  try { const r = await fetch('config/app.json', { cache: 'no-cache' }); if (!r.ok) return; c = await r.json(); } catch { return; }
+  try { const r = await fetch(vendor ? `config/vendors/${vendor}.json` : 'config/app.json', { cache: 'no-cache' }); if (!r.ok) return; c = await r.json(); } catch { return; }
   const b = c && c.brand || {}, p = (c && c.theme && c.theme.palette) || {};
   const color = (v) => (typeof v === 'string' && /^#([0-9a-f]{6}|[0-9a-f]{8})$/i.test(v) ? (v.length === 9 ? '#' + v.slice(3) : v) : null);
   const root = document.documentElement.style;

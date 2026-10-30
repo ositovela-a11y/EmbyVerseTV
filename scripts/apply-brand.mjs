@@ -7,7 +7,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const cfgFile = join(root, 'web-player/config/app.json');
+// Uso: node scripts/apply-brand.mjs [ruta del diseño]  (por defecto el de la app principal)
+const cfgFile = process.argv[2] ? resolve(process.argv[2]) : join(root, 'web-player/config/app.json');
 if (!existsSync(cfgFile)) { console.log('Sin diseño publicado: se mantiene la marca integrada.'); process.exit(0); }
 const cfg = JSON.parse(readFileSync(cfgFile, 'utf8'));
 const res = join(root, 'android-app/app/src/main/res');

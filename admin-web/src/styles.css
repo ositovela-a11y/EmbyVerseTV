@@ -310,3 +310,12 @@ input[type=range] { width: 100%; accent-color: var(--blue); }
 input[type=datetime-local] { min-width: 0; }
 .gh-steps { text-align: left; margin: 0 0 12px; padding-left: 18px; line-height: 1.6; } .gh-steps a { color: inherit; text-decoration: underline; }
 .upload-logo { display: inline-flex; margin-top: 10px; cursor: pointer; }
+.target-select { display: inline-flex; align-items: center; gap: 6px; }
+.target-select select { padding: 6px 8px; border-radius: 8px; border: 1px solid #cfd7e6; font: inherit; font-weight: 600; }
+.vendor-new { display: flex; gap: 8px; flex-wrap: wrap; }
+.vendor-new input { flex: 1 1 220px; padding: 9px 12px; border-radius: 8px; border: 1px solid #cfd7e6; font: inherit; }
+.vendor { border: 1px solid #e3e8f1; border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+.vendor.on { border-color: var(--green, #2e9e3e); box-shadow: 0 0 0 2px rgba(46,158,62,.15); }
+.vendor-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.vendor-links { display: grid; gap: 4px; font-size: .86rem; word-break: break-all; }
+.vendor-links code { background: #f2f5fa; padding: 1px 6px; border-radius: 6px; }

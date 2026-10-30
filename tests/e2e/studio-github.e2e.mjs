@@ -91,6 +91,38 @@ await step('Historial de versiones desde los commits', async () => {
   await page.getByText('Versión 2', { exact: false }).first().waitFor();
   return 'versión 2 listada';
 });
+await step('Crear app de vendedor y editar su diseño por separado', async () => {
+  await page.getByRole('button', { name: 'Vendedores' }).click();
+  await page.getByLabel('Nombre del vendedor').fill('Juan TV');
+  await page.getByRole('button', { name: 'Crear app de vendedor' }).click();
+  await page.getByText(/Vendedor creado/).waitFor();
+  const idx = JSON.parse(files.get('web-player/config/vendors/index.json').toString());
+  if (idx[0]?.slug !== 'juantv') throw new Error(JSON.stringify(idx));
+  await Promise.all([page.waitForEvent('load'), page.locator('.vendor', { hasText: 'Juan TV' }).getByRole('button', { name: 'Editar su app' }).click()]);
+  await page.locator('.pill', { hasText: 'App de Juan TV' }).waitFor();
+  await page.getByRole('button', { name: 'Identidad' }).click();
+  if ((await page.getByLabel('Nombre comercial').inputValue()) !== 'Juan TV') throw new Error('no cargó el diseño del vendedor');
+  await page.getByLabel('Lema').fill('La tele de Juan');
+  await page.getByRole('button', { name: 'Publicar…' }).click();
+  await page.locator('.btn-publish', { hasText: /^Publicar$/ }).click();
+  await page.getByText(/Publicada la versión 2/).waitFor();
+  const v = JSON.parse(files.get('web-player/config/vendors/juantv.json').toString());
+  const main = JSON.parse(files.get('web-player/config/app.json').toString());
+  if (v.brand.tagline !== 'La tele de Juan' || main.brand.appName !== 'Mi Marca TV') throw new Error('se mezclaron los diseños');
+  await page.getByRole('button', { name: 'Vendedores' }).click();
+  await page.screenshot({ path: `${OUT}/16-studio-vendedores.png` });
+  if (WEBDIR) { await import('node:fs').then((fs) => { fs.mkdirSync(`${WEBDIR}/config/vendors`, { recursive: true }); fs.writeFileSync(`${WEBDIR}/config/vendors/juantv.json`, JSON.stringify(v)); }); }
+  return 'vendors/juantv.json publicado; la app principal no cambió';
+});
+if (WEBDIR) await step('La web del vendedor (?v=juantv) usa su marca', async () => {
+  const w = await browser.newPage();
+  await w.goto(`${BASE}/?v=juantv&relay=`);
+  await w.waitForFunction(() => document.title === 'Juan TV Web');
+  await w.locator('.welcome h1', { hasText: 'La tele de Juan' }).waitFor();
+  await w.evaluate(() => localStorage.removeItem('ev.vendor'));
+  await w.close();
+  return 'título y lema del vendedor';
+});
 if (WEBDIR) await step('La web aplica el nombre y el lema publicados', async () => {
   const w = await browser.newPage();
   await w.goto(`${BASE}/?relay=`);

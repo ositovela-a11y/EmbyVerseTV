@@ -1,6 +1,6 @@
-✔  Entrar con Xtream: los canales aparecen antes que las películas  canales visibles en 72 ms; películas (servidor lento, 4 s) en 4376 ms
+✔  Entrar con Xtream: los canales aparecen antes que las películas  canales visibles en 84 ms; películas (servidor lento, 4 s) en 4383 ms
 ✔  Canal que nunca responde: prueba otro formato y muestra un error (no gira para siempre)  error mostrado a los 9 s: «No se pudo descargar el reproductor de canales. Revisa tu conexión a I…»
-✔  Canal caído (404): error inmediato  892 ms
+✔  Canal caído (404): error inmediato  888 ms
 ✔  Película del proveedor Xtream: ficha y reproducción
 
 4/4 pasos correctos

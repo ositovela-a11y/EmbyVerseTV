@@ -8,9 +8,11 @@ import { AppearancePanel, BannersPanel, ColorsPanel, HomeBuilderPanel, IdentityP
 import { Notice, Segmented } from './components/ui';
 import { AppPreview, DEVICES, type Device } from './preview/AppPreview';
 import { useEditor, type Editor } from './store';
+import { TargetSelect, VendorsPanel } from './components/vendors';
+import { currentTarget, githubApi, type Vendor } from './api-github';
 import './styles.css';
 
-type View = 'identity' | 'colors' | 'home' | 'appearance' | 'banners' | 'user' | 'texts' | 'assets' | 'versions' | 'users' | 'audit' | 'account';
+type View = 'identity' | 'colors' | 'home' | 'appearance' | 'banners' | 'user' | 'texts' | 'assets' | 'versions' | 'users' | 'audit' | 'account' | 'vendors';
 const DESIGN_VIEWS: { id: View; label: string }[] = [
   { id: 'home', label: 'Inicio' }, { id: 'identity', label: 'Identidad' }, { id: 'colors', label: 'Colores y temas' },
   { id: 'appearance', label: 'Formas y menú' }, { id: 'banners', label: 'Banners' }, { id: 'user', label: 'Opciones del usuario' }, { id: 'texts', label: 'Textos' },
@@ -146,6 +148,10 @@ function StudioLoaded({ user, loaded, reloadDraft, onLogout, flash }: { user: Us
 
   const loadAssets = useCallback(() => { api.assets().then((r) => setAssets(r.assets)).catch(() => {}); }, []);
   useEffect(loadAssets, [loadAssets]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const loadVendors = useCallback(() => { if (IS_GITHUB) githubApi.vendors().then(setVendors).catch(() => {}); }, []);
+  useEffect(loadVendors, [loadVendors]);
+  const editing = IS_GITHUB && currentTarget() ? vendors.find((v) => v.slug === currentTarget())?.name ?? currentTarget() : null;
 
   const upload = async (f: File, kind: Asset['kind']) => {
     try { const r = await api.upload(f, kind); loadAssets(); return r.asset; }
@@ -197,6 +203,7 @@ function StudioLoaded({ user, loaded, reloadDraft, onLogout, flash }: { user: Us
   const props: PanelProps = { ed, canEdit, assets, publicBase: loaded.publicBase, selected, setSelected, onUpload: upload };
   const errors = ed.validation.errors;
   const manage: { id: View; label: string; show: boolean }[] = [
+    { id: 'vendors', label: 'Vendedores', show: IS_GITHUB },
     { id: 'assets', label: 'Recursos', show: user.permissions.includes('assets:read') },
     { id: 'versions', label: 'Versiones', show: true },
     { id: 'users', label: 'Usuarios', show: user.permissions.includes('users:manage') },
@@ -209,6 +216,8 @@ function StudioLoaded({ user, loaded, reloadDraft, onLogout, flash }: { user: Us
       <header className="topbar">
         <div className="brand"><img src="/brand/embyverse-icon.png" alt="" /><span>EmbyVerse <b>Design Studio</b></span></div>
         <div className="status">
+          {IS_GITHUB && <TargetSelect vendors={vendors} />}
+          {editing && <span className="pill pill-warn">App de {editing}</span>}
           {loaded.latestVersion > 0 ? <span className="pill pill-ok">En la app: versión {loaded.latestVersion}</span> : <span className="pill pill-muted">Sin publicar: la app usa el diseño integrado</span>}
           {ed.dirty ? <span className="pill pill-warn">Cambios sin guardar</span> : <span className="hint">Borrador guardado</span>}
           {!loaded.publicBase.startsWith('https://') && <span className="pill pill-warn" title="Configura PUBLIC_BASE_URL con https en el servidor">Las imágenes subidas no se pueden publicar: el servidor no tiene URL pública https</span>}
@@ -245,6 +254,7 @@ function StudioLoaded({ user, loaded, reloadDraft, onLogout, flash }: { user: Us
           {view === 'users' && <UsersPanel me={user} />}
           {view === 'audit' && <AuditPanel />}
           {view === 'account' && <AccountPanel me={user} />}
+          {view === 'vendors' && <VendorsPanel vendors={vendors} reload={loadVendors} />}
           {isDesign && (
             <div className={`validation ${errors.length ? 'has-errors' : ''}`} role="status">
               {errors.length === 0 ? 'Configuración válida' : <details><summary>{errors.length} problema(s) impiden publicar</summary><ul>{errors.map((e) => <li key={e}>{e}</li>)}</ul></details>}

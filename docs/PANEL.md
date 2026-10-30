@@ -34,3 +34,18 @@ https://github.com/ositovela-a11y/EmbyVerseTV/releases/download/apk-latest/EmbyV
 - Cada publicación queda como un commit («Diseño vN: …»), así que todo cambio se puede revisar o revertir.
 
 Prueba automática: `tests/e2e/studio-github.e2e.mjs` (entrar, cambiar nombre y lema, subir logotipo, publicar, historial y la web aplicando el cambio) → `docs/test-logs/studio-github-e2e.txt`.
+
+## Apps para tus vendedores (marca propia por vendedor)
+En **Gestión → Vendedores**:
+1. Escribe el nombre de la marca del vendedor (por ejemplo «Juan TV») y pulsa **Crear app de vendedor**. Empieza como copia de tu app principal con su nombre.
+2. Pulsa **Editar su app**: arriba verás «Editando: Juan TV». Cambia su logotipo, colores, banners y textos y pulsa **Publicar…**. Solo cambia la app de ese vendedor.
+3. Vuelve a «App principal» con el selector **Editando** de la barra superior.
+
+Cada vendedor recibe:
+| | Enlace |
+|---|---|
+| APK propia (se instala junto a las demás: identificador `com.embyverse.app.v.<id>`) | `…/releases/download/apk-latest/EmbyVerse-<id>.apk` |
+| Descarga corta para Downloader | `ositovela-a11y.github.io/EmbyVerseTV/a/?v=<id>` |
+| Web con su marca | `https://ositovela-a11y.github.io/EmbyVerseTV/?v=<id>` |
+
+GitHub compila todas las APK en paralelo cada vez que publicas (unos 10–15 minutos). Los cambios de colores, banners y textos llegan a las apps ya instaladas al abrirlas, sin reinstalar; el nombre y el ícono requieren instalar la APK nueva (con el mismo código de Downloader).

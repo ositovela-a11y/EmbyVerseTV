@@ -14,6 +14,9 @@ val localProps = Properties().apply {
 }
 fun prop(name: String): String? = (project.findProperty(name) as String?) ?: localProps.getProperty(name) ?: System.getenv(name.uppercase().replace('.', '_'))
 val configBaseUrl = prop("embyverse.configUrl") ?: ""
+// App de un vendedor: identificador propio para que conviva con las demás en el mismo equipo.
+// Ejemplo: -Pembyverse.vendor=juan → com.embyverse.app.v.juan
+val vendor = (prop("embyverse.vendor") ?: "").lowercase().filter { it.isLetterOrDigit() }.takeIf { it.isNotEmpty() && it[0].isLetter() }
 
 // Firma de producción: el propietario crea su keystore y keystore.properties (NO se versiona).
 val keystoreProps = Properties().apply {
@@ -26,7 +29,7 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.embyverse.app"
+        applicationId = if (vendor != null) "com.embyverse.app.v.$vendor" else "com.embyverse.app"
         minSdk = 24
         targetSdk = 36
         versionCode = 4
