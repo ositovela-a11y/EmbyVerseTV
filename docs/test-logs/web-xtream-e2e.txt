@@ -1,0 +1,5 @@
+✔  Entrar con Xtream: los canales aparecen antes que las películas  canales visibles en 88 ms; películas (servidor lento, 4 s) en 4392 ms
+✔  Canal que nunca responde: prueba otro formato y muestra un error (no gira para siempre)  error mostrado a los 13 s: «Este navegador no puede reproducir canales MPEG-TS. Usa la app Android…»
+✔  Canal caído (404): error inmediato  906 ms
+✔  Película del proveedor Xtream: ficha y reproducción
+4/4 pasos correctos

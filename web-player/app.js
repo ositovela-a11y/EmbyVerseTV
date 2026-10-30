@@ -190,15 +190,17 @@ async function xtreamCatalog(src, progress = () => {}) {
   };
   const catsOf = (arr) => Object.fromEntries(arr.map((c) => [String(c.category_id), c.category_name]));
   const authP = xtreamAuth(src);
-  const all = Promise.all([get('get_live_categories'), get('get_vod_categories'), get('get_series_categories'),
-    get('get_live_streams', 'canales'), get('get_vod_streams', 'películas'), get('get_series', 'series')]);
+  const lcP = get('get_live_categories'), vcP = get('get_vod_categories'), scP = get('get_series_categories');
+  const lsP = get('get_live_streams', 'canales'), vsP = get('get_vod_streams', 'películas'), ssP = get('get_series', 'series');
   const acc = await authP; // si las credenciales fallan, se informa en cuanto responde la autenticación
   progress('autenticado');
-  const [lcA, vcA, scA, ls, vs, ss] = await all;
-  const lc = catsOf(lcA), vc = catsOf(vcA), sc = catsOf(scA);
   const base = xBase(src.location), u = enc(src.username), p = enc(src.password);
   const fmt = acc.formats.includes('m3u8') || !acc.formats.length ? 'm3u8' : 'ts';
+  const lc = catsOf(await lcP), ls = await lsP;
   const live = dedupe(ls.filter((x) => x.stream_id != null), (x) => x.stream_id).map((x) => ({ id: String(x.stream_id), name: x.name || 'Canal', url: `${base}/live/${u}/${p}/${x.stream_id}.${fmt}`, logo: x.stream_icon || null, group: lc[String(x.category_id)] || null, epg: x.epg_channel_id || null, num: +x.num || null }));
+  // Los canales ya se pueden ver mientras siguen llegando películas y series (suelen ser las listas más pesadas).
+  if (live.length) progress('parcial', { sourceId: src.id, live, movies: [], series: [], warnings: [], partial: true });
+  const [vc, vs, sc, ss] = [catsOf(await vcP), await vsP, catsOf(await scP), await ssP];
   const movies = dedupe(vs.filter((x) => x.stream_id != null), (x) => x.stream_id).map((x) => ({ id: String(x.stream_id), title: x.name || 'Película', url: `${base}/movie/${u}/${p}/${x.stream_id}.${x.container_extension || 'mp4'}`, poster: x.stream_icon || null, group: vc[String(x.category_id)] || null, year: +x.year || null, rating: +x.rating || null, ext: x.container_extension || 'mp4', added: +x.added || null }));
   const series = dedupe(ss.filter((x) => x.series_id != null), (x) => x.series_id).map((x) => ({ id: String(x.series_id), title: x.name || 'Serie', poster: x.cover || null, backdrop: Array.isArray(x.backdrop_path) ? x.backdrop_path[0] || null : null, group: sc[String(x.category_id)] || null, plot: x.plot || null, year: parseInt(x.releaseDate || x.release_date, 10) || null, rating: +x.rating || null, episodes: null, added: +x.last_modified || null }));
   if (!live.length && !movies.length && !series.length) throw new UserError('La cuenta es válida pero el servidor no devolvió contenido. ' + warnings.join(' '));
@@ -262,7 +264,13 @@ const listOfKind = { live: 'live', movie: 'movies', series: 'series' };
 // ------------------------------------------------------------------ fuentes
 async function syncSource(src) {
   src.lastError = null; src.syncing = true; src.step = 'Conectando…'; render();
-  const progress = (what) => { src.step = what === 'autenticado' ? 'Cuenta verificada. Descargando catálogo…' : `Recibido: ${what}…`; const el = document.querySelector(`[data-step="${src.id}"]`); if (el) el.textContent = src.step; };
+  const progress = (what, partial) => {
+    if (partial) {
+      if (!state.catalogs[src.id]) { state.catalogs[src.id] = partial; rebuildIndex(); if (!player.item && ['home', 'live'].includes(state.tab) && !state.detail) render(); }
+      src.step = 'Canales listos. Cargando películas y series…'; const el0 = document.querySelector(`[data-step="${src.id}"]`); if (el0) el0.textContent = src.step;
+      return;
+    }
+    src.step = what === 'autenticado' ? 'Cuenta verificada. Descargando catálogo…' : `Recibido: ${what}…`; const el = document.querySelector(`[data-step="${src.id}"]`); if (el) el.textContent = src.step; };
   try {
     let cat;
     if (src.type === 'xtream') cat = await xtreamCatalog(src, progress);
@@ -380,6 +388,7 @@ function renderHome() {
       ${safeImg(hero.poster) ? `<div class="hero-poster">${img(hero.poster)}</div>` : ''}
     </section>` : ''}
     <div class="rows">
+      ${state.sources.filter((x) => x.syncing).map((x) => `<p class="sync-note"><span class="spinner tiny"></span><span data-step="${esc(x.id)}">${esc(x.step || 'Actualizando…')}</span></p>`).join('')}
       ${cont.length ? `<section class="row"><div class="row-head"><h2>Continuar viendo</h2></div><div class="strip strip-wide">${cont.join('')}</div></section>` : ''}
       ${row('TV en vivo', 'live', index.live.slice(0, 24), { tab: 'live' })}
       ${row('Películas recién añadidas', 'movie', index.recentMovies.slice(0, 24), { tab: 'movies' })}
@@ -606,8 +615,11 @@ function destroyEngines() {
   player.video.removeAttribute('src'); player.video.load();
 }
 
-function playerError(msg) {
-  $('#p-err-msg').textContent = msg; $('#p-err').hidden = false; $('#p-loading').hidden = true;
+function playerError(msg, detail) {
+  clearTimeout(player.watchdog);
+  $('#p-err-msg').textContent = msg;
+  $('#p-err-detail').textContent = detail || '';
+  $('#p-err').hidden = false; $('#p-loading').hidden = true;
   setTimeout(() => $('#p-retry').focus(), 50);
 }
 
@@ -626,55 +638,90 @@ function openPlayer(item, list = null) {
   $('#p-close').focus();
 }
 
-async function start(item) {
+/** Variantes a probar: en canales Xtream se intenta HLS (.m3u8) y, si no arranca, MPEG-TS (.ts), o al revés. */
+function candidatesFor(item) {
+  const m = /^(.*\/live\/[^/]+\/[^/]+\/[^/.]+)\.(m3u8|ts)$/i.exec(item.url);
+  if (!m) return [item.url];
+  return m[2].toLowerCase() === 'm3u8' ? [item.url, `${m[1]}.ts`] : [item.url, `${m[1]}.m3u8`];
+}
+
+const MIXED_STREAM_MSG = 'Tu proveedor entrega el video por http:// (sin cifrar) y el navegador lo bloquea en esta página segura. Este canal funciona en la app Android de EmbyVerse.';
+
+async function start(item, attempt = 0) {
   destroyEngines();
-  const url = item.url, v = player.video;
-  if (insecureOnHttps(url)) return playerError(MIXED_MSG);
+  clearTimeout(player.watchdog);
+  const urls = candidatesFor(item);
+  const url = urls[attempt], v = player.video;
+  const token = player.token = (player.token || 0) + 1; // invalida intentos anteriores
+  const alive = () => player.item === item && player.token === token;
+  if (insecureOnHttps(url)) return playerError(MIXED_STREAM_MSG);
   const ext = extOf(url);
+  if (ext === 'mkv' || ext === 'avi' || ext === 'wmv') return playerError(`El formato .${ext} no lo pueden reproducir los navegadores. Ábrelo en la app Android de EmbyVerse.`);
+
+  // Si no hay imagen en pocos segundos, se prueba el otro formato o se explica el problema
+  // (antes el círculo de carga podía quedarse girando indefinidamente).
+  let lastProblem = '';
+  const fail = player.fail = (msg, detail) => {
+    if (!alive()) return;
+    if (attempt + 1 < urls.length) { $('#p-sub').textContent = `${item.sub || ''}  ·  probando otro formato…`; start(item, attempt + 1); return; }
+    playerError(msg, detail);
+  };
+  const timeoutMs = item.kind === 'live' ? 12000 : 25000;
+  player.watchdog = setTimeout(() => fail(lastProblem || 'El canal no envió video a tiempo. El servidor puede estar saturado, el canal caído o tu proveedor no permite reproducir desde navegadores.',
+    `Sin imagen tras ${timeoutMs / 1000} s (${ext || 'stream'})`), timeoutMs);
+
   const resume = item.kind !== 'live' ? state.progress[favKey(item.kind, item.sid, item.id)] : null;
   const startAt = item.restart ? 0 : resume && resume.t > 15 && resume.t / resume.d < 0.95 ? resume.t : 0;
-  const onReady = () => { if (startAt) v.currentTime = startAt; v.play().catch(() => { $('#p-loading').hidden = true; $('#p-tap').hidden = false; }); };
-  if (ext === 'mkv' || ext === 'avi' || ext === 'wmv') return playerError(`El formato .${ext} no lo pueden reproducir los navegadores. Ábrelo en la app Android de EmbyVerse.`);
+  const onReady = () => { if (!alive()) return; if (startAt) v.currentTime = startAt; v.play().catch(() => { $('#p-loading').hidden = true; $('#p-tap').hidden = false; }); };
   const isHls = ext === 'm3u8' || ext === 'm3u';
   const isTs = ext === 'ts' || (item.kind === 'live' && !ext);
-  if (isHls && v.canPlayType('application/vnd.apple.mpegurl') && !window.MediaSource) { v.src = url; v.addEventListener('loadedmetadata', onReady, { once: true }); return; }
+
   if (isHls) {
     const Hls = await loadLib('Hls');
-    if (player.item !== item) return;
+    if (!alive()) return;
     if (!Hls || !Hls.isSupported()) { v.src = url; v.addEventListener('loadedmetadata', onReady, { once: true }); return; }
-    const h = new Hls({ enableWorker: true, maxBufferLength: 20, startFragPrefetch: true });
+    const h = new Hls({
+      enableWorker: true, maxBufferLength: 20, startFragPrefetch: true,
+      manifestLoadingTimeOut: 8000, manifestLoadingMaxRetry: 1, levelLoadingTimeOut: 8000, levelLoadingMaxRetry: 1,
+      fragLoadingTimeOut: 12000, fragLoadingMaxRetry: 2,
+    });
     player.hls = h;
     h.on(Hls.Events.MANIFEST_PARSED, onReady);
     h.on(Hls.Events.ERROR, (_, d) => {
+      const finalUrl = (d.networkDetails && d.networkDetails.responseURL) || (d.response && d.response.url) || '';
+      const code = d.response && d.response.code;
+      if (/^http:\/\//i.test(finalUrl) && pageIsHttps) lastProblem = MIXED_STREAM_MSG;
       if (!d.fatal) return;
-      if (d.type === Hls.ErrorTypes.NETWORK_ERROR && player.retries < 3) { player.retries++; setTimeout(() => h.startLoad(), 1000 * 2 ** player.retries); return; }
-      if (d.type === Hls.ErrorTypes.MEDIA_ERROR && player.retries < 2) { player.retries++; h.recoverMediaError(); return; }
-      playerError(d.response && (d.response.code === 401 || d.response.code === 403) ? 'El proveedor denegó el acceso (credenciales o límite de conexiones).'
-        : d.type === Hls.ErrorTypes.NETWORK_ERROR ? 'No se pudo cargar. El servidor no responde o no permite reproducir desde navegadores (CORS).' : 'Este contenido no se puede reproducir en el navegador.');
+      if (d.type === Hls.ErrorTypes.MEDIA_ERROR && player.retries < 1) { player.retries++; h.recoverMediaError(); return; }
+      fail(code === 401 || code === 403 ? 'El proveedor denegó el acceso (credenciales o límite de conexiones alcanzado).'
+        : code === 404 ? 'El proveedor dice que este canal no existe o está fuera de servicio (404).'
+        : lastProblem || (d.type === Hls.ErrorTypes.NETWORK_ERROR ? 'No se pudo cargar el canal: el servidor no responde o no permite reproducir desde navegadores (CORS). Prueba en la app Android.' : 'Este canal usa un formato que el navegador no puede reproducir.'),
+        `${d.type} · ${d.details}${code ? ' · HTTP ' + code : ''}`);
     });
     h.loadSource(url); h.attachMedia(v);
     return;
   }
   if (isTs) {
     const mpegts = await loadLib('mpegts');
-    if (player.item !== item) return;
-    if (!mpegts || !mpegts.getFeatureList().mseLivePlayback) return playerError('Este navegador no puede reproducir canales MPEG-TS. Usa la app Android.');
+    if (!alive()) return;
+    if (!mpegts) return fail('No se pudo descargar el reproductor de canales. Revisa tu conexión a Internet y pulsa Reintentar.', 'mpegts.js no cargó');
+    if (!mpegts.getFeatureList().mseLivePlayback) return fail('Este navegador no puede reproducir canales MPEG-TS. Usa la app Android.', 'MSE no disponible');
     const p = mpegts.createPlayer({ type: 'mpegts', isLive: true, url }, { enableWorker: true, lazyLoad: false, liveBufferLatencyChasing: true });
     player.ts = p; p.attachMediaElement(v); p.load();
-    p.on(mpegts.Events.ERROR, (type) => {
-      if (type === mpegts.ErrorTypes.NETWORK_ERROR && player.retries < 3) { player.retries++; setTimeout(() => start(item), 1000 * 2 ** player.retries); return; }
-      playerError(type === mpegts.ErrorTypes.NETWORK_ERROR ? 'No se pudo cargar el canal. El servidor no responde o no permite reproducir desde navegadores (CORS).' : 'Este canal no se puede reproducir en el navegador.');
-    });
+    p.on(mpegts.Events.ERROR, (type, detail, info) => fail(
+      type === mpegts.ErrorTypes.NETWORK_ERROR ? 'No se pudo cargar el canal: el servidor no responde o no permite reproducir desde navegadores (CORS). Prueba en la app Android.' : 'Este canal usa un formato que el navegador no puede reproducir.',
+      `${type} · ${detail}${info && info.code ? ' · HTTP ' + info.code : ''}`));
     v.addEventListener('loadedmetadata', onReady, { once: true });
     return;
   }
   v.src = url; v.addEventListener('loadedmetadata', onReady, { once: true });
 }
-player.video.addEventListener('playing', () => { $('#p-loading').hidden = true; $('#p-tap').hidden = true; player.retries = 0; });
+player.video.addEventListener('playing', () => { clearTimeout(player.watchdog); $('#p-loading').hidden = true; $('#p-tap').hidden = true; player.retries = 0; });
 player.video.addEventListener('waiting', () => { if ($('#p-err').hidden) $('#p-loading').hidden = false; });
 player.video.addEventListener('error', () => {
-  if (player.hls || player.ts || !player.item) return;
-  playerError('No se pudo reproducir. El formato no es compatible con este navegador o el servidor no responde.');
+  if (player.hls || player.ts || !player.item || !player.fail) return;
+  const code = player.video.error && player.video.error.code;
+  player.fail('No se pudo reproducir: el formato no es compatible con este navegador o el servidor no responde.', `video error ${code || ''}`);
 });
 player.video.addEventListener('timeupdate', () => {
   const it = player.item; if (!it || it.kind === 'live') return;
@@ -687,7 +734,7 @@ player.video.addEventListener('ended', () => { if (player.list && player.item.ki
 function closePlayer() {
   const it = player.item;
   if (it && it.kind !== 'live' && isFinite(player.video.duration)) { state.progress[favKey(it.kind, it.sid, it.id)] = { t: player.video.currentTime, d: player.video.duration }; store.set('progress', state.progress); }
-  player.item = null;
+  player.item = null; clearTimeout(player.watchdog);
   destroyEngines(); player.el.hidden = true; document.body.classList.remove('playing');
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   render(); focusFirst();
@@ -833,6 +880,7 @@ document.addEventListener('keydown', (e) => {
   render(); // pinta al instante (pantalla de entrada o estado de carga)
   await loadCatalogs();
   render();
-  for (const s of state.sources) if (!state.catalogs[s.id]) syncSource(s);
+  // Sin catálogo guardado: se descarga. Con catálogo de más de 12 h: se actualiza en segundo plano.
+  for (const s of state.sources) if (!state.catalogs[s.id] || Date.now() - (s.lastSync || 0) > 12 * 3600 * 1000) syncSource(s);
   focusFirst();
 })();
