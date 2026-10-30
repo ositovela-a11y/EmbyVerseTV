@@ -128,6 +128,12 @@ createServer((req, res) => {
       res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl' });
       return res.end(readFileSync(join(MEDIA, 'hls/live.m3u8'), 'utf8').replace(/^(seg\d+\.ts)$/gm, '/hls/$1'));
     }
+    // Canal 2: se pide .ts pero el proveedor responde una lista HLS (caso real que daba
+    // ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED). La app debe rescatarlo sola.
+    if (m[1] === 'live' && m[4] === '2') {
+      res.writeHead(200, { 'content-type': 'video/mp2t' });
+      return res.end(readFileSync(join(MEDIA, 'hls/live.m3u8'), 'utf8').replace(/^(seg\d+\.ts)$/gm, '/hls/$1'));
+    }
     if (m[1] === 'live') return liveTs(res);
     return sendFile(req, res, join(MEDIA, 'clip.mp4'), 'video/mp4'); // mkv/avi del catálogo también entregan el clip
   }
