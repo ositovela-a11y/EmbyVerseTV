@@ -178,8 +178,13 @@ class SmokeFlowTest {
             runCatching { compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 } }
             assertTrue("pantalla completa desde la vista previa: ${PlaybackProbe.lastError}", PlaybackProbe.readyCount > 0)
             log("Canal en vivo: vista previa → pantalla completa al pulsar el recuadro")
+            // En el emulador de teléfono (modo táctil) Android usa la 1.ª pulsación para salir del modo
+            // táctil; en un TV con control no pasa. Por eso aquí se pulsa ◀ dos veces.
             InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_LEFT)
-            Thread.sleep(1_500); shot("07-lista-en-reproductor")
+            Thread.sleep(400)
+            if (compose.onAllNodesWithTag("channel_list", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+                InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_LEFT)
+            Thread.sleep(1_100)
             waitTag("channel_list", 10_000)
             shot("07-lista-en-reproductor")
             log("Reproductor: ◀ abre la lista de canales sin salir")
