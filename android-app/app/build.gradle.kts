@@ -38,6 +38,7 @@ android {
         versionCode = 9
         versionName = "1.4.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testProguardFiles("test-proguard-rules.pro")
         buildConfigField("String", "CONFIG_BASE_URL", "\"${configBaseUrl.replace("\"", "")}\"")
         buildConfigField("String", "DEFAULT_HOST", "\"${defaultHost.replace("\"", "")}\"")
         vectorDrawables.useSupportLibrary = true
