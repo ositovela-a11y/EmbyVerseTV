@@ -157,8 +157,10 @@ class SmokeFlowTest {
             // «Ver ahora» de una serie en las novedades: abre el reproductor con una SERIE (no un episodio).
             val serie = kotlinx.coroutines.runBlocking { app.container.catalog.series(null, 10).first().first() }
             playAndCheck("Serie: Ver ahora desde novedades") {
-                compose.runOnUiThread { com.embyverse.app.player.PlayerActivity.start(compose.activity,
-                    com.embyverse.app.data.repo.ItemRef(com.embyverse.core.model.ContentKind.SERIES, serie.sourceId, serie.providerId)) }
+                val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+                ctx.startActivity(android.content.Intent(ctx, com.embyverse.app.player.PlayerActivity::class.java)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    .putExtra("kind", "SERIES").putExtra("source", serie.sourceId).putExtra("id", serie.providerId))
             }
 
             // ---- TV en vivo (.ts continuo)
