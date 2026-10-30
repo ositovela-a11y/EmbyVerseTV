@@ -8,7 +8,7 @@ import { AppearancePanel, BannersPanel, MessagesPanel, ColorsPanel, HomeBuilderP
 import { Notice, Segmented } from './components/ui';
 import { AppPreview, DEVICES, type Device } from './preview/AppPreview';
 import { useEditor, type Editor } from './store';
-import { TargetSelect, VendorsPanel } from './components/vendors';
+import { EditingBanner, TargetSelect, VendorsPanel } from './components/vendors';
 import { currentTarget, githubApi, type Vendor } from './api-github';
 import './styles.css';
 
@@ -151,7 +151,6 @@ function StudioLoaded({ user, loaded, reloadDraft, onLogout, flash }: { user: Us
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const loadVendors = useCallback(() => { if (IS_GITHUB) githubApi.vendors().then(setVendors).catch(() => {}); }, []);
   useEffect(loadVendors, [loadVendors]);
-  const editing = IS_GITHUB && currentTarget() ? vendors.find((v) => v.slug === currentTarget())?.name ?? currentTarget() : null;
 
   const upload = async (f: File, kind: Asset['kind']) => {
     try { const r = await api.upload(f, kind); loadAssets(); return r.asset; }
@@ -217,7 +216,6 @@ function StudioLoaded({ user, loaded, reloadDraft, onLogout, flash }: { user: Us
         <div className="brand"><img src="/brand/embyverse-icon.png" alt="" /><span>EmbyVerse <b>Design Studio</b></span></div>
         <div className="status">
           {IS_GITHUB && <TargetSelect vendors={vendors} />}
-          {editing && <span className="pill pill-warn">App de {editing}</span>}
           {loaded.latestVersion > 0 ? <span className="pill pill-ok">En la app: versión {loaded.latestVersion}</span> : <span className="pill pill-muted">Sin publicar: la app usa el diseño integrado</span>}
           {ed.dirty ? <span className="pill pill-warn">Cambios sin guardar</span> : <span className="hint">Borrador guardado</span>}
           {!loaded.publicBase.startsWith('https://') && <span className="pill pill-warn" title="Configura PUBLIC_BASE_URL con https en el servidor">Las imágenes subidas no se pueden publicar: el servidor no tiene URL pública https</span>}
@@ -232,6 +230,7 @@ function StudioLoaded({ user, loaded, reloadDraft, onLogout, flash }: { user: Us
         </div>
       </header>
 
+      {IS_GITHUB && <EditingBanner vendors={vendors} />}
       <nav className="sidenav" aria-label="Secciones del estudio">
         <span className="nav-group">Diseño</span>
         {DESIGN_VIEWS.map((v) => <button key={v.id} className={view === v.id ? 'on' : ''} onClick={() => setView(v.id)}>{v.label}</button>)}

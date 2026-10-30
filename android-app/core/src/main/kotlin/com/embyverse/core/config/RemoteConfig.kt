@@ -95,7 +95,22 @@ data class ThemeSpec(
     val buttonStyle: ButtonStyle = ButtonStyle.FILLED,
     val navStyle: NavStyle = NavStyle.BOTTOM_BAR,
     val navShowLabels: Boolean = true,
+    /** Diseño (lo usan los estilos de plataforma): banner, tarjetas, foco y forma de las filas. */
+    val heroStyle: HeroStyle = HeroStyle.CLASSIC,
+    val cardStyle: CardStyle = CardStyle.TITLES,
+    val focusStyle: FocusStyle = FocusStyle.RING,
+    /** Forma de las tarjetas de películas/series en el inicio (null = la del panel). */
+    val rowAspect: CardAspect? = null,
+    /** TV: usar el menú del tema (p. ej. pestañas arriba) en lugar del menú lateral. */
+    val tvNavFromTheme: Boolean = false,
 )
+
+/** CLASSIC: banner con texto a la izquierda. CINEMA: a pantalla grande, texto grande abajo. CENTERED: título centrado, minimalista. */
+enum class HeroStyle { CLASSIC, CINEMA, CENTERED }
+/** TITLES: título bajo cada tarjeta. CLEAN: solo imagen (el título se ve al enfocar o en la ficha). */
+enum class CardStyle { TITLES, CLEAN }
+/** RING: borde de color. LIFT: la tarjeta se eleva y agranda (sin borde). WHITE: borde blanco fino. */
+enum class FocusStyle { RING, LIFT, WHITE }
 
 data class NamedTheme(val id: String, val name: String, val palette: Map<String, Int>)
 

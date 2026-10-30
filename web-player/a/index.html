@@ -7,7 +7,8 @@
   (function () {
     var v = (new URLSearchParams(location.search).get('v') || '').toLowerCase();
     var file = /^[a-z][a-z0-9]{1,30}$/.test(v) ? 'EmbyVerse-' + v + '.apk' : 'EmbyVerse.apk';
-    var url = 'https://github.com/ositovela-a11y/EmbyVerseTV/releases/download/apk-latest/' + file;
+    // La APK se sirve desde este mismo sitio (con dominio propio, el enlace no muestra GitHub).
+    var url = '../apk/' + file;
     window.APK_URL = url;
     location.replace(url);
   })();

@@ -29,6 +29,10 @@ import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -132,7 +136,8 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
     val backStack by nav.currentBackStackEntryAsState()
     val current = backStack?.destination?.route?.substringBefore('?')
     val showNav = current in TOP.map { it.route }
-    val style = if (t.device.useRail) NavStyle.SIDE_RAIL else t.navStyle
+    // En TV el menú lateral es el normal; algunos estilos de plataforma usan pestañas arriba.
+    val style = if (t.device.useRail && !(t.tvNavFromTheme && t.navStyle == NavStyle.TOP_TABS)) NavStyle.SIDE_RAIL else t.navStyle
 
     val host: @Composable (Modifier) -> Unit = { m ->
         NavHost(nav, startDestination = if (startOnboarding) Routes.SOURCE_EDIT else Routes.HOME, modifier = m,
@@ -199,12 +204,27 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
         }
         Column(Modifier.weight(1f).fillMaxSize()) {
             if (tabs) {
-                val idx = TOP.indexOfFirst { it.route == current }.coerceAtLeast(0)
-                PrimaryTabRow(selectedTabIndex = idx, containerColor = t.surface, contentColor = t.onBackground, modifier = Modifier.statusBarsPadding()) {
-                    TOP.forEachIndexed { i, d ->
-                        Tab(modifier = Modifier.testTag("nav_${d.route}"), selected = i == idx, onClick = { navigator.goTop(d.route) }, icon = { Icon(d.icon, null) },
-                            text = if (t.navShowLabels) ({ Text(stringResource(d.label), maxLines = 1) }) else null,
-                            selectedContentColor = t.primary, unselectedContentColor = t.textSecondary)
+                // Barra superior estilo plataforma: logotipo + secciones en texto con subrayado.
+                Row(Modifier.fillMaxWidth().statusBarsPadding().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(t.background, t.background.copy(alpha = 0.6f))))
+                    .padding(horizontal = t.screenPadding, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    BrandLogo(logoVariant, logoUrl, Modifier.height(if (t.device.isTv) 40.dp else 32.dp).width(if (t.device.isTv) 110.dp else 84.dp))
+                    Spacer(Modifier.width(if (t.device.isTv) 28.dp else 10.dp))
+                    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(if (t.device.isTv) 10.dp else 2.dp)) {
+                        items(TOP.size) { i ->
+                            val d = TOP[i]
+                            val sel = current == d.route
+                            com.embyverse.app.ui.components.FocusableSurface(onClick = { navigator.goTop(d.route) }, focusScale = 1.05f,
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(50), modifier = Modifier.testTag("nav_${d.route}")) { focused ->
+                                Column(Modifier.background(if (focused) t.onBackground.copy(alpha = 0.12f) else androidx.compose.ui.graphics.Color.Transparent)
+                                    .padding(horizontal = 12.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(stringResource(d.label), maxLines = 1, style = MaterialTheme.typography.titleSmall,
+                                        color = if (sel || focused) t.onBackground else t.textSecondary,
+                                        fontWeight = if (sel) androidx.compose.ui.text.font.FontWeight.Bold else null)
+                                    Box(Modifier.padding(top = 3.dp).width(if (sel) 18.dp else 0.dp).height(3.dp)
+                                        .background(t.primary, androidx.compose.foundation.shape.RoundedCornerShape(2.dp)))
+                                }
+                            }
+                        }
                     }
                 }
             }

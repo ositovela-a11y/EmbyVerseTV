@@ -114,6 +114,8 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                     crash?.let { report -> CrashDialog(report) { crash = null } }
+                    // Versión nueva de la app: se ofrece al abrir o al recuperar internet.
+                    if (splashDone && crash == null) com.embyverse.app.ui.components.UpdateDialog(container.updater)
                     // Mensaje del administrador / vendedor (una vez por dispositivo, mientras esté vigente).
                     if (splashDone && crash == null) {
                         val seen by container.prefs.seenNotices.collectAsStateWithLifecycle(initialValue = null)

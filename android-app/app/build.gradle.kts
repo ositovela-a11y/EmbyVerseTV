@@ -35,11 +35,12 @@ android {
         applicationId = if (vendor != null) "com.embyverse.app.v.$vendor" else "com.embyverse.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 11
-        versionName = "1.6.0"
+        versionCode = 12
+        versionName = "1.6.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testProguardFiles("test-proguard-rules.pro")
         buildConfigField("String", "CONFIG_BASE_URL", "\"${configBaseUrl.replace("\"", "")}\"")
+        buildConfigField("String", "VENDOR", "\"${vendor ?: ""}\"")
         buildConfigField("String", "DEFAULT_HOST", "\"${defaultHost.replace("\"", "")}\"")
         vectorDrawables.useSupportLibrary = true
     }

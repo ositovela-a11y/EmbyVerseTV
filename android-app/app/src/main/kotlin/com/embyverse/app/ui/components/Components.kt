@@ -123,14 +123,24 @@ fun FocusableSurface(
     val t = LocalEmby.current
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    val scale by animateFloatAsState(if (focused) focusScale else 1f, tween(120), label = "focusScale")
+    // Estilo de foco del tema: RING (borde de color), LIFT (se eleva y agranda, como en Apple TV), WHITE (borde blanco).
+    val lift = t.focusStyle == com.embyverse.core.config.FocusStyle.LIFT
+    val target = if (!focused) 1f else if (lift && focusScale > 1f) focusScale + 0.04f else focusScale
+    val scale by animateFloatAsState(target, tween(120), label = "focusScale")
     // Foco MUY visible (mando de TV): borde grueso del color de foco + ligero aumento. Sin sombras
     // difuminadas: en TV Box modestos hacían que el desplazamiento se viera lento y borroso.
     Box(
         modifier
-            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .graphicsLayer {
+                scaleX = scale; scaleY = scale
+                if (lift && focused) { shadowElevation = 18.dp.toPx(); this.shape = shape; clip = false }
+            }
             .clip(shape)
-            .then(if (focused) Modifier.border(BorderStroke(3.dp, t.focusRing), shape) else Modifier)
+            .then(when {
+                !focused || lift -> Modifier
+                t.focusStyle == com.embyverse.core.config.FocusStyle.WHITE -> Modifier.border(BorderStroke(2.5.dp, Color.White), shape)
+                else -> Modifier.border(BorderStroke(3.dp, t.focusRing), shape)
+            })
             .then(
                 if (onLongClick != null) Modifier.combinedClickable(interactionSource = interaction, indication = androidx.compose.material3.ripple(), role = Role.Button, onClick = onClick, onLongClick = onLongClick)
                 else Modifier.clickable(interactionSource = interaction, indication = androidx.compose.material3.ripple(), role = Role.Button, onClick = onClick)
@@ -182,7 +192,7 @@ fun MediaCardView(card: MediaCard, aspect: CardAspect, size: CardSize, onClick: 
     Column(modifier.width(w)) {
         FocusableSurface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(aspect.ratio).testTag("card:${card.ref.kind}:${card.ref.id}"), focusScale = 1.07f) { focused ->
             Box(Modifier.fillMaxSize().border(1.dp, if (focused) Color.Transparent else Color.White.copy(alpha = 0.07f), RoundedCornerShape(t.cardRadius))) {
-                MediaImage(card.imageUrl, card.ref.kind, Modifier.fillMaxSize().then(if (live) Modifier.padding(horizontal = 18.dp, vertical = 12.dp) else Modifier),
+                MediaImage(if (aspect == CardAspect.LANDSCAPE && !live) card.backdropUrl ?: card.imageUrl else card.imageUrl, card.ref.kind, Modifier.fillMaxSize().then(if (live) Modifier.padding(horizontal = 18.dp, vertical = 12.dp) else Modifier),
                     if (live) ContentScale.Fit else ContentScale.Crop, fallbackText = card.title)
                 if (!live) Box(Modifier.fillMaxWidth().fillMaxHeight(0.35f).align(Alignment.BottomCenter)
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.45f)))))
@@ -192,7 +202,8 @@ fun MediaCardView(card: MediaCard, aspect: CardAspect, size: CardSize, onClick: 
                 }
             }
         }
-        if (!showText) return@Column
+        // Estilo "limpio" (tipo Netflix/HBO): solo la imagen; el título aparece en la ficha.
+        if (!showText || (t.cardStyle == com.embyverse.core.config.CardStyle.CLEAN && card.imageUrl != null && !live && card.progress == null)) return@Column
         Spacer(Modifier.height(8.dp))
         Text(card.title, style = MaterialTheme.typography.titleSmall, color = t.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
         card.subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = t.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis) }

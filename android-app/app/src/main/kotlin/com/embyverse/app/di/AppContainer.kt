@@ -27,6 +27,7 @@ class AppContainer(val app: Application) {
     val library by lazy { LibraryRepository(database, prefs) }
     val epg by lazy { EpgRepository(database, okHttp, sources) }
     val config by lazy { ConfigRepository(app, okHttp) }
+    val updater by lazy { com.embyverse.app.data.repo.AppUpdater(app, okHttp) }
 
     val imageLoader by lazy {
         ImageLoader.Builder(app)

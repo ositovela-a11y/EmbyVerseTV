@@ -36,7 +36,7 @@
     if (!/^[a-z][a-z0-9]{1,30}$/.test(v)) v = '';
     var q = v ? '?v=' + v : '';
     document.getElementById('dl').href = 'a/' + q;
-    document.getElementById('short').textContent = 'ositovela-a11y.github.io/EmbyVerseTV/a/' + q;
+    document.getElementById('short').textContent = location.host + location.pathname.replace(/index\.html$/, '').replace(/\/$/, '') + '/a/' + q;
     fetch(v ? 'config/vendors/' + v + '.json' : 'config/app.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (c) {
       if (!c || !c.brand) return;
       var b = c.brand, p = (c.theme && c.theme.palette) || {};

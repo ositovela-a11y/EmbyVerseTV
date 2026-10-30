@@ -70,6 +70,7 @@ import com.embyverse.core.config.SectionSpec
 import com.embyverse.core.config.SectionType
 import com.embyverse.core.model.ContentKind
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun HomeScreen(nav: Navigator) {
@@ -117,7 +118,11 @@ fun HomeScreen(nav: Navigator) {
                             if (sec.layout == SectionLayout.GRID) {
                                 val cols = gridColumns(sec, t.device.isTv)
                                 CardGrid(cards, sec.aspect, sec.size, cols) { nav.openItem(it.ref, seriesId = it.seriesId) }
-                            } else CardRow(cards, sec.aspect, sec.size) { nav.openItem(it.ref, seriesId = it.seriesId) }
+                            } else {
+                                // Estilo de plataforma: películas/series en tarjetas horizontales (p. ej. Cristal, Océano) o pósters.
+                                val aspect = t.rowAspect?.takeIf { type in setOf(SectionType.MOVIES, SectionType.SERIES, SectionType.RECENTLY_ADDED, SectionType.FAVORITES) } ?: sec.aspect
+                                CardRow(cards, aspect, sec.size) { nav.openItem(it.ref, seriesId = it.seriesId) }
+                            }
                         }
                     }
                 }
@@ -173,18 +178,33 @@ private fun HeroCarousel(items: List<HeroItem>, nav: Navigator) {
     val pager = rememberPagerState { items.size }
     val cfgW = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
     // Banner a todo lo ancho, proporción cinematográfica.
-    val height = when { t.device.isTv -> 380.dp; cfgW >= 600 -> 340.dp; else -> 300.dp }
+    val cinema = t.heroStyle == com.embyverse.core.config.HeroStyle.CINEMA
+    val centered = t.heroStyle == com.embyverse.core.config.HeroStyle.CENTERED
+    // CINEMA (tipo Netflix/HBO): banner más alto, imagen dominante. CENTERED (tipo Apple TV): texto centrado.
+    val height = when {
+        t.device.isTv -> if (cinema) 470.dp else 380.dp
+        cfgW >= 600 -> if (cinema) 420.dp else 340.dp
+        else -> if (cinema) 440.dp else 300.dp
+    }
     // Cada novedad dura 6.5 s (tiempo para leerla); la barra del indicador muestra cuánto falta.
     // Se avanza con un temporizador ligero (no una animación continua): menos trabajo para el TV.
     val progress = remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
-    LaunchedEffect(pager.currentPage, items.size) {
+    // Se espera a que la página quede ASENTADA (settledPage): antes se reiniciaba a media transición
+    // (currentPage cambia en la mitad del deslizamiento) y la novedad se quedaba partida a la mitad.
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    LaunchedEffect(pager.settledPage, items.size) {
         if (items.size < 2) return@LaunchedEffect
         val total = 6_500L; val step = 100L
         var elapsed = 0L
         progress.floatValue = 0f
-        while (elapsed < total) { delay(step); elapsed += step; progress.floatValue = elapsed / total.toFloat() }
-        if (!pager.isScrollInProgress) pager.animateScrollToPage((pager.currentPage + 1) % items.size,
-            animationSpec = androidx.compose.animation.core.tween(650, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+        while (elapsed < total) {
+            delay(step)
+            if (pager.isScrollInProgress) { elapsed = 0L; progress.floatValue = 0f; continue } // el usuario está deslizando
+            elapsed += step; progress.floatValue = elapsed / total.toFloat()
+        }
+        val next = (pager.settledPage + 1) % items.size
+        // La animación corre en su propio ámbito: no la cancela el cambio de página a mitad de camino.
+        scope.launch { pager.animateScrollToPage(next, animationSpec = androidx.compose.animation.core.tween(700, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
     }
     Box(Modifier.fillMaxWidth().height(height)) {
         HorizontalPager(pager, modifier = Modifier.fillMaxSize()) { page ->
@@ -198,12 +218,13 @@ private fun HeroCarousel(items: List<HeroItem>, nav: Navigator) {
                     MediaImage(h.posterUrl, ContentKind.MOVIE, Modifier.fillMaxSize(), fallbackText = null)
                 }
                 // Degradados: oscurece la izquierda (texto) y funde abajo con el fondo de la app.
-                Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(t.background.copy(alpha = 0.92f), t.background.copy(alpha = 0.55f), Color.Transparent))))
-                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to t.background)))
+                if (!centered) Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(t.background.copy(alpha = if (cinema) 0.8f else 0.92f), t.background.copy(alpha = if (cinema) 0.3f else 0.55f), Color.Transparent))))
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient((if (cinema || centered) 0.35f else 0.45f) to Color.Transparent, 1f to t.background)))
                 Column(
-                    Modifier.align(Alignment.BottomStart).padding(start = t.screenPadding, end = t.screenPadding, bottom = 28.dp)
-                        .fillMaxWidth(if (t.device.isTv || cfgW >= 600) 0.5f else 0.92f),
+                    Modifier.align(if (centered) Alignment.BottomCenter else Alignment.BottomStart).padding(start = t.screenPadding, end = t.screenPadding, bottom = if (cinema) 40.dp else 28.dp)
+                        .fillMaxWidth(if (centered) 0.8f else if (t.device.isTv || cfgW >= 600) 0.5f else 0.92f),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start,
                 ) {
                     if (h.item != null) {
                         val kind = stringResource(if (h.item.kind == ContentKind.SERIES) R.string.hero_new_series else R.string.hero_new_movie)
@@ -213,8 +234,12 @@ private fun HeroCarousel(items: List<HeroItem>, nav: Navigator) {
                         Text(listOfNotNull(if (h.isNew) kind else stringResource(R.string.hero_featured), ago).joinToString("  ·  ").uppercase(),
                             style = MaterialTheme.typography.labelLarge, color = t.primary)
                     }
-                    Text(h.title, style = MaterialTheme.typography.displaySmall, color = t.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    h.subtitle?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = t.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                    Text(h.title, style = if (cinema) MaterialTheme.typography.displaySmall.copy(fontSize = MaterialTheme.typography.displaySmall.fontSize * 1.25f,
+                            lineHeight = MaterialTheme.typography.displaySmall.lineHeight * 1.2f, fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold)
+                        else MaterialTheme.typography.displaySmall, color = t.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        textAlign = if (centered) androidx.compose.ui.text.style.TextAlign.Center else null)
+                    h.subtitle?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = t.onSurface, maxLines = if (centered) 2 else 3, overflow = TextOverflow.Ellipsis,
+                        textAlign = if (centered) androidx.compose.ui.text.style.TextAlign.Center else null) }
                     Spacer(Modifier.height(6.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         if (h.item != null) {

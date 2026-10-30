@@ -3,19 +3,35 @@ import { ApiError } from '../errors';
 import { currentTarget, githubApi, linksFor, setTarget, type Vendor } from '../api-github';
 import { Group, Notice } from './ui';
 
-/** Selector de la app que se está editando (principal o la de un vendedor). Cambiar recarga el estudio. */
+/**
+ * Selector de la app que se está editando, separado en dos: «App de clientes» (la principal, la que usan
+ * tus clientes directos) y «Apps de vendedores» (cada vendedor con su propia marca). Cambiar recarga el estudio.
+ */
 export function TargetSelect({ vendors }: { vendors: Vendor[] }) {
   const cur = currentTarget();
+  const go = (slug: string) => { setTarget(slug); location.reload(); };
   return (
-    <label className="target-select">
-      <span className="hint">Editando:</span>
-      <select value={cur} aria-label="App que se edita" onChange={(e) => { setTarget(e.target.value); location.reload(); }}>
-        <option value="">App principal</option>
-        {vendors.map((v) => <option key={v.slug} value={v.slug}>{v.name}</option>)}
-        {cur && !vendors.some((v) => v.slug === cur) && <option value={cur}>{cur}</option>}
-      </select>
-    </label>
+    <div className="target-switch" role="group" aria-label="App que se edita">
+      <button className={cur === '' ? 'on' : ''} onClick={() => cur !== '' && go('')}>App de clientes</button>
+      <label className={cur !== '' ? 'on' : ''}>
+        <span>Apps de vendedores</span>
+        <select value={cur} aria-label="Vendedor" onChange={(e) => go(e.target.value)} disabled={vendors.length === 0 && !cur}>
+          <option value="" disabled>{vendors.length ? 'Elige un vendedor…' : 'Sin vendedores'}</option>
+          {vendors.map((v) => <option key={v.slug} value={v.slug}>{v.name}</option>)}
+          {cur && !vendors.some((v) => v.slug === cur) && <option value={cur}>{cur}</option>}
+        </select>
+      </label>
+    </div>
   );
+}
+
+/** Franja que deja claro qué app se está editando (y quién verá los cambios al publicar). */
+export function EditingBanner({ vendors }: { vendors: Vendor[] }) {
+  const cur = currentTarget();
+  const name = vendors.find((v) => v.slug === cur)?.name ?? cur;
+  return cur
+    ? <div className="editing-banner vendor">Estás editando la <b>app del vendedor {name}</b>. Al publicar, solo sus clientes ven los cambios (al abrir la app o al conectarse a internet).</div>
+    : <div className="editing-banner clients">Estás editando la <b>app de tus clientes</b>. Al publicar, todos tus clientes ven los cambios al abrir la app o al conectarse a internet, sin descargar nada.</div>;
 }
 
 function Links({ slug }: { slug: string }) {

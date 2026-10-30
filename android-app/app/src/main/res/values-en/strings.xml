@@ -253,6 +253,14 @@
     <string name="support_default">Contact whoever provided you with the app.</string>
     <string name="support_title">Support</string>
     <string name="trailer_no_app">Install YouTube to watch the trailer.</string>
+    <string name="update_allow">Allow and update</string>
+    <string name="update_downloading">Downloading version %1$s…</string>
+    <string name="update_failed">Update download failed</string>
+    <string name="update_later">Later</string>
+    <string name="update_message">New improvements are available. It installs over the current app; nothing is lost.</string>
+    <string name="update_now">Update now</string>
+    <string name="update_permission">Allow this app to install updates, then come back and try again.</string>
+    <string name="update_title">Version %1$s available</string>
     <string name="vod_empty_message">Your sources have no content in this section or the filter has no results.</string>
     <string name="vod_empty_title">Nothing here</string>
     <string name="who_is_watching">Who\'s watching?</string>

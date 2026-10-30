@@ -254,6 +254,14 @@
     <string name="support_default">Contacta con quien te proporcionó la aplicación.</string>
     <string name="support_title">Soporte</string>
     <string name="trailer_no_app">Instala YouTube para ver el tráiler.</string>
+    <string name="update_allow">Permitir y actualizar</string>
+    <string name="update_downloading">Descargando versión %1$s…</string>
+    <string name="update_failed">No se pudo descargar la actualización</string>
+    <string name="update_later">Después</string>
+    <string name="update_message">Hay mejoras nuevas para la app. Se instala encima: no pierdes tu cuenta, favoritos ni historial.</string>
+    <string name="update_now">Actualizar ahora</string>
+    <string name="update_permission">Android pide permitir que esta app instale actualizaciones. Activa «Permitir de esta fuente», regresa y pulsa de nuevo.</string>
+    <string name="update_title">Nueva versión %1$s disponible</string>
     <string name="vod_empty_message">Tus fuentes no incluyen contenido en esta sección o el filtro no tiene resultados.</string>
     <string name="vod_empty_title">No hay contenido</string>
     <string name="who_is_watching">¿Quién está viendo?</string>

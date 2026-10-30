@@ -71,6 +71,11 @@ data class EmbyTokens(
     val navStyle: NavStyle,
     val navShowLabels: Boolean,
     val device: DeviceInfo,
+    val heroStyle: com.embyverse.core.config.HeroStyle = com.embyverse.core.config.HeroStyle.CLASSIC,
+    val cardStyle: com.embyverse.core.config.CardStyle = com.embyverse.core.config.CardStyle.TITLES,
+    val focusStyle: com.embyverse.core.config.FocusStyle = com.embyverse.core.config.FocusStyle.RING,
+    val rowAspect: com.embyverse.core.config.CardAspect? = null,
+    val tvNavFromTheme: Boolean = false,
 )
 
 val LocalEmby = staticCompositionLocalOf<EmbyTokens> { error("EmbyTheme no inicializado") }
@@ -152,6 +157,8 @@ fun EmbyTheme(spec: ThemeSpec, content: @Composable () -> Unit) {
             sectionGap = spec.sectionGap.dp, cardGap = spec.cardGap.dp,
             glowEnabled = spec.glowEnabled, glowIntensity = spec.glowIntensity,
             buttonStyle = spec.buttonStyle, navStyle = spec.navStyle, navShowLabels = spec.navShowLabels, device = device,
+            heroStyle = spec.heroStyle, cardStyle = spec.cardStyle, focusStyle = spec.focusStyle, rowAspect = spec.rowAspect,
+            tvNavFromTheme = spec.tvNavFromTheme,
         )
     }
     val scheme: ColorScheme = remember(tokens) {
