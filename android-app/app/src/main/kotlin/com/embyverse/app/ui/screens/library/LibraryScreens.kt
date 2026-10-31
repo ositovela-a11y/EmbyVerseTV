@@ -90,8 +90,10 @@ import java.util.Date
 @Composable
 fun ScreenTitle(title: String, modifier: Modifier = Modifier) {
     val t = LocalEmby.current
+    // Con menú arriba (estilos de plataforma) la barra ya deja el espacio del estado: sin hueco extra.
+    val topMenu = t.navVariant == com.embyverse.core.config.NavVariant.PILLS || t.navVariant == com.embyverse.core.config.NavVariant.TEXT_TABS
     Text(title, style = MaterialTheme.typography.headlineMedium, color = t.onBackground,
-        modifier = modifier.statusBarsPadding().padding(horizontal = t.screenPadding, vertical = 12.dp))
+        modifier = modifier.then(if (topMenu) Modifier else Modifier.statusBarsPadding()).padding(horizontal = t.screenPadding, vertical = if (topMenu) 4.dp else 12.dp))
 }
 
 @Composable

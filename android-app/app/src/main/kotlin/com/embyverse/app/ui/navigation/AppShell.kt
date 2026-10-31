@@ -262,7 +262,7 @@ private fun PillTabs(current: String?, go: (String) -> Unit) {
                 com.embyverse.app.ui.components.FocusableSurface(onClick = { go(d.route) }, focusScale = 1.08f,
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(50), modifier = Modifier.testTag("nav_${d.route}")) { focused ->
                     Box(Modifier.background(when { sel -> t.onBackground; focused -> t.onBackground.copy(alpha = 0.22f); else -> androidx.compose.ui.graphics.Color.Transparent })
-                        .padding(horizontal = if (t.device.isTv) 20.dp else 12.dp, vertical = if (t.device.isTv) 9.dp else 6.dp)) {
+                        .padding(horizontal = if (t.device.isTv) 20.dp else 10.dp, vertical = if (t.device.isTv) 9.dp else 6.dp)) {
                         Text(stringResource(d.label), maxLines = 1, style = MaterialTheme.typography.titleSmall,
                             color = if (sel) t.background else t.onBackground, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                     }

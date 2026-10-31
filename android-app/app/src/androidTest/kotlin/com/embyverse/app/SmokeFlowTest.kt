@@ -279,7 +279,7 @@ class SmokeFlowTest {
                 runBlocking { c.prefs.updateAppearance(profile) { it.copy(themeId = id) } }
                 ActivityScenario.launch(MainActivity::class.java).use {
                     waitTag("nav_movies", 30_000)
-                    Thread.sleep(2_500); shot("tema-$id-inicio")
+                    Thread.sleep(7_000); shot("tema-$id-inicio")
                     compose.onNodeWithTag("nav_movies", useUnmergedTree = true).performClick()
                     waitCards()
                     Thread.sleep(1_500); shot("tema-$id-peliculas")
