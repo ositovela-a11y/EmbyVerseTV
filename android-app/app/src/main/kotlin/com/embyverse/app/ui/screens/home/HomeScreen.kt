@@ -39,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.rounded.EventBusy
 import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.rounded.CalendarViewWeek
 import com.embyverse.app.ui.components.MediaCardView
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.unit.sp
@@ -69,6 +70,7 @@ import com.embyverse.app.ui.components.cardWidth
 import com.embyverse.app.ui.navigation.Navigator
 import com.embyverse.app.ui.navigation.Routes
 import com.embyverse.app.ui.theme.LocalEmby
+import com.embyverse.app.ui.theme.topMenu
 import com.embyverse.core.config.Banner
 import com.embyverse.core.config.CardAspect
 import com.embyverse.core.config.SectionLayout
@@ -95,6 +97,8 @@ fun HomeScreen(nav: Navigator) {
     val toTop: () -> Unit = { scope.launch { if (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0) listState.animateScrollToItem(0) } }
     LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(t.sectionGap)) {
         item(key = "header") { HomeHeader(s, nav) }
+        // Estilo «tablero» (sin barras): las secciones son mosaicos grandes.
+        if (t.navVariant == com.embyverse.core.config.NavVariant.HUB) item(key = "hub") { HubTiles(nav) }
         s.expiresAt?.let { exp ->
             val days = ((exp - System.currentTimeMillis() / 1000) / 86_400).toInt()
             if (days <= 10) item(key = "expiry") { ExpiryNotice(exp, days) }
@@ -122,6 +126,12 @@ fun HomeScreen(nav: Navigator) {
                         }
                         com.embyverse.core.config.HomeTemplate.SPOTLIGHT -> if (featured.isNotEmpty()) item(key = "tpl_spot") {
                             Column { SectionHeader(stringResource(R.string.tpl_spotlight), null, null); SpotlightRow(featured.take(8), nav) }
+                        }
+                        com.embyverse.core.config.HomeTemplate.COLLECTIONS -> if (s.collections.isNotEmpty()) item(key = "tpl_coll") {
+                            Column { SectionHeader(stringResource(R.string.tpl_collections), null, null); CollectionsRow(s.collections, nav) }
+                        }
+                        com.embyverse.core.config.HomeTemplate.WALL -> if (featured.isNotEmpty()) item(key = "tpl_wall") {
+                            Column { SectionHeader(stringResource(R.string.folder_newest), null, { nav.goTop(Routes.MOVIES) }); PosterWall(featured.take(if (t.device.isTv) 14 else 12), nav) }
                         }
                         else -> Unit
                     }
@@ -179,8 +189,11 @@ private fun HomeHeader(s: HomeUiState, nav: Navigator) {
     val t = LocalEmby.current
     Column {
         // Con menú arriba (Apple TV / HBO Max) el logotipo ya está en la barra: el inicio empieza directo con el banner.
-        val topMenu = t.navVariant == com.embyverse.core.config.NavVariant.PILLS || t.navVariant == com.embyverse.core.config.NavVariant.TEXT_TABS
+        val topMenu = t.topMenu
         if (!topMenu) HomeHeaderRow(s, nav)
+        else if (t.navVariant != com.embyverse.core.config.NavVariant.GLASS) Row(Modifier.fillMaxWidth().padding(horizontal = t.screenPadding, vertical = 4.dp), horizontalArrangement = Arrangement.End) {
+            com.embyverse.app.ui.components.RefreshListsButton()
+        }
         // Estilo de plataforma (tipo Netflix en celular): atajos de texto bajo la cabecera.
         if (t.homeChips && !t.device.isTv) Row(Modifier.padding(horizontal = t.screenPadding), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(R.string.nav_series to Routes.SERIES, R.string.nav_movies to Routes.MOVIES, R.string.nav_live to Routes.LIVE).forEach { (label, route) ->
@@ -207,6 +220,7 @@ private fun HomeHeaderRow(s: HomeUiState, nav: Navigator) {
                 style = MaterialTheme.typography.titleMedium, color = t.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
             s.config.brand.tagline?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = t.textSecondary, maxLines = 1) }
         }
+        com.embyverse.app.ui.components.RefreshListsButton(compact = !t.device.isTv)
         // En celular el reloj es pequeño para no recortar el saludo.
         com.embyverse.app.ui.components.Clock(Modifier.padding(horizontal = if (t.device.isTv) 8.dp else 2.dp), small = !t.device.isTv)
         IconButton(onClick = { nav.goTop(Routes.SEARCH) }) { Icon(Icons.Rounded.Search, stringResource(R.string.nav_search), tint = t.onBackground) }
@@ -231,7 +245,7 @@ private fun HeroCarousel(items: List<HeroItem>, nav: Navigator, onFocused: () ->
     // Altura según la pantalla: el banner completo (texto y botones) siempre queda a la vista,
     // también con el menú arriba de los estilos de plataforma.
     val screenH = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
-    val topMenu = t.navVariant == com.embyverse.core.config.NavVariant.PILLS || t.navVariant == com.embyverse.core.config.NavVariant.TEXT_TABS
+    val topMenu = t.topMenu
     val maxH = (screenH * (if (t.device.isTv) (if (topMenu) 0.58f else 0.66f) else 0.52f)).dp
     val height = when {
         t.device.isTv -> if (cinema) 470.dp else 380.dp
@@ -461,6 +475,76 @@ private fun SpotlightRow(cards: List<com.embyverse.app.data.repo.MediaCard>, nav
                         c.subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = if (focused) 0.95f else 0.75f), maxLines = 1) }
                     }
                 }
+            }
+        }
+    }
+}
+
+
+/** Tipo Disney+ / HBO Max: mosaicos grandes de colecciones (carpetas de películas) con brillo al enfocar. */
+@Composable
+private fun CollectionsRow(categories: List<String>, nav: Navigator) {
+    val t = LocalEmby.current
+    val w = if (t.device.isTv) 230.dp else 160.dp
+    LazyRow(contentPadding = PaddingValues(horizontal = t.screenPadding, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(t.cardGap),
+        modifier = Modifier.testTag("tpl_coll")) {
+        items(categories.size, key = { "coll|${categories[it]}" }) { i ->
+            val name = categories[i]
+            val hue = ((name.hashCode() % 360) + 360) % 360
+            FocusableSurface(onClick = { nav.moviesIn(name) }, focusScale = 1.08f, modifier = Modifier.width(w).aspectRatio(16f / 9f),
+                shape = RoundedCornerShape(t.cardRadius)) { focused ->
+                Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color.hsv(hue.toFloat(), 0.7f, 0.55f), Color.hsv(((hue + 50) % 360).toFloat(), 0.8f, 0.22f))))
+                    .border(if (focused) 2.dp else 1.dp, Color.White.copy(alpha = if (focused) 0.9f else 0.18f), RoundedCornerShape(t.cardRadius)), contentAlignment = Alignment.Center) {
+                    Text(name.replace(Regex("^[A-Z]{2,3}\\s*[|:-]\\s*"), ""), style = MaterialTheme.typography.titleMedium, color = Color.White, maxLines = 2,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold,
+                        modifier = Modifier.padding(12.dp))
+                }
+            }
+        }
+    }
+}
+
+/** Tipo Hulu / Crunchyroll: muro de pósters de lo más nuevo. */
+@Composable
+private fun PosterWall(cards: List<com.embyverse.app.data.repo.MediaCard>, nav: Navigator) {
+    val t = LocalEmby.current
+    val cols = if (t.device.isTv) 7 else 4
+    Column(Modifier.padding(horizontal = t.screenPadding).testTag("tpl_wall"), verticalArrangement = Arrangement.spacedBy(t.cardGap)) {
+        cards.chunked(cols).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(t.cardGap)) {
+                row.forEach { c ->
+                    MediaCardView(c, CardAspect.POSTER, com.embyverse.core.config.CardSize.M, { nav.openItem(c.ref, seriesId = c.seriesId) },
+                        modifier = Modifier.weight(1f), showText = false)
+                }
+                repeat(cols - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+/** Tipo Fox / cable: tablero de mosaicos grandes para entrar a cada sección (no hay barras). */
+@Composable
+private fun HubTiles(nav: Navigator) {
+    val t = LocalEmby.current
+    val tiles = com.embyverse.app.ui.navigation.TOP.filter { it.route != Routes.HOME } .map { Triple(it.label, it.icon, { nav.go(it.route) }) } +
+        Triple(R.string.guide_title, Icons.Rounded.CalendarViewWeek, { nav.go(Routes.GUIDE) })
+    val cols = if (t.device.isTv) 3 else 2
+    Column(Modifier.padding(horizontal = t.screenPadding, vertical = 6.dp).testTag("tpl_hub"), verticalArrangement = Arrangement.spacedBy(t.cardGap)) {
+        tiles.chunked(cols).forEachIndexed { r, row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(t.cardGap)) {
+                row.forEachIndexed { i, (label, icon, go) ->
+                    val hue = listOf(t.primary, t.secondary, t.accent)[(r * cols + i) % 3]
+                    FocusableSurface(onClick = go, focusScale = 1.05f, modifier = Modifier.weight(1f).height(if (t.device.isTv) 120.dp else 96.dp),
+                        shape = RoundedCornerShape(t.cardRadius)) { focused ->
+                        Row(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(hue.copy(alpha = if (focused) 0.85f else 0.55f), t.surface)))
+                            .padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(icon, null, tint = Color.White, modifier = Modifier.size(if (t.device.isTv) 44.dp else 32.dp))
+                            Spacer(Modifier.width(14.dp))
+                            Text(stringResource(label), style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, maxLines = 1)
+                        }
+                    }
+                }
+                repeat(cols - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }

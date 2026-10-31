@@ -100,8 +100,8 @@ object Routes {
     }
 }
 
-private data class TopDest(val route: String, val label: Int, val icon: ImageVector)
-private val TOP = listOf(
+internal data class TopDest(val route: String, val label: Int, val icon: ImageVector)
+internal val TOP = listOf(
     TopDest(Routes.HOME, R.string.nav_home, Icons.Rounded.Home),
     TopDest(Routes.LIVE, R.string.nav_live, Icons.Rounded.LiveTv),
     TopDest(Routes.MOVIES, R.string.nav_movies, Icons.Rounded.Theaters),
@@ -118,6 +118,8 @@ class Navigator(private val nav: NavHostController, private val openPlayer: (Ite
         launchSingleTop = true; restoreState = true
     }
     fun back() { nav.popBackStack() }
+    /** Abre Películas directamente en una carpeta (colecciones del inicio). */
+    fun moviesIn(category: String) = go("${Routes.MOVIES}?category=${Uri.encode(category)}")
     fun openItem(ref: ItemRef, context: String? = null, seriesId: String? = null) = when (ref.kind) {
         ContentKind.MOVIE -> go(Routes.movie(ref.sourceId, ref.id))
         ContentKind.SERIES -> go(Routes.seriesDetail(ref.sourceId, ref.id))
@@ -141,7 +143,10 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
     val variant = t.navVariant
     val style = when (variant) {
         com.embyverse.core.config.NavVariant.PILLS, com.embyverse.core.config.NavVariant.TEXT_TABS -> NavStyle.TOP_TABS
-        com.embyverse.core.config.NavVariant.RAIL_EXPAND -> if (t.device.useRail) NavStyle.SIDE_RAIL else NavStyle.BOTTOM_BAR
+        com.embyverse.core.config.NavVariant.RAIL_EXPAND, com.embyverse.core.config.NavVariant.SIDEBAR ->
+            if (t.device.useRail) NavStyle.SIDE_RAIL else NavStyle.BOTTOM_BAR
+        com.embyverse.core.config.NavVariant.GLASS, com.embyverse.core.config.NavVariant.CENTER_LOGO -> NavStyle.TOP_TABS
+        com.embyverse.core.config.NavVariant.DOCK, com.embyverse.core.config.NavVariant.HUB -> NavStyle.BOTTOM_BAR
         com.embyverse.core.config.NavVariant.STANDARD ->
             if (t.device.useRail && !(t.tvNavFromTheme && t.navStyle == NavStyle.TOP_TABS)) NavStyle.SIDE_RAIL else t.navStyle
     }
@@ -160,7 +165,9 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
             composable("${Routes.LIVE}?category={category}", arguments = listOf(navArgument("category") { type = NavType.StringType; nullable = true; defaultValue = null })) {
                 LiveScreen(navigator, it.arguments?.getString("category"))
             }
-            composable(Routes.MOVIES) { MoviesScreen(navigator) }
+            composable("${Routes.MOVIES}?category={category}", arguments = listOf(navArgument("category") { type = NavType.StringType; nullable = true; defaultValue = null })) {
+                MoviesScreen(navigator, it.arguments?.getString("category"))
+            }
             composable(Routes.SERIES) { SeriesScreen(navigator) }
             composable(Routes.SEARCH) { SearchScreen(navigator) }
             composable(Routes.FAVORITES) { FavoritesScreen(navigator) }
@@ -205,6 +212,36 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
         }
         return
     }
+    val isHome = current == Routes.HOME
+    when (variant) {
+        // Tipo Apple TV: barra de cristal flotando sobre el contenido; el banner del inicio pasa por debajo.
+        com.embyverse.core.config.NavVariant.GLASS -> {
+            Box(Modifier.fillMaxSize()) {
+                Box(Modifier.fillMaxSize().padding(top = if (showNav && !isHome) (if (t.device.isTv) 76.dp else 64.dp) else 0.dp)) { host(Modifier.fillMaxSize()) }
+                if (showNav) GlassBar(current, goTop, Modifier.align(Alignment.TopCenter))
+            }
+            return
+        }
+        // Isla flotante abajo.
+        com.embyverse.core.config.NavVariant.DOCK -> {
+            Box(Modifier.fillMaxSize()) {
+                Box(Modifier.fillMaxSize().padding(bottom = if (showNav) 88.dp else 0.dp)) { host(Modifier.fillMaxSize()) }
+                if (showNav) Dock(current, goTop, Modifier.align(Alignment.BottomCenter))
+            }
+            return
+        }
+        // Sin barras: se navega desde el tablero del inicio y con «Atrás».
+        com.embyverse.core.config.NavVariant.HUB -> { Box(Modifier.fillMaxSize()) { host(Modifier.fillMaxSize()) }; return }
+        // Barra lateral fija con nombres (en TV / pantallas anchas).
+        com.embyverse.core.config.NavVariant.SIDEBAR -> if (t.device.useRail) {
+            Row(Modifier.fillMaxSize()) {
+                if (showNav) Sidebar(current, logoVariant, logoUrl, goTop)
+                Box(Modifier.weight(1f).fillMaxHeight()) { host(Modifier.fillMaxSize()) }
+            }
+            return
+        }
+        else -> Unit
+    }
     Row(Modifier.fillMaxSize()) {
         if (rail) NavigationRail(containerColor = t.surface.copy(alpha = 0.94f), modifier = Modifier.statusBarsPadding(), header = {
             BrandLogo(if (logoVariant == LogoVariant.ASSET) logoVariant else LogoVariant.BUNDLED_PLANET, logoUrl, Modifier.padding(top = 12.dp).size(52.dp))
@@ -222,7 +259,11 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
         }
         Column(Modifier.weight(1f).fillMaxSize()) {
             if (tabs) {
-                if (variant == com.embyverse.core.config.NavVariant.PILLS) PillTabs(current, goTop) else TextTabs(current, logoVariant, logoUrl, goTop)
+                when (variant) {
+                    com.embyverse.core.config.NavVariant.PILLS -> PillTabs(current, goTop)
+                    com.embyverse.core.config.NavVariant.CENTER_LOGO -> CenterLogoBar(current, logoVariant, logoUrl, goTop)
+                    else -> TextTabs(current, logoVariant, logoUrl, goTop)
+                }
             }
             Box(Modifier.weight(1f).fillMaxWidth()) { host(Modifier.fillMaxSize()) }
             if (bottom) {
@@ -337,6 +378,107 @@ private fun ExpandingRail(current: String?, logoVariant: LogoVariant, logoUrl: S
                 }
             }
         }
+    }
+}
+
+/** Elemento de menú en texto, reutilizado por las barras de estilo de plataforma. */
+@Composable
+private fun NavTextItem(d: TopDest, selected: Boolean, go: (String) -> Unit, light: Boolean = false) {
+    val t = LocalEmby.current
+    com.embyverse.app.ui.components.FocusableSurface(onClick = { go(d.route) }, focusScale = 1.06f,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(50), modifier = Modifier.testTag("nav_${d.route}")) { focused ->
+        Box(Modifier.background(when { selected && light -> t.onBackground; focused -> t.onBackground.copy(alpha = 0.18f); else -> androidx.compose.ui.graphics.Color.Transparent })
+            .padding(horizontal = if (t.device.isTv) 18.dp else 11.dp, vertical = if (t.device.isTv) 8.dp else 6.dp)) {
+            Text(stringResource(d.label), maxLines = 1, style = MaterialTheme.typography.titleSmall,
+                color = when { selected && light -> t.background; selected || focused -> t.onBackground; else -> t.textSecondary },
+                fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Medium)
+        }
+    }
+}
+
+/** Tipo Apple TV: barra de cristal translúcida, flotante, con píldoras centradas, reloj y «Actualizar». */
+@Composable
+private fun GlassBar(current: String?, go: (String) -> Unit, modifier: Modifier) {
+    val t = LocalEmby.current
+    Row(modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(t.background.copy(alpha = 0.75f), androidx.compose.ui.graphics.Color.Transparent)))
+        .statusBarsPadding().padding(horizontal = if (t.device.isTv) t.screenPadding else 8.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            androidx.compose.foundation.lazy.LazyRow(
+                Modifier.background(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.10f), androidx.compose.foundation.shape.RoundedCornerShape(50))
+                    .border(1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.16f), androidx.compose.foundation.shape.RoundedCornerShape(50)).padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                items(TOP.size) { i -> NavTextItem(TOP[i], current == TOP[i].route, go, light = true) }
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        com.embyverse.app.ui.components.RefreshListsButton(compact = true)
+        if (t.device.isTv) { Spacer(Modifier.width(10.dp)); com.embyverse.app.ui.components.Clock() }
+    }
+}
+
+/** Tipo HBO Max: logotipo al centro y las secciones repartidas a los lados (en celular, debajo). */
+@Composable
+private fun CenterLogoBar(current: String?, logoVariant: LogoVariant, logoUrl: String?, go: (String) -> Unit) {
+    val t = LocalEmby.current
+    val half = (TOP.size + 1) / 2
+    if (t.device.isTv || t.device.width != com.embyverse.app.ui.theme.WidthClass.COMPACT) {
+        Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = t.screenPadding, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End) { TOP.take(half).forEach { NavTextItem(it, current == it.route, go) } }
+            BrandLogo(logoVariant, logoUrl, Modifier.padding(horizontal = 24.dp).height(48.dp).width(120.dp))
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Start) { TOP.drop(half).forEach { NavTextItem(it, current == it.route, go) } }
+        }
+    } else Column(Modifier.fillMaxWidth().statusBarsPadding().padding(top = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        BrandLogo(logoVariant, logoUrl, Modifier.height(38.dp).width(96.dp))
+        androidx.compose.foundation.lazy.LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)) {
+            items(TOP.size) { i -> NavTextItem(TOP[i], current == TOP[i].route, go) }
+        }
+    }
+}
+
+/** Isla flotante abajo: iconos; el elegido se expande con su nombre. */
+@Composable
+private fun Dock(current: String?, go: (String) -> Unit, modifier: Modifier) {
+    val t = LocalEmby.current
+    Row(modifier.navigationBarsPadding().padding(bottom = 14.dp)
+        .background(t.surface.copy(alpha = 0.92f), androidx.compose.foundation.shape.RoundedCornerShape(50))
+        .border(1.dp, t.primary.copy(alpha = 0.35f), androidx.compose.foundation.shape.RoundedCornerShape(50)).padding(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+        TOP.forEach { d ->
+            val sel = current == d.route
+            com.embyverse.app.ui.components.FocusableSurface(onClick = { go(d.route) }, focusScale = 1.1f,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(50), modifier = Modifier.testTag("nav_${d.route}")) { focused ->
+                Row(Modifier.background(when { sel -> t.primary; focused -> t.onBackground.copy(alpha = 0.16f); else -> androidx.compose.ui.graphics.Color.Transparent })
+                    .padding(horizontal = if (sel) 16.dp else 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(d.icon, null, tint = if (sel) t.buttonText else t.onBackground, modifier = Modifier.size(22.dp))
+                    if (sel) { Spacer(Modifier.width(8.dp)); Text(stringResource(d.label), color = t.buttonText, style = MaterialTheme.typography.labelLarge, maxLines = 1) }
+                }
+            }
+        }
+    }
+}
+
+/** Tipo Prime Video en TV: barra lateral fija con logotipo, nombres, reloj y «Actualizar». */
+@Composable
+private fun Sidebar(current: String?, logoVariant: LogoVariant, logoUrl: String?, go: (String) -> Unit) {
+    val t = LocalEmby.current
+    Column(Modifier.width(230.dp).fillMaxHeight().background(t.surface.copy(alpha = 0.96f)).statusBarsPadding().padding(vertical = 18.dp, horizontal = 12.dp)) {
+        BrandLogo(logoVariant, logoUrl, Modifier.padding(start = 6.dp, bottom = 22.dp).height(52.dp).width(140.dp))
+        TOP.forEach { d ->
+            val sel = current == d.route
+            com.embyverse.app.ui.components.FocusableSurface(onClick = { go(d.route) }, focusScale = 1.03f,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp), modifier = Modifier.padding(vertical = 2.dp).testTag("nav_${d.route}")) { focused ->
+                Row(Modifier.fillMaxWidth().background(when { sel -> t.primary.copy(alpha = 0.22f); focused -> t.onBackground.copy(alpha = 0.10f); else -> androidx.compose.ui.graphics.Color.Transparent })
+                    .padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(d.icon, null, tint = if (sel) t.primary else t.onBackground)
+                    Spacer(Modifier.width(14.dp))
+                    Text(stringResource(d.label), style = MaterialTheme.typography.titleMedium, color = if (sel || focused) t.onBackground else t.textSecondary, maxLines = 1,
+                        fontWeight = if (sel) androidx.compose.ui.text.font.FontWeight.Bold else null)
+                }
+            }
+        }
+        Spacer(Modifier.weight(1f))
+        com.embyverse.app.ui.components.Clock(Modifier.padding(start = 12.dp, bottom = 8.dp))
+        com.embyverse.app.ui.components.RefreshListsButton()
     }
 }
 

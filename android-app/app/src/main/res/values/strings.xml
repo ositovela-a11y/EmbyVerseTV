@@ -197,6 +197,8 @@
     <string name="profile_pin_enter">Escribe el PIN de este perfil.</string>
     <string name="profiles_intro">Cada perfil tiene sus propios favoritos, historial y apariencia en este dispositivo.</string>
     <string name="profiles_title">Perfiles</string>
+    <string name="refresh_lists">Actualizar</string>
+    <string name="refresh_running">Actualizando…</string>
     <string name="search_channels">Buscar canales</string>
     <string name="search_everything">Canales, películas o series</string>
     <string name="search_in">Buscar en %1$s</string>
@@ -255,10 +257,12 @@
     <string name="splash_msg_2">Conectando con tu servidor seguro…</string>
     <string name="splash_msg_3">Cargando tus canales, películas y series…</string>
     <string name="splash_msg_4">Todo listo. ¡Disfruta tu entretenimiento!</string>
+    <string name="splash_universe">TU UNIVERSO DE ENTRETENIMIENTO</string>
     <string name="splash_welcome">Bienvenido a %1$s</string>
     <string name="spotlight_hint">Muévete por los títulos para ver su información aquí.</string>
     <string name="support_default">Contacta con quien te proporcionó la aplicación.</string>
     <string name="support_title">Soporte</string>
+    <string name="tpl_collections">Colecciones</string>
     <string name="tpl_new_badge">NUEVO</string>
     <string name="tpl_spotlight">Destacados para ti</string>
     <string name="tpl_top10">Top 10 de hoy</string>

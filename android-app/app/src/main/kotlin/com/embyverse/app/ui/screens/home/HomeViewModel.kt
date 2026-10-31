@@ -54,6 +54,8 @@ data class HomeUiState(
     val events: List<com.embyverse.app.data.repo.LiveEvent> = emptyList(),
     /** Vencimiento más próximo de las cuentas del proveedor (segundos), para avisar a tiempo. */
     val expiresAt: Long? = null,
+    /** Carpetas de películas para la plantilla «Colecciones». */
+    val collections: List<String> = emptyList(),
     val profileName: String? = null,
     val hasSources: Boolean = true,
     val loading: Boolean = true,
@@ -132,11 +134,13 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
     val state: StateFlow<HomeUiState> = combine(
         combine(c.config.config, appearance, minuteTicker) { cfg, app, now -> Triple(cfg, ConfigResolver.sections(cfg, app), now) }.timed("config"),
         lists.timed("filas"), combine(recent, novedades) { r, n -> r to n }.timed("novedades"), recommended.timed("recomendados"),
-        combine(profileName, combine(c.sources.sources, c.prefs.sourceExpiries) { s, e -> s.isNotEmpty() to e.filterKeys { k -> s.any { it.id == k } }.values.minOrNull() },
+        combine(combine(profileName, c.catalog.categories(com.embyverse.core.model.ContentKind.MOVIE)) { n, cats -> n to cats.take(14) },
+            combine(c.sources.sources, c.prefs.sourceExpiries) { s, e -> s.isNotEmpty() to e.filterKeys { k -> s.any { it.id == k } }.values.minOrNull() },
             // Se recalcula cada minuto: los eventos que ya pasaron se van quitando solos.
             combine(c.catalog.eventCandidates(), minuteTicker) { list, _ -> com.embyverse.app.data.repo.Events.today(list) }.timed("eventos")) { n, s, e -> Triple(n, s, e) }.timed("perfil+fuentes+eventos"),
-    ) { (cfg, sections, now), base, (rec, news), recs, (name, srcInfo, events) ->
+    ) { (cfg, sections, now), base, (rec, news), recs, (nameCats, srcInfo, events) ->
         val (hasSources, expiresAt) = srcInfo
+        val (name, collections) = nameCats
         val content = base + mapOf(SectionType.RECENTLY_ADDED to rec, SectionType.RECOMMENDED to recs)
         // El banner de bienvenida («Añadir fuente») sobra cuando ya hay listas: se muestran las novedades.
         val heroBanners = ConfigResolver.banners(cfg, BannerPlacement.HERO, now)
@@ -149,7 +153,7 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
             // Banners del Design Studio primero y después las novedades de tus listas.
             hero = heroBanners + featured,
             promos = ConfigResolver.banners(cfg, BannerPlacement.PROMO, now),
-            profileName = name, hasSources = hasSources, loading = false, events = events, expiresAt = expiresAt,
+            profileName = name, hasSources = hasSources, loading = false, events = events, expiresAt = expiresAt, collections = collections,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 

@@ -80,6 +80,7 @@ import com.embyverse.app.ui.components.cardWidth
 import com.embyverse.app.ui.navigation.Navigator
 import com.embyverse.app.ui.navigation.Routes
 import com.embyverse.app.ui.theme.LocalEmby
+import com.embyverse.app.ui.theme.topMenu
 import com.embyverse.core.config.CardAspect
 import com.embyverse.core.config.CardSize
 import com.embyverse.core.model.ContentKind
@@ -91,7 +92,7 @@ import java.util.Date
 fun ScreenTitle(title: String, modifier: Modifier = Modifier) {
     val t = LocalEmby.current
     // Con menú arriba (estilos de plataforma) la barra ya deja el espacio del estado: sin hueco extra.
-    val topMenu = t.navVariant == com.embyverse.core.config.NavVariant.PILLS || t.navVariant == com.embyverse.core.config.NavVariant.TEXT_TABS
+    val topMenu = t.topMenu
     Text(title, style = MaterialTheme.typography.headlineMedium, color = t.onBackground,
         modifier = modifier.then(if (topMenu) Modifier else Modifier.statusBarsPadding()).padding(horizontal = t.screenPadding, vertical = if (topMenu) 4.dp else 12.dp))
 }
@@ -258,6 +259,7 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
             Row(Modifier.statusBarsPadding().padding(end = t.screenPadding), verticalAlignment = Alignment.CenterVertically) {
                 ScreenTitle(stringResource(R.string.nav_live), Modifier.weight(1f))
                 com.embyverse.app.ui.components.Clock(Modifier.padding(end = 16.dp))
+                com.embyverse.app.ui.components.RefreshListsButton(Modifier.padding(end = 12.dp))
                 com.embyverse.app.ui.components.EmbyButton(stringResource(R.string.guide_title), { nav.go(Routes.GUIDE) }, icon = Icons.Rounded.CalendarViewWeek, secondary = true)
                 Spacer(Modifier.width(12.dp))
                 SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_channels), Modifier.width(360.dp))
@@ -265,6 +267,7 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
         } else {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ScreenTitle(stringResource(R.string.nav_live), Modifier.weight(1f))
+                com.embyverse.app.ui.components.RefreshListsButton(Modifier.statusBarsPadding(), compact = true)
                 IconButton(onClick = { nav.go(Routes.GUIDE) }, modifier = Modifier.statusBarsPadding().padding(end = 8.dp).testTag("open_guide")) {
                     Icon(Icons.Rounded.CalendarViewWeek, stringResource(R.string.guide_title), tint = t.onBackground)
                 }
@@ -484,8 +487,8 @@ internal fun eventInfo(name: String): String? {
 
 // ------------------------------------------------------------------ PELÍCULAS Y SERIES
 @Composable
-private fun VodScreen(nav: Navigator, kind: ContentKind) {
-    val vm = appViewModel(key = "vod-$kind") { VodViewModel(it, kind) }
+private fun VodScreen(nav: Navigator, kind: ContentKind, initialCategory: String? = null) {
+    val vm = appViewModel(key = "vod-$kind-${initialCategory ?: ""}") { VodViewModel(it, kind, initialCategory) }
     val s by vm.state.collectAsStateWithLifecycle()
     val t = LocalEmby.current
     var text by rememberSaveable { mutableStateOf("") }
@@ -572,7 +575,7 @@ private fun SpotlightHeader(sp: Spotlight?, sectionTitle: String, kind: ContentK
     }
 }
 
-@Composable fun MoviesScreen(nav: Navigator) = VodScreen(nav, ContentKind.MOVIE)
+@Composable fun MoviesScreen(nav: Navigator, initialCategory: String? = null) = VodScreen(nav, ContentKind.MOVIE, initialCategory)
 @Composable fun SeriesScreen(nav: Navigator) = VodScreen(nav, ContentKind.SERIES)
 
 // ------------------------------------------------------------------ FAVORITOS E HISTORIAL

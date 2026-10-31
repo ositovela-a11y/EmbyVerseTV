@@ -98,9 +98,9 @@ data class VodUiState(
 
 /** Catálogo de películas o de series (misma pantalla, distinto origen de datos). */
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
-class VodViewModel(private val c: AppContainer, private val kind: ContentKind) : ViewModel() {
+class VodViewModel(private val c: AppContainer, private val kind: ContentKind, initialCategory: String? = null) : ViewModel() {
     // Películas y series abren en «Lo más nuevo».
-    private val category = MutableStateFlow<String?>(CATEGORY_NEW)
+    private val category = MutableStateFlow<String?>(initialCategory ?: CATEGORY_NEW)
     private val query = MutableStateFlow("")
 
     private val items = category.flatMapLatest { cat ->

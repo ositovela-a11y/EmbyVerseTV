@@ -81,6 +81,10 @@ data class EmbyTokens(
     val homeTemplate: com.embyverse.core.config.HomeTemplate = com.embyverse.core.config.HomeTemplate.CLASSIC,
 )
 
+/** Estilos con menú en la parte de arriba (el inicio no repite el logotipo y los títulos no dejan hueco). */
+val EmbyTokens.topMenu: Boolean get() = navVariant in setOf(com.embyverse.core.config.NavVariant.PILLS, com.embyverse.core.config.NavVariant.TEXT_TABS,
+    com.embyverse.core.config.NavVariant.GLASS, com.embyverse.core.config.NavVariant.CENTER_LOGO)
+
 val LocalEmby = staticCompositionLocalOf<EmbyTokens> { error("EmbyTheme no inicializado") }
 
 fun Int.toColor() = Color(this)

@@ -116,14 +116,31 @@ data class ThemeSpec(
  * SHELF: fila «A continuación» sobre el banner (tipo Apple TV). SPOTLIGHT: fila de tarjetas grandes
  * destacadas con el título sobre la imagen (tipo HBO Max / Fox / Prime).
  */
-enum class HomeTemplate { CLASSIC, TOP10, SHELF, SPOTLIGHT }
+enum class HomeTemplate { CLASSIC, TOP10, SHELF, SPOTLIGHT,
+    /** Mosaicos grandes de colecciones (carpetas) con brillo (tipo Disney+ / HBO Max). */
+    COLLECTIONS,
+    /** Muro de pósters de lo más nuevo (tipo Hulu / Crunchyroll). */
+    WALL,
+}
 
 /**
  * PILLS: pestañas en píldora centradas arriba (estilo Apple TV). TEXT_TABS: logotipo + secciones en texto
  * arriba (estilo HBO Max / Prime). RAIL_EXPAND: en TV, iconos a la izquierda que se despliegan con nombres
  * al llegar con el control (estilo Netflix / Disney+); en celular, barra inferior.
  */
-enum class NavVariant { STANDARD, PILLS, TEXT_TABS, RAIL_EXPAND }
+enum class NavVariant {
+    STANDARD, PILLS, TEXT_TABS, RAIL_EXPAND,
+    /** Barra de cristal flotante sobre el contenido (tipo Apple TV). */
+    GLASS,
+    /** Logotipo al centro y secciones a los lados (tipo HBO Max). */
+    CENTER_LOGO,
+    /** Barra lateral fija con nombres (tipo Prime Video). */
+    SIDEBAR,
+    /** Sin barras: el inicio es un tablero de mosaicos grandes (tipo Fox / cable). */
+    HUB,
+    /** Dock flotante en forma de isla abajo (tipo Crunchyroll / apps modernas). */
+    DOCK,
+}
 
 /** CLASSIC: banner con texto a la izquierda. CINEMA: a pantalla grande, texto grande abajo. CENTERED: título centrado, minimalista. */
 enum class HeroStyle { CLASSIC, CINEMA, CENTERED }

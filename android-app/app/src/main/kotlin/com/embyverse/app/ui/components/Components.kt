@@ -36,6 +36,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -94,15 +96,26 @@ fun NebulaBackground(modifier: Modifier = Modifier, content: @Composable BoxScop
     Box(modifier.then(base).then(glow), content = content)
 }
 
-/** Logotipo oficial. Las variantes "asset" las aprueba el administrador en el panel. */
+/**
+ * Logotipo oficial, sin fondo negro: el integrado ya es transparente y los subidos desde el panel se
+ * recortan en óvalo. Detrás lleva un halo ovalado suave del color de la marca.
+ */
 @Composable
-fun BrandLogo(variant: LogoVariant, url: String?, modifier: Modifier = Modifier) {
+fun BrandLogo(variant: LogoVariant, url: String?, modifier: Modifier = Modifier, oval: Boolean = true) {
+    val t = LocalEmby.current
     val fallback = if (variant == LogoVariant.BUNDLED_PLANET) R.drawable.embyverse_planet else R.drawable.embyverse_logo
-    if (variant == LogoVariant.ASSET && url != null) {
-        SubcomposeAsyncImage(model = url, contentDescription = stringResource(R.string.app_name), modifier = modifier, contentScale = ContentScale.Fit,
-            error = { Image(painterResource(R.drawable.embyverse_logo), null, contentScale = ContentScale.Fit) })
-    } else {
-        Image(painterResource(fallback), contentDescription = stringResource(R.string.app_name), modifier = modifier, contentScale = ContentScale.Fit)
+    val ovalShape = androidx.compose.foundation.shape.GenericShape { size, _ -> addOval(androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height)) }
+    Box(modifier.then(if (oval) Modifier.drawBehind {
+        drawOval(Brush.radialGradient(listOf(t.primary.copy(alpha = 0.22f), t.secondary.copy(alpha = 0.10f), Color.Transparent),
+            center = center, radius = size.maxDimension * 0.6f))
+    } else Modifier), contentAlignment = Alignment.Center) {
+        if (variant == LogoVariant.ASSET && url != null) {
+            SubcomposeAsyncImage(model = url, contentDescription = stringResource(R.string.app_name),
+                modifier = Modifier.fillMaxSize().then(if (oval) Modifier.clip(ovalShape) else Modifier), contentScale = ContentScale.Fit,
+                error = { Image(painterResource(R.drawable.embyverse_logo), null, contentScale = ContentScale.Fit) })
+        } else {
+            Image(painterResource(fallback), contentDescription = stringResource(R.string.app_name), modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+        }
     }
 }
 
@@ -309,4 +322,31 @@ fun Clock(modifier: Modifier = Modifier, color: Color = LocalEmby.current.onBack
     }
     Text(fmt.format(java.util.Date(now)), style = if (small) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleMedium, color = color, maxLines = 1,
         modifier = modifier.testTag("clock"))
+}
+
+/**
+ * Botón «Actualizar» siempre a la vista: vuelve a cargar canales, películas, series y guía de todas
+ * las cuentas. Mientras trabaja muestra «Actualizando…».
+ */
+@Composable
+fun RefreshListsButton(modifier: Modifier = Modifier, compact: Boolean = false) {
+    val t = LocalEmby.current
+    val c = com.embyverse.app.ui.LocalAppContainer.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val states by c.sources.syncState.collectAsStateWithLifecycle()
+    val sources by c.sources.sources.collectAsStateWithLifecycle(initialValue = emptyList())
+    val running = states.values.any { it is com.embyverse.app.data.repo.SyncState.Running }
+    FocusableSurface(onClick = { if (!running) sources.forEach { com.embyverse.app.work.SyncWorker.syncNow(context, it.id) } },
+        shape = RoundedCornerShape(50), focusScale = 1.06f, modifier = modifier.testTag("refresh_lists")) { focused ->
+        Row(Modifier.background(if (focused) t.primary else t.surfaceVariant.copy(alpha = 0.9f)).padding(horizontal = if (compact) 10.dp else 14.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            if (running) CircularProgressIndicator(Modifier.size(16.dp), color = if (focused) t.buttonText else t.primary, strokeWidth = 2.dp)
+            else Icon(Icons.Rounded.Refresh, null, tint = if (focused) t.buttonText else t.onBackground, modifier = Modifier.size(18.dp))
+            if (!compact || running) {
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(if (running) R.string.refresh_running else R.string.refresh_lists), style = MaterialTheme.typography.labelLarge,
+                    color = if (focused) t.buttonText else t.onBackground, maxLines = 1)
+            }
+        }
+    }
 }

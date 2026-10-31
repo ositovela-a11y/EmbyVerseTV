@@ -2,40 +2,37 @@ package com.embyverse.app.ui.screens.splash
 
 import android.media.AudioAttributes
 import android.media.MediaPlayer
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
@@ -44,13 +41,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.animation.togetherWith
 import com.embyverse.app.R
 import com.embyverse.app.ui.LocalAppContainer
 import com.embyverse.app.ui.components.BrandLogo
@@ -61,16 +58,19 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.cos
+import kotlin.math.sin
 
 private val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)
-private const val SPLASH_MESSAGES = 4
+private val WarpEasing = CubicBezierEasing(0.6f, 0f, 0.8f, 1f)
 
 /**
- * Entrada premium (~3.5 s):
- *  0.0 s  aparece el halo y un anillo de luz se dibuja alrededor del emblema circular
- *  0.8 s  el logotipo (completo, sin recortes) entra al centro del círculo — coincide con el golpe del sonido
- *  1.5 s  un destello recorre el logotipo; aparecen el nombre y el lema
- *  3.2 s  acercamiento + fundido hacia la app (o en cuanto llegue la configuración, si tarda más)
+ * Entrada «EmbyVerse» (~5 s), un viaje por el universo:
+ *  0.0–1.5 s  salto al hiperespacio: las estrellas salen disparadas desde el centro
+ *  0.9 s      aparece una galaxia en espiral que gira lentamente
+ *  1.4 s      destello y el logotipo surge en el centro con dos órbitas y pequeños planetas
+ *  2.2 s      bienvenida y mensajes que cambian
+ *  4.6 s      acercamiento final hacia la app
  * El sonido se puede apagar en Ajustes › Reproducción › Sonido de entrada.
  */
 @Composable
@@ -78,19 +78,19 @@ fun SplashScreen(brand: Brand, onFinished: () -> Unit) {
     val t = LocalEmby.current
     val context = LocalContext.current
     val container = LocalAppContainer.current
-    val ring = remember { Animatable(0f) }     // anillo que se dibuja (0 → 1 vuelta)
-    val logo = remember { Animatable(0f) }     // entrada del logotipo
-    val shine = remember { Animatable(-0.5f) } // destello
-    val text = remember { Animatable(0f) }     // nombre y lema
-    val exit = remember { Animatable(0f) }     // salida hacia la app
-    val defaultProfile = stringResource(R.string.profile_default)
-    val player = remember { arrayOfNulls<MediaPlayer>(1) }
-    val message = remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val warp = remember { Animatable(0f) }    // 0→1 viaje (velocidad de las estrellas)
+    val galaxy = remember { Animatable(0f) }  // aparición de la galaxia
+    val flash = remember { Animatable(0f) }   // destello al llegar
+    val logo = remember { Animatable(0f) }    // logotipo y órbitas
+    val text = remember { Animatable(0f) }    // textos
+    val exit = remember { Animatable(0f) }    // salida
+    val message = remember { mutableIntStateOf(0) }
     val messages = listOf(
         stringResource(R.string.splash_msg_1), stringResource(R.string.splash_msg_2),
         stringResource(R.string.splash_msg_3), stringResource(R.string.splash_msg_4),
     )
-
+    val defaultProfile = stringResource(R.string.profile_default)
+    val player = remember { arrayOfNulls<MediaPlayer>(1) }
     DisposableEffect(Unit) { onDispose { player[0]?.runCatching { release() }; player[0] = null } }
 
     LaunchedEffect(Unit) {
@@ -104,105 +104,102 @@ fun SplashScreen(brand: Brand, onFinished: () -> Unit) {
                     ?.also { player[0] = it }
             }
         }
-        launch { ring.animateTo(1f, tween(1_100, easing = Emphasized)) }
-        delay(650)
-        launch { logo.animateTo(1f, tween(800, easing = Emphasized)) }
-        delay(650)
-        launch { shine.animateTo(1.5f, tween(900, easing = LinearEasing)) }
-        launch { text.animateTo(1f, tween(700, easing = FastOutSlowInEasing)) }
-        // Mensajes que van cambiando mientras se prepara todo (≈ 1.1 s cada uno).
-        for (i in 1 until SPLASH_MESSAGES) { delay(1_100); message.intValue = i }
+        launch { warp.animateTo(1f, tween(1_500, easing = WarpEasing)) }
         delay(900)
+        launch { galaxy.animateTo(1f, tween(1_400, easing = FastOutSlowInEasing)) }
+        delay(500)
+        launch { flash.animateTo(1f, tween(140)); flash.animateTo(0f, tween(600)) }
+        launch { logo.animateTo(1f, tween(900, easing = Emphasized)) }
+        delay(800)
+        launch { text.animateTo(1f, tween(600, easing = FastOutSlowInEasing)) }
+        for (i in 1 until messages.size) { delay(650); message.intValue = i }
+        delay(500)
         ensure.await(); fetch.await()
         exit.animateTo(1f, tween(420, easing = FastOutSlowInEasing))
         onFinished()
     }
 
-    val pulse by rememberInfiniteTransition(label = "glow").animateFloat(0.88f, 1f,
-        infiniteRepeatable(tween(1_500, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "glowPulse")
     val spin by rememberInfiniteTransition(label = "spin").animateFloat(0f, 360f,
-        infiniteRepeatable(tween(6_000, easing = LinearEasing)), label = "ringSpin")
-    val loader by rememberInfiniteTransition(label = "loader").animateFloat(0f, 1f,
-        infiniteRepeatable(tween(1_100, easing = LinearEasing)), label = "loaderPos")
+        infiniteRepeatable(tween(18_000, easing = LinearEasing)), label = "galaxySpin")
+    val orbit by rememberInfiniteTransition(label = "orbit").animateFloat(0f, 1f,
+        infiniteRepeatable(tween(4_000, easing = LinearEasing)), label = "orbitPos")
+    val stars = remember { List(140) { i -> Triple((i * 137.508f) % 360f, ((i * 7919) % 1000) / 1000f, 0.6f + (i % 7) / 7f) } }
 
-    val emblem = if (t.device.isTv) 230.dp else 210.dp
+    val logoSize = if (t.device.isTv) 210.dp else 190.dp
     val out = 1f - exit.value
-    Box(Modifier.fillMaxSize().graphicsLayer { alpha = out; val s = 1f + exit.value * 0.12f; scaleX = s; scaleY = s },
-        contentAlignment = Alignment.Center) {
-        // Estrellas que se desplazan lentamente (fondo dinámico).
-        val drift by rememberInfiniteTransition(label = "stars").animateFloat(0f, 1f,
-            infiniteRepeatable(tween(14_000, easing = LinearEasing)), label = "drift")
+    Box(Modifier.fillMaxSize().graphicsLayer { alpha = out; val s = 1f + exit.value * 0.18f; scaleX = s; scaleY = s }, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
-            for (i in 0 until 46) {
-                val sx = ((i * 73 % 100) / 100f + drift * (0.03f + (i % 5) * 0.012f)) % 1f
-                val sy = ((i * 37 % 100) / 100f + drift * 0.02f * (i % 3)) % 1f
-                val tw = 0.35f + 0.65f * kotlin.math.abs(kotlin.math.sin((drift * 6.28f * (1 + i % 4)) + i))
-                drawCircle(Color.White.copy(alpha = 0.55f * tw * ring.value), radius = (0.8f + (i % 3) * 0.7f) * density, center = Offset(sx * size.width, sy * size.height))
+            val c = center
+            val maxR = size.maxDimension * 0.75f
+            // 1) Hiperespacio: cada estrella avanza hacia afuera y deja una estela que se alarga con la velocidad.
+            val w = warp.value
+            val speed = 1f - kotlin.math.abs(w - 0.6f) / 0.6f // máxima a mitad del viaje
+            stars.forEach { (angDeg, depth, bright) ->
+                val ang = Math.toRadians(angDeg.toDouble()).toFloat()
+                val d = ((depth + w * 1.6f) % 1f)
+                val r = d * d * maxR
+                val tail = (0.02f + speed.coerceAtLeast(0f) * 0.22f) * maxR * d
+                val dir = Offset(cos(ang), sin(ang))
+                val alpha = (bright * (0.25f + d) * (1f - logo.value * 0.6f)).coerceIn(0f, 1f)
+                drawLine(Color.White.copy(alpha = alpha), c + dir * r, c + dir * (r + tail), strokeWidth = (1f + d * 2.2f) * density, cap = StrokeCap.Round)
             }
-        }
-        // Halo de luz de los colores de la marca.
-        Canvas(Modifier.fillMaxSize()) {
-            val e = ring.value
-            val r = size.minDimension * (if (t.device.isTv) 0.48f else 0.62f) * (0.6f + 0.4f * e) * pulse
-            drawCircle(Brush.radialGradient(listOf(t.primary.copy(alpha = 0.30f * e), t.secondary.copy(alpha = 0.12f * e), Color.Transparent),
-                center = center, radius = r), radius = r, center = center)
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Box(Modifier.size(emblem), contentAlignment = Alignment.Center) {
-                // Anillo: se dibuja una vuelta completa y luego gira despacio.
-                Canvas(Modifier.fillMaxSize().rotate(spin * ring.value)) {
-                    val stroke = 4.dp.toPx()
-                    val inset = stroke / 2 + 2.dp.toPx()
-                    val arcSize = Size(size.width - inset * 2, size.height - inset * 2)
-                    drawArc(Color.White.copy(alpha = 0.08f), 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
-                    drawArc(Brush.sweepGradient(listOf(t.primary, t.accent, t.secondary, t.primary)), -90f, 360f * ring.value, false,
-                        Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
-                }
-                // Disco interior con el logotipo completo (ajustado, nunca recortado).
-                Box(Modifier.size(emblem - 22.dp).clip(CircleShape)
-                    .background(Brush.radialGradient(listOf(t.surfaceVariant, t.surface, t.background)))
-                    .graphicsLayer { alpha = (ring.value * 1.4f).coerceAtMost(1f) },
-                    contentAlignment = Alignment.Center) {
-                    BrandLogo(brand.logoVariant, brand.logoUrl,
-                        Modifier.padding(emblem * 0.15f).fillMaxSize()
-                            .graphicsLayer {
-                                val e = logo.value
-                                alpha = e; val s = 0.7f + 0.3f * e; scaleX = s; scaleY = s
-                                compositingStrategy = CompositingStrategy.Offscreen
-                            }
-                            .drawWithContent {
-                                drawContent()
-                                val x = shine.value * size.width
-                                drawRect(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.6f), Color.Transparent),
-                                    start = Offset(x - size.width * 0.3f, 0f), end = Offset(x + size.width * 0.3f, size.height)),
-                                    blendMode = BlendMode.SrcAtop)
-                            })
+            // 2) Galaxia en espiral (brazos de puntos de los colores de la marca).
+            val g = galaxy.value
+            if (g > 0f) rotate(spin, c) {
+                for (arm in 0 until 3) for (k in 0 until 70) {
+                    val f = k / 70f
+                    val a = arm * 2.094f + f * 5.2f
+                    val rr = f * size.minDimension * 0.62f
+                    val col = if (k % 3 == 0) t.accent else if (arm == 1) t.secondary else t.primary
+                    drawCircle(col.copy(alpha = 0.55f * g * (1f - f * 0.8f)), radius = (2.6f - f * 1.6f) * density,
+                        center = Offset(c.x + cos(a) * rr, c.y + sin(a) * rr * 0.62f))
                 }
             }
-            Spacer(Modifier.height(26.dp))
-            Text(brand.appName.uppercase(), style = MaterialTheme.typography.headlineSmall.copy(letterSpacing = 6.sp), fontWeight = FontWeight.Bold,
-                color = t.onBackground, modifier = Modifier.graphicsLayer { alpha = text.value; translationY = (1f - text.value) * 12.dp.toPx() })
+            // Núcleo luminoso.
+            drawCircle(Brush.radialGradient(listOf(t.primary.copy(alpha = 0.35f * g), t.secondary.copy(alpha = 0.12f * g), Color.Transparent), center = c,
+                radius = size.minDimension * 0.5f), radius = size.minDimension * 0.5f, center = c)
+            // 3) Destello de llegada.
+            if (flash.value > 0f) drawCircle(Color.White.copy(alpha = 0.55f * flash.value), radius = size.maxDimension, center = c)
+        }
+        // 4) Órbitas con planetas alrededor del logotipo.
+        Canvas(Modifier.size(logoSize * 1.9f).graphicsLayer { alpha = logo.value }) {
+            val c = center
+            listOf(Triple(0.48f, 0.18f, -18f), Triple(0.40f, 0.12f, 24f)).forEachIndexed { i, (rx, ry, tilt) ->
+                rotate(tilt, c) {
+                    val ow = size.width * rx * 2; val oh = size.height * ry * 2
+                    drawOval(Brush.linearGradient(listOf(t.primary.copy(alpha = 0.7f), t.accent.copy(alpha = 0.2f), t.secondary.copy(alpha = 0.7f))),
+                        topLeft = Offset(c.x - ow / 2, c.y - oh / 2), size = Size(ow, oh), style = Stroke(1.6f * density))
+                    val a = (orbit + i * 0.5f) * 6.283f * (if (i == 0) 1f else -1.3f)
+                    val p = Offset(c.x + cos(a) * ow / 2, c.y + sin(a) * oh / 2)
+                    drawCircle(if (i == 0) t.accent else t.primary, radius = (4.5f - i) * density, center = p)
+                    drawCircle(Color.White.copy(alpha = 0.6f), radius = 1.6f * density, center = p - Offset(1.2f * density, 1.2f * density))
+                }
+            }
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            BrandLogo(brand.logoVariant, brand.logoUrl,
+                Modifier.size(logoSize).graphicsLayer {
+                    val e = logo.value
+                    alpha = e; val s = 0.35f + 0.65f * e; scaleX = s; scaleY = s
+                    compositingStrategy = CompositingStrategy.Offscreen
+                }.drawWithContent {
+                    drawContent()
+                    val x = (logo.value * 1.8f - 0.4f) * size.width
+                    drawRect(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.5f), Color.Transparent),
+                        start = Offset(x - size.width * 0.3f, 0f), end = Offset(x + size.width * 0.3f, size.height)), blendMode = BlendMode.SrcAtop)
+                })
+            Spacer(Modifier.height(18.dp))
+            Text(stringResource(R.string.splash_welcome, brand.appName), style = MaterialTheme.typography.headlineSmall.copy(letterSpacing = 1.sp),
+                fontWeight = FontWeight.Bold, color = t.onBackground,
+                modifier = Modifier.graphicsLayer { alpha = text.value; translationY = (1f - text.value) * 14.dp.toPx() })
             Spacer(Modifier.height(6.dp))
-            Text(brand.tagline ?: stringResource(R.string.splash_welcome, brand.appName), style = MaterialTheme.typography.titleMedium.copy(letterSpacing = 0.8.sp),
-                color = t.onSurface, modifier = Modifier.graphicsLayer { alpha = text.value })
-            Spacer(Modifier.height(8.dp))
-            // Mensaje profesional que cambia con un fundido.
-            androidx.compose.animation.AnimatedContent(message.intValue, label = "splashMsg",
-                transitionSpec = { (androidx.compose.animation.fadeIn(tween(380)) + androidx.compose.animation.slideInVertically(tween(380)) { it / 2 }) togetherWith
-                    androidx.compose.animation.fadeOut(tween(260)) }) { i ->
+            Text(brand.tagline ?: stringResource(R.string.splash_universe), style = MaterialTheme.typography.titleSmall.copy(letterSpacing = 2.sp),
+                color = t.accent, modifier = Modifier.graphicsLayer { alpha = text.value })
+            Spacer(Modifier.height(10.dp))
+            AnimatedContent(message.intValue, label = "splashMsg",
+                transitionSpec = { (fadeIn(tween(320)) + slideInVertically(tween(320)) { it / 2 }) togetherWith fadeOut(tween(220)) }) { i ->
                 Text(messages[i.coerceIn(0, messages.lastIndex)], style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 1.2.sp),
-                    color = t.textSecondary, modifier = Modifier.graphicsLayer { alpha = text.value * 0.95f })
-            }
-            Spacer(Modifier.height(22.dp))
-            // Barra fina de carga.
-            Canvas(Modifier.width(120.dp).height(3.dp).graphicsLayer { alpha = text.value }) {
-                val radius = CornerRadius(size.height / 2)
-                drawRoundRect(Color.White.copy(alpha = 0.12f), cornerRadius = radius)
-                val w = size.width * 0.35f
-                val x0 = ((size.width + w) * loader - w).coerceAtLeast(0f)
-                val x1 = ((size.width + w) * loader).coerceAtMost(size.width)
-                if (x1 > x0) drawRoundRect(Brush.horizontalGradient(listOf(t.primary, t.accent)), topLeft = Offset(x0, 0f),
-                    size = Size(x1 - x0, size.height), cornerRadius = radius)
+                    color = t.textSecondary, modifier = Modifier.graphicsLayer { alpha = text.value })
             }
         }
     }

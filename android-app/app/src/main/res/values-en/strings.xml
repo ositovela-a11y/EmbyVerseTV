@@ -196,6 +196,8 @@
     <string name="profile_pin_enter">Enter this profile\'s PIN.</string>
     <string name="profiles_intro">Each profile has its own favorites, history and appearance on this device.</string>
     <string name="profiles_title">Profiles</string>
+    <string name="refresh_lists">Refresh</string>
+    <string name="refresh_running">Updating…</string>
     <string name="search_channels">Search channels</string>
     <string name="search_everything">Channels, movies or series</string>
     <string name="search_in">Search in %1$s</string>
@@ -254,10 +256,12 @@
     <string name="splash_msg_2">Connecting to your secure server…</string>
     <string name="splash_msg_3">Loading your channels, movies and series…</string>
     <string name="splash_msg_4">All set. Enjoy!</string>
+    <string name="splash_universe">YOUR ENTERTAINMENT UNIVERSE</string>
     <string name="splash_welcome">Welcome to %1$s</string>
     <string name="spotlight_hint">Move through the titles to see their details here.</string>
     <string name="support_default">Contact whoever provided you with the app.</string>
     <string name="support_title">Support</string>
+    <string name="tpl_collections">Collections</string>
     <string name="tpl_new_badge">NEW</string>
     <string name="tpl_spotlight">Featured for you</string>
     <string name="tpl_top10">Today\'s Top 10</string>
