@@ -176,7 +176,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                     // Fondo de temporada activado desde el panel (Navidad, Halloween, Día de Muertos, Mundial).
-                    if (splashDone) com.embyverse.app.ui.components.Season.of(config.texts["season"])?.let { com.embyverse.app.ui.components.SeasonOverlay(it) }
+                    if (splashDone) com.embyverse.app.ui.components.SeasonLayer(config.texts)
                     // Protector de pantalla propio tras 5 min sin usar el control (en los menús).
                     val pb by container.prefs.playback.collectAsStateWithLifecycle(initialValue = null)
                     val tick by idleTick.collectAsStateWithLifecycle()

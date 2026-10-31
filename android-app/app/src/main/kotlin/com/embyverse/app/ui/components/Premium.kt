@@ -91,12 +91,61 @@ fun Modifier.kenBurns(): Modifier {
     }
 }
 
-/** Temporadas que se activan desde el panel (texto «season»). */
-enum class Season(val key: String) { NAVIDAD("navidad"), HALLOWEEN("halloween"), MUERTOS("muertos"), MUNDIAL("mundial");
-    companion object { fun of(v: String?) = entries.firstOrNull { it.key == v?.trim()?.lowercase() } }
+/**
+ * Fondos animados que se eligen desde el panel (texto «season»):
+ *  - uno fijo (p. ej. «cine»),
+ *  - «rotar»: cambia solo entre los fondos generales cada «season.every» horas (3 por defecto),
+ *  - «auto»: en fechas especiales pone el de la fecha (Navidad, Halloween, Muertos, Patrias…) y el resto
+ *    del tiempo rota entre los generales.
+ */
+enum class Season(val key: String, val general: Boolean) {
+    CINE("cine", true), PALOMITAS("palomitas", true), GALAXIA("galaxia", true), ESTRELLAS("estrellas", true),
+    DEPORTES("deportes", true), MUSICA("musica", true), PRIMAVERA("primavera", true), VERANO("verano", true), BURBUJAS("burbujas", true),
+    NAVIDAD("navidad", false), ANO_NUEVO("anonuevo", false), SAN_VALENTIN("sanvalentin", false), PATRIAS("patrias", false),
+    HALLOWEEN("halloween", false), MUERTOS("muertos", false), MUNDIAL("mundial", false);
+
+    companion object {
+        fun of(v: String?) = entries.firstOrNull { it.key == v?.trim()?.lowercase() }
+
+        /** Fecha especial de hoy (si la hay). */
+        fun holiday(cal: java.util.Calendar): Season? {
+            val m = cal.get(java.util.Calendar.MONTH) + 1; val d = cal.get(java.util.Calendar.DAY_OF_MONTH)
+            return when {
+                m == 12 && d == 31 || m == 1 && d <= 2 -> ANO_NUEVO
+                m == 12 -> NAVIDAD
+                m == 2 && d in 10..14 -> SAN_VALENTIN
+                m == 9 && d in 10..16 -> PATRIAS
+                m == 10 && d >= 24 -> HALLOWEEN
+                m == 11 && d <= 2 -> MUERTOS
+                else -> null
+            }
+        }
+
+        fun resolve(texts: Map<String, String>, now: Long = System.currentTimeMillis()): Season? {
+            val v = texts["season"]?.trim()?.lowercase().orEmpty()
+            val every = (texts["season.every"]?.trim()?.toIntOrNull() ?: 3).coerceIn(1, 48)
+            val general = entries.filter { it.general }
+            val rotating = general[((now / (every * 3_600_000L)) % general.size).toInt()]
+            return when (v) {
+                "" , "ninguna", "none" -> null
+                "rotar" -> rotating
+                "auto" -> holiday(java.util.Calendar.getInstance().apply { timeInMillis = now }) ?: rotating
+                else -> of(v)
+            }
+        }
+    }
 }
 
-/** Partículas ligeras sobre el fondo (nieve, murciélagos, cempasúchil, balones). No captura toques. */
+/** Fondo animado según el panel; se revisa cada minuto (para la rotación y las fechas). */
+@Composable
+fun SeasonLayer(texts: Map<String, String>) {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) { while (true) { delay(60_000); now = System.currentTimeMillis() } }
+    val season = remember(texts, now / 60_000) { Season.resolve(texts, now) } ?: return
+    AnimatedContent(season, transitionSpec = { fadeIn(tween(1500)) togetherWith fadeOut(tween(1500)) }, label = "season") { SeasonOverlay(it) }
+}
+
+/** Partículas ligeras sobre el fondo. No captura toques. */
 @Composable
 fun SeasonOverlay(season: Season, modifier: Modifier = Modifier) {
     val t = LocalEmby.current
@@ -104,34 +153,59 @@ fun SeasonOverlay(season: Season, modifier: Modifier = Modifier) {
     val seeds = remember(season) { List(n) { Triple(Random.nextFloat(), Random.nextFloat(), 0.6f + Random.nextFloat() * 0.8f) } }
     var now by remember { mutableLongStateOf(0L) }
     LaunchedEffect(season) { val s = System.currentTimeMillis(); while (true) { now = System.currentTimeMillis() - s; delay(50) } }
+    // Cómo se mueven: caen, suben (burbujas, globos, corazones) o titilan en su lugar (estrellas).
+    val rises = season in setOf(Season.BURBUJAS, Season.SAN_VALENTIN, Season.MUSICA, Season.ANO_NUEVO)
+    val twinkle = season in setOf(Season.GALAXIA, Season.ESTRELLAS)
+    val confetti = season in setOf(Season.MUNDIAL, Season.PATRIAS, Season.ANO_NUEVO)
     val glyphs = when (season) {
         Season.NAVIDAD -> listOf("❄", "❅", "•")
         Season.HALLOWEEN -> listOf("🦇", "🎃", "🕸")
         Season.MUERTOS -> listOf("🌼", "💀", "🕯")
         Season.MUNDIAL -> listOf("⚽", "🏆", "🎉")
+        Season.CINE -> listOf("🎬", "🎞", "⭐", "🎥")
+        Season.PALOMITAS -> listOf("🍿", "🥤", "🎟")
+        Season.GALAXIA -> listOf("✦", "✧", "🪐", "☄")
+        Season.ESTRELLAS -> listOf("✦", "✧", "⋆")
+        Season.DEPORTES -> listOf("⚽", "🏀", "🏈", "⚾", "🎾")
+        Season.MUSICA -> listOf("🎵", "🎶", "🎧")
+        Season.PRIMAVERA -> listOf("🌸", "🦋", "🌼")
+        Season.VERANO -> listOf("🌴", "☀", "🏖", "🍉")
+        Season.BURBUJAS -> listOf("○", "◦", "○")
+        Season.ANO_NUEVO -> listOf("🎆", "🎇", "✨", "🥂")
+        Season.SAN_VALENTIN -> listOf("❤", "💕", "💖")
+        Season.PATRIAS -> listOf("🎉", "🎊", "⭐")
     }
+    val confettiColors = if (season == Season.PATRIAS) listOf(Color(0xFF006847), Color.White, Color(0xFFCE1126))
+        else listOf(Color(0xFFFFC107), Color(0xFF29B6F6), Color(0xFFEF5350), Color(0xFF66BB6A), Color(0xFFAB47BC))
     val paint = remember { android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG) }
     Canvas(modifier.fillMaxSize().testTag("season_overlay")) {
-        // Papel picado (Día de Muertos) arriba: banderitas de colores.
-        if (season == Season.MUERTOS) {
-            val colors = listOf(Color(0xFFFF4FA3), Color(0xFFFFB300), Color(0xFF7C4DFF), Color(0xFF00C2A8), Color(0xFFFF6D00))
+        val secs = now / 1000f
+        // Papel picado (Día de Muertos / Fiestas Patrias) arriba: banderitas de colores.
+        if (season == Season.MUERTOS || season == Season.PATRIAS) {
+            val colors = if (season == Season.PATRIAS) listOf(Color(0xFF006847), Color.White, Color(0xFFCE1126))
+                else listOf(Color(0xFFFF4FA3), Color(0xFFFFB300), Color(0xFF7C4DFF), Color(0xFF00C2A8), Color(0xFFFF6D00))
             val flags = 14; val w = size.width / flags
             repeat(flags) { i ->
                 drawRect(colors[i % colors.size].copy(alpha = 0.32f), Offset(i * w + 2f, 0f), androidx.compose.ui.geometry.Size(w - 4f, 26.dp.toPx()))
             }
         }
         seeds.forEachIndexed { i, (x0, y0, speed) ->
-            val fall = (now / 1000f) * 0.035f * speed
-            val y = ((y0 + fall) % 1.1f) - 0.05f
-            val x = x0 + sin((now / 1000f) * speed + i) * 0.02f
+            val travel = secs * 0.035f * speed
+            val y = if (twinkle) y0 else if (rises) 1.05f - ((y0 + travel) % 1.1f) else ((y0 + travel) % 1.1f) - 0.05f
+            val x = x0 + (if (twinkle) 0f else sin(secs * speed + i) * 0.02f)
             val px = 14.dp.toPx() * speed
-            if (season == Season.NAVIDAD && i % 3 == 2) {
-                drawCircle(Color.White.copy(alpha = 0.55f), px * 0.25f, Offset(x * size.width, y * size.height))
-            } else {
-                paint.textSize = px * (if (season == Season.NAVIDAD) 1.1f else 1.4f)
-                paint.alpha = if (season == Season.NAVIDAD) 150 else 120
-                paint.color = android.graphics.Color.argb(paint.alpha, 255, 255, 255)
-                drawContext.canvas.nativeCanvas.drawText(glyphs[i % glyphs.size], x * size.width, y * size.height, paint)
+            val alpha = if (twinkle) (0.25f + 0.75f * ((sin(secs * 2f * speed + i * 1.7f) + 1f) / 2f)) else 1f
+            when {
+                confetti && i % 2 == 0 -> drawRect(confettiColors[i % confettiColors.size].copy(alpha = 0.55f),
+                    Offset(x * size.width, y * size.height), androidx.compose.ui.geometry.Size(px * 0.45f, px * 0.75f * (0.4f + 0.6f * kotlin.math.abs(sin(secs * 3 * speed + i)))))
+                (season == Season.NAVIDAD || season == Season.ESTRELLAS) && i % 3 == 2 ->
+                    drawCircle(Color.White.copy(alpha = 0.55f * alpha), px * 0.25f, Offset(x * size.width, y * size.height))
+                else -> {
+                    paint.textSize = px * (if (season == Season.NAVIDAD || twinkle || season == Season.BURBUJAS) 1.1f else 1.4f)
+                    val a = ((if (season == Season.NAVIDAD || twinkle || season == Season.BURBUJAS) 150 else 115) * alpha).toInt()
+                    paint.color = android.graphics.Color.argb(a, 255, 255, 255)
+                    drawContext.canvas.nativeCanvas.drawText(glyphs[i % glyphs.size], x * size.width, y * size.height, paint)
+                }
             }
         }
     }

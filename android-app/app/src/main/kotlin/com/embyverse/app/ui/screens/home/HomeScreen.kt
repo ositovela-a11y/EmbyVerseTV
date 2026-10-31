@@ -547,7 +547,7 @@ private fun HubTiles(nav: Navigator) {
     val t = LocalEmby.current
     data class Tile(val label: Int, val icon: androidx.compose.ui.graphics.vector.ImageVector, val route: String)
     val tiles = com.embyverse.app.ui.navigation.TOP.filter { it.route != Routes.HOME }.map { Tile(it.label, it.icon, it.route) } +
-        Tile(R.string.guide_title, Icons.Rounded.CalendarViewWeek, Routes.GUIDE) + Tile(R.string.multiview_title, Icons.Rounded.GridView, Routes.MULTIVIEW)
+        Tile(R.string.guide_title, Icons.Rounded.CalendarViewWeek, Routes.GUIDE)
     val cols = if (t.device.isTv) 3 else 2
     Column(Modifier.padding(horizontal = t.screenPadding, vertical = 6.dp).testTag("tpl_hub"), verticalArrangement = Arrangement.spacedBy(t.cardGap)) {
         tiles.chunked(cols).forEachIndexed { r, row ->

@@ -151,16 +151,19 @@ private fun FolderColumn(folders: List<Folder>, selected: String, onSelect: (Str
         val i = folders.indexOfFirst { it.key == selected }
         if (i > 2) state.scrollToItem(i - 2)
     }
-    LazyColumn(state = state, modifier = modifier.testTag("folders").focusRestorer(restore),
-        contentPadding = PaddingValues(start = t.screenPadding, end = 8.dp, top = 8.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    // En TV el foco empieza en la carpeta actual (no en el buscador: así no se abre el teclado solo).
+    androidx.compose.runtime.LaunchedEffect(Unit) { if (t.device.isTv) { kotlinx.coroutines.delay(250); runCatching { restore.requestFocus() } } }
+    LazyColumn(state = state, modifier = modifier.padding(start = t.screenPadding * 0.5f, end = 8.dp, bottom = 12.dp)
+        .background(t.surface.copy(alpha = 0.55f), RoundedCornerShape(t.cardRadius)).testTag("folders").focusRestorer(restore),
+        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         items(folders, key = { it.key }, contentType = { 0 }) { f ->
             val isSel = f.key == selected
             FocusableSurface(onClick = { pending = null; onSelect(f.key) }, focusScale = 1f,
                 modifier = Modifier.fillMaxWidth().testTag(if (f.key == KEY_ALL) "folder_all" else "folder")
                     .then(if (isSel) Modifier.focusRequester(restore) else Modifier)
                     .onFocusChanged { if (it.isFocused && f.key != KEY_LOCK) pending = f.key }) { focused ->
-                Row(Modifier.fillMaxWidth().background(when { focused -> t.primary.copy(alpha = 0.28f); isSel -> t.surfaceVariant; else -> Color.Transparent })
-                    .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().background(when { focused -> t.primary.copy(alpha = 0.32f); isSel -> t.surfaceVariant; else -> Color.Transparent }, RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(width = 3.dp, height = 18.dp).background(if (isSel) t.primary else Color.Transparent))
                     Spacer(Modifier.width(10.dp))
                     Text(f.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -257,24 +260,21 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
 
     Column(Modifier.fillMaxSize()) {
         if (t.device.isTv) {
-            Row(Modifier.statusBarsPadding().padding(end = t.screenPadding), verticalAlignment = Alignment.CenterVertically) {
-                ScreenTitle(stringResource(R.string.nav_live), Modifier.weight(1f))
-                com.embyverse.app.ui.components.Clock(Modifier.padding(end = 16.dp))
-                com.embyverse.app.ui.components.RefreshListsButton(Modifier.padding(end = 12.dp))
+            // Título en una sola línea (antes se apretaba y salía letra por letra) y botones a la derecha.
+            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(end = t.screenPadding, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.nav_live), style = MaterialTheme.typography.headlineMedium, color = t.onBackground, maxLines = 1, softWrap = false,
+                    modifier = Modifier.padding(horizontal = t.screenPadding))
+                com.embyverse.app.ui.components.Clock(Modifier.padding(end = 12.dp))
+                Spacer(Modifier.weight(1f))
+                com.embyverse.app.ui.components.RefreshListsButton(Modifier.padding(end = 10.dp))
                 com.embyverse.app.ui.components.EmbyButton(stringResource(R.string.guide_title), { nav.go(Routes.GUIDE) }, icon = Icons.Rounded.CalendarViewWeek, secondary = true)
-                Spacer(Modifier.width(12.dp))
-                com.embyverse.app.ui.components.EmbyButton(stringResource(R.string.multiview_title), { nav.go(Routes.MULTIVIEW) }, icon = Icons.Rounded.GridView, secondary = true,
-                    modifier = Modifier.testTag("open_multiview"))
-                Spacer(Modifier.width(12.dp))
-                SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_channels), Modifier.width(360.dp))
+                Spacer(Modifier.width(10.dp))
+                SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_channels), Modifier.width(300.dp))
             }
         } else {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ScreenTitle(stringResource(R.string.nav_live), Modifier.weight(1f))
                 com.embyverse.app.ui.components.RefreshListsButton(Modifier.statusBarsPadding(), compact = true)
-                IconButton(onClick = { nav.go(Routes.MULTIVIEW) }, modifier = Modifier.statusBarsPadding().testTag("open_multiview")) {
-                    Icon(Icons.Rounded.GridView, stringResource(R.string.multiview_title), tint = t.onBackground)
-                }
                 IconButton(onClick = { nav.go(Routes.GUIDE) }, modifier = Modifier.statusBarsPadding().padding(end = 8.dp).testTag("open_guide")) {
                     Icon(Icons.Rounded.CalendarViewWeek, stringResource(R.string.guide_title), tint = t.onBackground)
                 }
@@ -284,7 +284,7 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
             FolderRow(folders, selectedFolder, onFolder)
         }
         Row(Modifier.fillMaxSize()) {
-            if (t.device.isTv) FolderColumn(folders, selectedFolder, onFolder, Modifier.width(210.dp).fillMaxHeight())
+            if (t.device.isTv) FolderColumn(folders, selectedFolder, onFolder, Modifier.width(270.dp).fillMaxHeight())
             androidx.compose.foundation.layout.BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()) {
                 // Lista de canales con espacio para el nombre completo; vista previa + ficha ≈ 40 % del ancho.
                 val sideW = (maxWidth * 0.42f).coerceIn(300.dp, 480.dp)

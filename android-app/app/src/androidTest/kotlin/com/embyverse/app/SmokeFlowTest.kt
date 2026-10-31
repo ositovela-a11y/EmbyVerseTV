@@ -341,27 +341,18 @@ class SmokeFlowTest {
                 runCatching { c.library.deleteProfile(kid) }
             }
         }
-        // Multivista: aviso de conexiones y 2 ventanas con canales.
+        // Fondos animados: rotación y fechas especiales.
+        val rot = com.embyverse.app.ui.components.Season.resolve(mapOf("season" to "rotar", "season.every" to "1"))
+        assertTrue("rotar elige un fondo general", rot != null && rot.general)
+        val xmas = java.util.Calendar.getInstance().apply { set(2026, 11, 20) }
+        assertTrue("auto en diciembre = Navidad", com.embyverse.app.ui.components.Season.holiday(xmas) == com.embyverse.app.ui.components.Season.NAVIDAD)
+        // TV en vivo: abre con carpetas y sin cierres.
         ActivityScenario.launch(MainActivity::class.java).use {
             waitTag("nav_live", 30_000)
             compose.onNodeWithTag("nav_live", useUnmergedTree = true).performClick()
-            waitTag("open_multiview", 20_000)
-            compose.onNodeWithTag("open_multiview", useUnmergedTree = true).performClick()
-            waitTag("multiview_ok", 10_000)
-            compose.onNodeWithTag("multiview_ok", useUnmergedTree = true).performClick()
-            for (slot in 0..1) {
-                waitTag("mv_slot_$slot", 10_000)
-                compose.onNodeWithTag("mv_slot_$slot", useUnmergedTree = true).performClick()
-                compose.waitUntil(20_000) { compose.onAllNodes(hasClickAction() and hasAnyAncestor(isDialog())).fetchSemanticsNodes().size >= 3 }
-                Thread.sleep(1_500)
-                compose.onAllNodes(hasClickAction()).fetchSemanticsNodes().size.let { log("multivista: $it elementos pulsables en el selector") }
-                // Primer canal de la lista del selector.
-                val nodes = compose.onAllNodes(hasClickAction() and hasAnyAncestor(isDialog()))
-                nodes[1].performClick()
-                Thread.sleep(2_000)
-            }
-            Thread.sleep(6_000); shot("multivista")
-            log("Multivista: 2 ventanas abiertas sin cierres")
+            waitTag("open_guide", 20_000)
+            Thread.sleep(2_000); shot("tv-en-vivo")
+            log("TV en vivo: encabezado y carpetas sin cierres")
         }
     }
 
