@@ -39,12 +39,64 @@ import kotlinx.coroutines.flow.map
 class MainActivity : AppCompatActivity() {
     private val repeatGate = com.embyverse.app.ui.KeyRepeatGate()
 
+    // ---- Protector de pantalla propio y sonidos de navegación ----
+    private val idleTick = kotlinx.coroutines.flow.MutableStateFlow(0L)
+    private val screensaverOn = kotlinx.coroutines.flow.MutableStateFlow(false)
+    private var swallowUp = false
+    private var navSounds = false
+    private var sounds: android.media.SoundPool? = null
+    private var sMove = 0
+    private var sSelect = 0
+
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
         onUserInput()
-        return if (repeatGate.shouldDrop(event)) true else super.dispatchKeyEvent(event)
+        // Cualquier tecla cierra el protector de pantalla (y no hace nada más).
+        if (screensaverOn.value && event.action == android.view.KeyEvent.ACTION_DOWN) { screensaverOn.value = false; swallowUp = true; return true }
+        if (swallowUp && event.action == android.view.KeyEvent.ACTION_UP) { swallowUp = false; return true }
+        if (repeatGate.shouldDrop(event)) return true
+        if (navSounds && event.action == android.view.KeyEvent.ACTION_DOWN && event.repeatCount % 3 == 0) {
+            when (event.keyCode) {
+                android.view.KeyEvent.KEYCODE_DPAD_UP, android.view.KeyEvent.KEYCODE_DPAD_DOWN, android.view.KeyEvent.KEYCODE_DPAD_LEFT,
+                android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> sounds?.play(sMove, 0.35f, 0.35f, 0, 0, 1f)
+                android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER -> if (event.repeatCount == 0) sounds?.play(sSelect, 0.4f, 0.4f, 0, 0, 1f)
+            }
+        }
+        return super.dispatchKeyEvent(event)
     }
 
-    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean { onUserInput(); return super.dispatchTouchEvent(ev) }
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        onUserInput()
+        if (screensaverOn.value) { if (ev.action == android.view.MotionEvent.ACTION_UP) screensaverOn.value = false; return true }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun setupNavSounds(container: com.embyverse.app.di.AppContainer) {
+        val tv = packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
+        if (!tv) return
+        lifecycleScope.launch {
+            container.prefs.playback.collect { p ->
+                navSounds = p.navSounds
+                if (p.navSounds && sounds == null) runCatching {
+                    sounds = android.media.SoundPool.Builder().setMaxStreams(2).setAudioAttributes(android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_ASSISTANCE_SONIFICATION).setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION).build()).build()
+                        .also { sp -> sMove = sp.load(this@MainActivity, R.raw.nav_move, 1); sSelect = sp.load(this@MainActivity, R.raw.nav_select, 1) }
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() { sounds?.release(); sounds = null; super.onDestroy() }
+
+    /** «Ver ahora» de un recordatorio: abre directo el canal. */
+    private fun handlePlayIntent(intent: android.content.Intent?) {
+        val sid = intent?.getStringExtra(com.embyverse.app.data.repo.Reminders.EXTRA_SOURCE) ?: return
+        val cid = intent.getStringExtra(com.embyverse.app.data.repo.Reminders.EXTRA_CHANNEL) ?: return
+        intent.removeExtra(com.embyverse.app.data.repo.Reminders.EXTRA_SOURCE)
+        com.embyverse.app.data.repo.Reminders.due.value = null
+        com.embyverse.app.player.PlayerActivity.start(this, com.embyverse.app.data.repo.ItemRef(com.embyverse.core.model.ContentKind.LIVE, sid, cid))
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) { super.onNewIntent(intent); handlePlayIntent(intent) }
 
     // ---- Pantalla encendida en los menús ----
     // Android TV activa el protector de pantalla (o apaga la TV) tras unos minutos sin tocar el control.
@@ -55,6 +107,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun onUserInput() {
         lastInput = android.os.SystemClock.uptimeMillis()
+        idleTick.value = lastInput
         window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
@@ -80,13 +133,22 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         val container = (application as EmbyVerseApp).container
         startAwakeWatcher(container)
+        setupNavSounds(container)
+        if (savedInstanceState == null) handlePlayIntent(intent)
         setContent {
             CompositionLocalProvider(LocalAppContainer provides container) {
                 val config by container.config.config.collectAsStateWithLifecycle()
                 val profile by container.prefs.activeProfileId.collectAsStateWithLifecycle(initialValue = 1L)
                 val appearanceFlow = remember(profile) { container.prefs.appearance(profile) }
                 val appearance by appearanceFlow.collectAsStateWithLifecycle(initialValue = UserAppearance.ORIGINAL)
-                val theme = remember(config, appearance) { ConfigResolver.theme(config, appearance) }
+                val kidsFlow = remember { container.parental.activeLock.map { it.second.kids } }
+                val kids by kidsFlow.collectAsStateWithLifecycle(initialValue = false)
+                val theme = remember(config, appearance, kids) {
+                    ConfigResolver.theme(config, appearance).let { base ->
+                        // Perfil infantil: estilo alegre (naranja, tarjetas grandes) sin importar el tema elegido.
+                        if (kids) com.embyverse.core.config.STYLE_THEMES.firstOrNull { it.id == "naranja" }?.transform?.invoke(base) ?: base else base
+                    }
+                }
                 val hasSourcesFlow = remember { container.sources.sources.map { it.isNotEmpty() } }
                 val hasSources by hasSourcesFlow.collectAsStateWithLifecycle(initialValue = null)
                 var splashDone by rememberSaveable { mutableStateOf(false) }
@@ -112,6 +174,31 @@ class MainActivity : AppCompatActivity() {
                                 AppShell(startOnboarding, config.brand.logoVariant, config.brand.logoUrl)
                             }
                         }
+                    }
+                    // Fondo de temporada activado desde el panel (Navidad, Halloween, Día de Muertos, Mundial).
+                    if (splashDone) com.embyverse.app.ui.components.Season.of(config.texts["season"])?.let { com.embyverse.app.ui.components.SeasonOverlay(it) }
+                    // Protector de pantalla propio tras 5 min sin usar el control (en los menús).
+                    val pb by container.prefs.playback.collectAsStateWithLifecycle(initialValue = null)
+                    val tick by idleTick.collectAsStateWithLifecycle()
+                    val ssOn by screensaverOn.collectAsStateWithLifecycle()
+                    androidx.compose.runtime.LaunchedEffect(tick, pb?.screensaver, splashDone) {
+                        if (splashDone && pb?.screensaver == true) { kotlinx.coroutines.delay(5 * 60_000L); screensaverOn.value = true }
+                    }
+                    if (ssOn) com.embyverse.app.ui.components.Screensaver()
+                    // Recordatorio de partido: aviso dentro de la app con «Ver ahora».
+                    val due by com.embyverse.app.data.repo.Reminders.due.collectAsStateWithLifecycle()
+                    due?.let { d ->
+                        androidx.compose.material3.AlertDialog(
+                            onDismissRequest = { com.embyverse.app.data.repo.Reminders.due.value = null },
+                            title = { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.reminder_title, com.embyverse.app.data.repo.Reminders.BEFORE_MIN)) },
+                            text = { androidx.compose.material3.Text(d.title) },
+                            confirmButton = { androidx.compose.material3.TextButton(onClick = {
+                                com.embyverse.app.data.repo.Reminders.due.value = null
+                                com.embyverse.app.player.PlayerActivity.start(this@MainActivity, com.embyverse.app.data.repo.ItemRef(com.embyverse.core.model.ContentKind.LIVE, d.sourceId, d.channelId))
+                            }) { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.action_watch)) } },
+                            dismissButton = { androidx.compose.material3.TextButton(onClick = { com.embyverse.app.data.repo.Reminders.due.value = null }) {
+                                androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.action_close)) } },
+                        )
                     }
                     crash?.let { report -> CrashDialog(report) { crash = null } }
                     // Versión nueva de la app: se ofrece al abrir o al recuperar internet.

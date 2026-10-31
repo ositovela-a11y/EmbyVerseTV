@@ -445,3 +445,42 @@ export function TextsPanel({ ed, canEdit }: PanelProps) {
     </Group>
   );
 }
+
+
+const SEASONS = [
+  { value: '', label: 'Ninguna' }, { value: 'navidad', label: 'Navidad (nieve)' }, { value: 'halloween', label: 'Halloween (murciélagos y calabazas)' },
+  { value: 'muertos', label: 'Día de Muertos (cempasúchil y papel picado)' }, { value: 'mundial', label: 'Mundial / fútbol (balones y confeti)' },
+] as const;
+
+/** Fondo de temporada, evento destacado (con cuenta regresiva) y número de WhatsApp de soporte. Todo va en «texts». */
+export function PremiumPanel({ ed, canEdit }: PanelProps) {
+  const t = ed.config.texts;
+  const set = (k: string, v: string, key?: string) => ed.update((d) => { const x = v.trim(); if (x) d.texts[k] = x; else delete d.texts[k]; }, key ?? `tx-${k}`);
+  const start = t['event.start'] ?? '';
+  const local = start;
+  const wa = t['support.whatsapp'] ?? '';
+  return (
+    <>
+      <Group title="Fondo de temporada" hint="Animación ligera encima del fondo de la app (Navidad, Halloween, Día de Muertos, Mundial). Se activa en todas las apps al publicar.">
+        <Select label="Temporada" value={(t['season'] ?? '') as string} options={SEASONS.map((s) => ({ value: s.value as string, label: s.label }))} disabled={!canEdit}
+          onChange={(v) => set('season', v, 'season')} />
+      </Group>
+      <Group title="Evento destacado" hint="Tarjeta grande en el inicio con cuenta regresiva y los canales que lo transmiten (se buscan por las palabras que pongas). Desaparece 3 horas después de empezar.">
+        <TextField label="Título" value={t['event.title'] ?? ''} max={80} placeholder="Final: México vs Brasil" disabled={!canEdit} onChange={(v) => set('event.title', v)} />
+        <TextField label="Subtítulo" value={t['event.subtitle'] ?? ''} max={120} placeholder="En vivo por tus canales deportivos" disabled={!canEdit} onChange={(v) => set('event.subtitle', v)} />
+        <div className="field"><label>Fecha y hora de inicio</label>
+          <input type="datetime-local" value={local ? toLocalInput(start) : ''} disabled={!canEdit}
+            onChange={(e) => set('event.start', e.target.value ? new Date(e.target.value).toISOString() : '', 'event.start')} /></div>
+        <TextField label="Imagen (URL, opcional)" value={t['event.image'] ?? ''} max={400} placeholder="https://…/banner.jpg" disabled={!canEdit} onChange={(v) => set('event.image', v)} />
+        {t['event.image'] && !/^https:\/\//i.test(t['event.image']) && <Notice kind="error">La imagen debe empezar por https://</Notice>}
+        <TextField label="Palabras para encontrar los canales" value={t['event.channels'] ?? ''} max={200} placeholder="tudn, espn, fox sports" disabled={!canEdit} onChange={(v) => set('event.channels', v)} />
+        <p className="hint">Separa con comas. Se muestran los canales cuyo nombre contenga alguna palabra.</p>
+      </Group>
+      <Group title="Ayuda por WhatsApp" hint="Botón «Ayuda» en Ajustes: abre WhatsApp con un reporte (versión, dispositivo, red, cuenta) para que puedas atender rápido. Nunca envía la contraseña.">
+        <TextField label="Número con lada (solo dígitos)" value={wa} max={20} placeholder="5215512345678" disabled={!canEdit} onChange={(v) => set('support.whatsapp', v.replace(/[^0-9]/g, ''), 'wa')} />
+        {wa && wa.length < 10 && <Notice kind="error">Escribe el número completo con lada de país (p. ej. 52 + 10 dígitos).</Notice>}
+      </Group>
+    </>
+  );
+}
+

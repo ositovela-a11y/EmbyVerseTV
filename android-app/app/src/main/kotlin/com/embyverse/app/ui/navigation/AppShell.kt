@@ -87,7 +87,7 @@ object Routes {
     const val SEARCH = "search"; const val SETTINGS = "settings"; const val SOURCES = "sources"; const val FAVORITES = "favorites"
     const val SOURCE_EDIT = "source_edit?id={id}&first={first}"
     const val MOVIE = "movie/{sid}/{id}"; const val SERIES_DETAIL = "series_detail/{sid}/{id}"
-    const val APPEARANCE = "appearance"; const val PLAYBACK = "playback"; const val ABOUT = "about"; const val PRIVACY = "privacy"; const val PROFILES = "profiles"; const val PARENTAL = "parental"; const val GUIDE = "guide"
+    const val APPEARANCE = "appearance"; const val PLAYBACK = "playback"; const val ABOUT = "about"; const val PRIVACY = "privacy"; const val PROFILES = "profiles"; const val PARENTAL = "parental"; const val GUIDE = "guide"; const val MULTIVIEW = "multiview"
 
     fun sourceEdit(id: String? = null, first: Boolean = false) = "source_edit?id=${id?.let(Uri::encode) ?: ""}&first=$first"
     fun movie(sid: String, id: String) = "movie/${Uri.encode(sid)}/${Uri.encode(id)}"
@@ -182,8 +182,12 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
                     if (first) nav.navigate(Routes.HOME) { popUpTo(0) { inclusive = true } } else nav.popBackStack()
                 }
             }
-            composable(Routes.MOVIE) { MovieDetailScreen(navigator, Uri.decode(it.arguments?.getString("sid")!!), Uri.decode(it.arguments?.getString("id")!!)) }
-            composable(Routes.SERIES_DETAIL) { SeriesDetailScreen(navigator, Uri.decode(it.arguments?.getString("sid")!!), Uri.decode(it.arguments?.getString("id")!!)) }
+            composable(Routes.MOVIE, enterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(260)) +
+                androidx.compose.animation.scaleIn(androidx.compose.animation.core.tween(420, easing = androidx.compose.animation.core.FastOutSlowInEasing), initialScale = 0.86f) +
+                androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(420)) { it / 12 } }) { MovieDetailScreen(navigator, Uri.decode(it.arguments?.getString("sid")!!), Uri.decode(it.arguments?.getString("id")!!)) }
+            composable(Routes.SERIES_DETAIL, enterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(260)) +
+                androidx.compose.animation.scaleIn(androidx.compose.animation.core.tween(420, easing = androidx.compose.animation.core.FastOutSlowInEasing), initialScale = 0.86f) +
+                androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(420)) { it / 12 } }) { SeriesDetailScreen(navigator, Uri.decode(it.arguments?.getString("sid")!!), Uri.decode(it.arguments?.getString("id")!!)) }
             composable(Routes.APPEARANCE) { AppearanceScreen(navigator) }
             composable(Routes.PLAYBACK) { PlaybackSettingsScreen(navigator) }
             composable(Routes.ABOUT) { AboutScreen(navigator) }
@@ -191,6 +195,7 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
             composable(Routes.PROFILES) { ProfilesScreen(navigator) }
             composable(Routes.PARENTAL) { com.embyverse.app.ui.screens.settings.ParentalScreen(navigator) }
             composable(Routes.GUIDE) { com.embyverse.app.ui.screens.guide.GuideScreen(navigator) }
+            composable(Routes.MULTIVIEW) { com.embyverse.app.ui.screens.multiview.MultiviewScreen(navigator) }
         }
     }
 

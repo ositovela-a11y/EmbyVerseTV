@@ -90,6 +90,7 @@ fun ParentalScreen(nav: Navigator) {
                 item { EmbyButton(stringResource(R.string.parental_create_pin), { dialog = "create" }, modifier = Modifier.testTag("parental_create")) }
                 return@SettingsList
             }
+            item { SwitchRow(stringResource(R.string.kids_profile), stringResource(R.string.kids_profile_sub), lock.kids) { v -> update { it.copy(kids = v, pinOnEnter = if (v) it.pinOnEnter else it.pinOnEnter) } } }
             item { SwitchRow(stringResource(R.string.parental_adult), stringResource(R.string.parental_adult_sub), lock.blockAdult) { v -> update { it.copy(blockAdult = v) } } }
             item { SwitchRow(stringResource(R.string.parental_pin_on_enter), stringResource(R.string.parental_pin_on_enter_sub), lock.pinOnEnter) { v -> update { it.copy(pinOnEnter = v) } } }
             item {

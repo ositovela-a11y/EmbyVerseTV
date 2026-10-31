@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.CalendarViewWeek
+import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.LiveTv
@@ -262,12 +263,18 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
                 com.embyverse.app.ui.components.RefreshListsButton(Modifier.padding(end = 12.dp))
                 com.embyverse.app.ui.components.EmbyButton(stringResource(R.string.guide_title), { nav.go(Routes.GUIDE) }, icon = Icons.Rounded.CalendarViewWeek, secondary = true)
                 Spacer(Modifier.width(12.dp))
+                com.embyverse.app.ui.components.EmbyButton(stringResource(R.string.multiview_title), { nav.go(Routes.MULTIVIEW) }, icon = Icons.Rounded.GridView, secondary = true,
+                    modifier = Modifier.testTag("open_multiview"))
+                Spacer(Modifier.width(12.dp))
                 SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_channels), Modifier.width(360.dp))
             }
         } else {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ScreenTitle(stringResource(R.string.nav_live), Modifier.weight(1f))
                 com.embyverse.app.ui.components.RefreshListsButton(Modifier.statusBarsPadding(), compact = true)
+                IconButton(onClick = { nav.go(Routes.MULTIVIEW) }, modifier = Modifier.statusBarsPadding().testTag("open_multiview")) {
+                    Icon(Icons.Rounded.GridView, stringResource(R.string.multiview_title), tint = t.onBackground)
+                }
                 IconButton(onClick = { nav.go(Routes.GUIDE) }, modifier = Modifier.statusBarsPadding().padding(end = 8.dp).testTag("open_guide")) {
                     Icon(Icons.Rounded.CalendarViewWeek, stringResource(R.string.guide_title), tint = t.onBackground)
                 }

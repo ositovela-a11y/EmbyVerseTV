@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -89,6 +90,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 @Composable
 internal fun SettingsItem(icon: ImageVector, title: String, subtitle: String? = null, onClick: () -> Unit) {
@@ -133,6 +135,11 @@ internal fun SettingsList(content: androidx.compose.foundation.lazy.LazyListScop
 fun SettingsScreen(nav: Navigator) {
     var langDialog by remember { mutableStateOf(false) }
     val t = LocalEmby.current
+    val c = com.embyverse.app.ui.LocalAppContainer.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val cfg by c.config.config.collectAsStateWithLifecycle()
+    val helpNumber = cfg.texts["support.whatsapp"]?.filter(Char::isDigit)
     Column(Modifier.fillMaxSize()) {
         ScreenTitle(stringResource(R.string.nav_settings))
         SettingsList {
@@ -144,6 +151,11 @@ fun SettingsScreen(nav: Navigator) {
             item { SettingsItem(Icons.Rounded.Favorite, stringResource(R.string.favorites_title), stringResource(R.string.settings_favorites_sub)) { nav.go(Routes.FAVORITES) } }
             item { SettingsItem(Icons.Rounded.Language, stringResource(R.string.language_title), currentLanguageLabel()) { langDialog = true } }
             item { SettingsItem(Icons.Rounded.Policy, stringResource(R.string.privacy_title), null) { nav.go(Routes.PRIVACY) } }
+            if (!helpNumber.isNullOrBlank()) item {
+                SettingsItem(Icons.Rounded.SupportAgent, stringResource(R.string.help_whatsapp), stringResource(R.string.help_whatsapp_sub)) {
+                    scope.launch { openWhatsAppHelp(context, c, helpNumber) }
+                }
+            }
             item { SettingsItem(Icons.Rounded.Info, stringResource(R.string.about_title), stringResource(R.string.settings_about_sub, BuildConfig.VERSION_NAME)) { nav.go(Routes.ABOUT) } }
         }
     }
@@ -348,6 +360,8 @@ fun PlaybackSettingsScreen(nav: Navigator) {
             item { SwitchRow(stringResource(R.string.playback_reconnect), stringResource(R.string.playback_reconnect_sub), p.autoReconnect) { v -> vm.update { it.copy(autoReconnect = v) } } }
             item { SwitchRow(stringResource(R.string.playback_subtitles), null, p.subtitlesEnabled) { v -> vm.update { it.copy(subtitlesEnabled = v) } } }
             item { SwitchRow(stringResource(R.string.intro_sound), stringResource(R.string.intro_sound_sub), p.introSound) { v -> vm.update { it.copy(introSound = v) } } }
+            if (t.device.isTv) item { SwitchRow(stringResource(R.string.nav_sounds), stringResource(R.string.nav_sounds_sub), p.navSounds) { v -> vm.update { it.copy(navSounds = v) } } }
+            item { SwitchRow(stringResource(R.string.screensaver), stringResource(R.string.screensaver_sub), p.screensaver) { v -> vm.update { it.copy(screensaver = v) } } }
             item { Text(stringResource(R.string.menu_awake), style = MaterialTheme.typography.titleMedium, color = t.onBackground) }
             item { Text(stringResource(R.string.menu_awake_sub), style = MaterialTheme.typography.bodySmall, color = t.textSecondary) }
             item {
@@ -402,6 +416,17 @@ fun ProfilesScreen(nav: Navigator) {
     var askPin by remember { mutableStateOf<ProfileEntity?>(null) }
     val c = com.embyverse.app.ui.LocalAppContainer.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    // Perfil infantil con PIN: para cambiar de perfil hay que escribir el PIN (los niños no salen solos).
+    val kidsLockFlow = remember { c.parental.activeLock }
+    val kidsLock by kidsLockFlow.collectAsStateWithLifecycle(initialValue = null)
+    var kidsVerified by remember { mutableStateOf(false) }
+    val kl = kidsLock?.second
+    if (kl != null && kl.kids && kl.pin != null && !kidsVerified) {
+        com.embyverse.app.ui.components.PinDialog(stringResource(R.string.kids_profile), stringResource(R.string.kids_exit_pin), onDismiss = nav::back) { pin ->
+            (pin == kl.pin).also { if (it) kidsVerified = true }
+        }
+        return
+    }
     Column(Modifier.fillMaxSize()) {
         SubScreenTop(stringResource(R.string.profiles_title), nav::back)
         SettingsList {
@@ -549,4 +574,36 @@ fun PrivacyScreen(nav: Navigator) {
             }
         }
     }
+}
+
+
+/** Abre WhatsApp con un reporte del equipo para soporte. Nunca incluye contraseñas. */
+private suspend fun openWhatsAppHelp(context: android.content.Context, c: com.embyverse.app.di.AppContainer, number: String) {
+    val sources = c.sources.sources.first()
+    val channels = c.database.channels().observeCount().first()
+    val exp = c.prefs.sourceExpiries.first().values.minOrNull()
+    val cm = context.getSystemService(android.net.ConnectivityManager::class.java)
+    val caps = runCatching { cm.getNetworkCapabilities(cm.activeNetwork) }.getOrNull()
+    val net = when {
+        caps == null -> "sin internet"
+        caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) -> "cable"
+        caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+        caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) -> "datos móviles"
+        else -> "otra"
+    }
+    val tv = context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
+    val report = buildString {
+        appendLine("Hola, necesito ayuda con ${context.getString(R.string.app_name)}.")
+        appendLine()
+        appendLine("— Reporte automático —")
+        appendLine("Versión: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})${if (BuildConfig.VENDOR.isNotBlank()) " · ${BuildConfig.VENDOR}" else ""}")
+        appendLine("Equipo: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL} · Android ${android.os.Build.VERSION.RELEASE} · ${if (tv) "TV" else "celular/tableta"}")
+        appendLine("Red: $net")
+        sources.forEach { s -> appendLine("Cuenta: ${s.username ?: s.name} · última actualización: ${s.lastSyncAt?.let { java.text.DateFormat.getDateTimeInstance().format(java.util.Date(it)) } ?: "nunca"}") }
+        appendLine("Canales cargados: $channels")
+        exp?.let { appendLine("Vence: ${java.text.DateFormat.getDateInstance().format(java.util.Date(it * 1000))}") }
+    }
+    val uri = android.net.Uri.parse("https://wa.me/$number?text=" + android.net.Uri.encode(report))
+    runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        .onFailure { android.widget.Toast.makeText(context, "WhatsApp: +$number", android.widget.Toast.LENGTH_LONG).show() }
 }

@@ -73,6 +73,33 @@ class CatalogRepository(private val db: EmbyDatabase, private val hidden: Flow<S
         return Recommender.recommend(h, f, byKey.values.toList(), System.currentTimeMillis() / 1000, limit)
     }
 
+    /**
+     * «Porque viste X»: para lo último que vio el perfil (máx. [rows] títulos distintos), títulos del
+     * mismo género (o de la misma carpeta si no hay géneros) que aún no ha visto.
+     */
+    suspend fun becauseYouWatched(history: List<ProgressEntity>, rows: Int = 2, perRow: Int = 15): List<Pair<String, List<MediaCard>>> {
+        if (history.isEmpty()) return emptyList()
+        val movies = db.movies().candidates(1500)
+        val series = db.series().candidates(1500)
+        val all = movies.map { RecItem("MOVIE|${it.sourceId}|${it.providerId}", ContentKind.MOVIE, it.title, it.genres.split('|').filter(String::isNotBlank), it.category, it.rating, it.addedAt) } +
+            series.map { RecItem("SERIES|${it.sourceId}|${it.providerId}", ContentKind.SERIES, it.title, it.genres.split('|').filter(String::isNotBlank), it.category, it.rating, it.addedAt) }
+        val byKey = all.associateBy { it.key }
+        val seen = history.map { if (it.kind == "EPISODE" && it.seriesId != null) "SERIES|${it.sourceId}|${it.seriesId}" else "${it.kind}|${it.sourceId}|${it.itemId}" }
+        val seeds = seen.distinct().mapNotNull { byKey[it] }.take(rows)
+        val used = HashSet(seen)
+        return seeds.mapNotNull { seed ->
+            val g = seed.genres.map { it.lowercase().trim() }.toSet()
+            val similar = all.asSequence().filter { it.key !in used && it.kind == seed.kind }
+                .map { c -> c to (if (g.isNotEmpty()) c.genres.count { it.lowercase().trim() in g } * 2 else 0) + (if (c.category == seed.category) 1 else 0) }
+                .filter { it.second > 0 }
+                .sortedWith(compareByDescending<Pair<RecItem, Int>> { it.second }.thenByDescending { it.first.rating ?: 0.0 }.thenByDescending { it.first.addedAtEpochSeconds ?: 0 })
+                .take(perRow).map { it.first }.toList()
+            similar.forEach { used += it.key }
+            val cards = cardsFor(similar)
+            if (cards.size >= 4) seed.title to cards else null
+        }
+    }
+
     suspend fun cardsFor(recs: List<RecItem>): List<MediaCard> = recs.mapNotNull { r ->
         val (kind, src, id) = r.key.split('|', limit = 3)
         val h = hidden.first()

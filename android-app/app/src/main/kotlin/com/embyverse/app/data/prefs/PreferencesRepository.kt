@@ -32,6 +32,10 @@ data class PlaybackPrefs(
     val introSound: Boolean = true,
     /** Minutos que la pantalla sigue encendida en los menús sin tocar el control (-1 = siempre). */
     val menuAwakeMinutes: Int = 120,
+    /** Clic suave al navegar con el control (solo TV). */
+    val navSounds: Boolean = true,
+    /** Protector de pantalla propio en los menús tras 5 min sin usar el control. */
+    val screensaver: Boolean = true,
 )
 
 /**
@@ -44,6 +48,8 @@ data class ProfileLock(
     val blocked: Set<String> = emptySet(),
     val blockAdult: Boolean = false,
     val avatar: String? = null,
+    /** Perfil infantil: solo carpetas para niños, colores alegres y PIN para salir. */
+    val kids: Boolean = false,
 )
 
 /** Preferencias locales del dispositivo. Nada de esto se envía a ningún servidor. */
@@ -91,6 +97,8 @@ class PreferencesRepository(private val context: Context) {
     private val RECONNECT = booleanPreferencesKey("play.reconnect")
     private val INTRO_SOUND = booleanPreferencesKey("app.introSound")
     private val MENU_AWAKE = intPreferencesKey("app.menuAwake")
+    private val NAV_SOUNDS = booleanPreferencesKey("app.navSounds")
+    private val SCREENSAVER = booleanPreferencesKey("app.screensaver")
 
     val playback: Flow<PlaybackPrefs> = ds.data.map { p ->
         PlaybackPrefs(
@@ -103,6 +111,8 @@ class PreferencesRepository(private val context: Context) {
             autoReconnect = p[RECONNECT] ?: true,
             introSound = p[INTRO_SOUND] ?: true,
             menuAwakeMinutes = p[MENU_AWAKE] ?: 120,
+            navSounds = p[NAV_SOUNDS] ?: true,
+            screensaver = p[SCREENSAVER] ?: true,
         )
     }.distinctUntilChanged()
 
@@ -118,6 +128,8 @@ class PreferencesRepository(private val context: Context) {
             p[RECONNECT] = n.autoReconnect
             p[INTRO_SOUND] = n.introSound
             p[MENU_AWAKE] = n.menuAwakeMinutes
+            p[NAV_SOUNDS] = n.navSounds
+            p[SCREENSAVER] = n.screensaver
         }
     }
 
@@ -128,6 +140,7 @@ class PreferencesRepository(private val context: Context) {
             blocked = p[stringSetPreferencesKey(k(profile, "blocked"))].orEmpty(),
             blockAdult = p[booleanPreferencesKey(k(profile, "blockAdult"))] ?: false,
             avatar = p[stringPreferencesKey(k(profile, "avatar"))],
+            kids = p[booleanPreferencesKey(k(profile, "kids"))] ?: false,
         )
     }.distinctUntilChanged()
 
@@ -140,6 +153,7 @@ class PreferencesRepository(private val context: Context) {
             set(stringSetPreferencesKey(k(profile, "blocked")), n.blocked.ifEmpty { null })
             set(booleanPreferencesKey(k(profile, "blockAdult")), n.blockAdult.takeIf { it })
             set(stringPreferencesKey(k(profile, "avatar")), n.avatar)
+            set(booleanPreferencesKey(k(profile, "kids")), n.kids.takeIf { it })
         }
     }
 

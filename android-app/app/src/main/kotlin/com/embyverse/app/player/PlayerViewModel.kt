@@ -69,6 +69,8 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     val channelListVisible = MutableStateFlow(false)
     /** Panel de opciones (audio, subtítulos, lista de canales). Se abre con OK en vivo o con MENÚ. */
     val optionsVisible = MutableStateFlow(false)
+    /** En ventana «imagen en imagen»: se ocultan todos los controles. */
+    val inPip = MutableStateFlow(false)
     val audioTracks = MutableStateFlow<List<TrackOption>>(emptyList())
     val textTracks = MutableStateFlow<List<TrackOption>>(emptyList())
     val textEnabled = MutableStateFlow(false)

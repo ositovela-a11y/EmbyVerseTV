@@ -4,7 +4,7 @@ import type { UserAppearance } from '../../backend/src/config/resolve';
 import type { RemoteConfig } from '../../backend/src/config/schema';
 import { api, ApiError, IS_GITHUB, type Asset, type User, type Validation } from './api';
 import { AccountPanel, AssetsPanel, AuditPanel, PublishDialog, UsersPanel, VersionsPanel } from './components/manage';
-import { AppearancePanel, BannersPanel, MessagesPanel, ColorsPanel, HomeBuilderPanel, IdentityPanel, TextsPanel, UserOptionsPanel, type PanelProps } from './components/panels';
+import { AppearancePanel, BannersPanel, MessagesPanel, PremiumPanel, ColorsPanel, HomeBuilderPanel, IdentityPanel, TextsPanel, UserOptionsPanel, type PanelProps } from './components/panels';
 import { Notice, Segmented } from './components/ui';
 import { AppPreview, DEVICES, type Device } from './preview/AppPreview';
 import { useEditor, type Editor } from './store';
@@ -12,10 +12,10 @@ import { EditingBanner, TargetSelect, VendorsPanel } from './components/vendors'
 import { currentTarget, githubApi, type Vendor } from './api-github';
 import './styles.css';
 
-type View = 'identity' | 'colors' | 'home' | 'appearance' | 'banners' | 'messages' | 'user' | 'texts' | 'assets' | 'versions' | 'users' | 'audit' | 'account' | 'vendors';
+type View = 'identity' | 'colors' | 'home' | 'appearance' | 'banners' | 'messages' | 'premium' | 'user' | 'texts' | 'assets' | 'versions' | 'users' | 'audit' | 'account' | 'vendors';
 const DESIGN_VIEWS: { id: View; label: string }[] = [
   { id: 'home', label: 'Inicio' }, { id: 'identity', label: 'Identidad' }, { id: 'colors', label: 'Colores y temas' },
-  { id: 'appearance', label: 'Formas y menú' }, { id: 'banners', label: 'Banners' }, { id: 'messages', label: 'Mensajes' }, { id: 'user', label: 'Opciones del usuario' }, { id: 'texts', label: 'Textos' },
+  { id: 'appearance', label: 'Formas y menú' }, { id: 'banners', label: 'Banners' }, { id: 'messages', label: 'Mensajes' }, { id: 'premium', label: 'Temporada y eventos' }, { id: 'user', label: 'Opciones del usuario' }, { id: 'texts', label: 'Textos' },
 ];
 
 function GitHubLogin({ onDone }: { onDone: (u: User) => void }) {
@@ -247,6 +247,7 @@ function StudioLoaded({ user, loaded, reloadDraft, onLogout, flash }: { user: Us
           {view === 'appearance' && <AppearancePanel {...props} />}
           {view === 'banners' && <BannersPanel {...props} />}
           {view === 'messages' && <MessagesPanel {...props} />}
+          {view === 'premium' && <PremiumPanel {...props} />}
           {view === 'user' && <UserOptionsPanel {...props} />}
           {view === 'texts' && <TextsPanel {...props} />}
           {view === 'assets' && <AssetsPanel user={user} assets={assets} reload={loadAssets} onUpload={upload} />}

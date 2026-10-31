@@ -56,6 +56,8 @@ data class HomeUiState(
     val expiresAt: Long? = null,
     /** Carpetas de películas para la plantilla «Colecciones». */
     val collections: List<String> = emptyList(),
+    /** «Porque viste X»: título visto → parecidos. */
+    val because: List<Pair<String, List<MediaCard>>> = emptyList(),
     val profileName: String? = null,
     val hasSources: Boolean = true,
     val loading: Boolean = true,
@@ -127,9 +129,12 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
             try { c.catalog.cardsFor(c.catalog.recommendations(h, f, 30)) }
             catch (e: kotlinx.coroutines.CancellationException) { throw e }
             catch (e: Exception) { emptyList() } // las recomendaciones nunca deben cerrar la app
-        }
+        }.onStart { emit(emptyList()) }
+        .let { recFlow -> combine(recFlow, c.library.history(40).mapLatest { h ->
+            try { c.catalog.becauseYouWatched(h) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { emptyList() }
+        }.onStart { emit(emptyList()) }) { r, b -> r to b } }
         // El inicio se muestra al momento; las recomendaciones (que recorren todo el catálogo) llegan después.
-        .onStart { emit(emptyList()) }
+        .onStart { emit(emptyList<MediaCard>() to emptyList()) }
 
     val state: StateFlow<HomeUiState> = combine(
         combine(c.config.config, appearance, minuteTicker) { cfg, app, now -> Triple(cfg, ConfigResolver.sections(cfg, app), now) }.timed("config"),
@@ -138,9 +143,10 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
             combine(c.sources.sources, c.prefs.sourceExpiries) { s, e -> s.isNotEmpty() to e.filterKeys { k -> s.any { it.id == k } }.values.minOrNull() },
             // Se recalcula cada minuto: los eventos que ya pasaron se van quitando solos.
             combine(c.catalog.eventCandidates(), minuteTicker) { list, _ -> com.embyverse.app.data.repo.Events.today(list) }.timed("eventos")) { n, s, e -> Triple(n, s, e) }.timed("perfil+fuentes+eventos"),
-    ) { (cfg, sections, now), base, (rec, news), recs, (nameCats, srcInfo, events) ->
+    ) { (cfg, sections, now), base, (rec, news), recsBecause, (nameCats, srcInfo, events) ->
         val (hasSources, expiresAt) = srcInfo
         val (name, collections) = nameCats
+        val (recs, because) = recsBecause
         val content = base + mapOf(SectionType.RECENTLY_ADDED to rec, SectionType.RECOMMENDED to recs)
         // El banner de bienvenida («Añadir fuente») sobra cuando ya hay listas: se muestran las novedades.
         val heroBanners = ConfigResolver.banners(cfg, BannerPlacement.HERO, now)
@@ -153,7 +159,7 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
             // Banners del Design Studio primero y después las novedades de tus listas.
             hero = heroBanners + featured,
             promos = ConfigResolver.banners(cfg, BannerPlacement.PROMO, now),
-            profileName = name, hasSources = hasSources, loading = false, events = events, expiresAt = expiresAt, collections = collections,
+            profileName = name, hasSources = hasSources, loading = false, events = events, expiresAt = expiresAt, collections = collections, because = because,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 

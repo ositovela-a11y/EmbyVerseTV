@@ -74,13 +74,40 @@ class PlayerActivity : AppCompatActivity() {
             CompositionLocalProvider(LocalAppContainer provides container) {
                 val config by container.config.config.collectAsStateWithLifecycle()
                 EmbyTheme(ConfigResolver.theme(config, UserAppearance.ORIGINAL)) {
-                    com.embyverse.app.ui.FastScrolling { PlayerScreen(vm, onClose = { finish() }) }
+                    com.embyverse.app.ui.FastScrolling { PlayerScreen(vm, onClose = { finish() }, onPip = if (pipSupported()) ({ enterPip() }) else null) }
                 }
             }
         }
     }
 
     override fun onStart() { super.onStart(); vm.attach(this) }
+
+    /** Imagen en imagen (celular/tableta): al salir con INICIO el video sigue en una ventanita. */
+    private fun pipSupported() = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
+        packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE) &&
+        !packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
+
+    fun enterPip(): Boolean {
+        if (!pipSupported() || vm.player.value == null) return false
+        return runCatching {
+            val size = vm.player.value?.videoSize
+            val ratio = if (size != null && size.width > 0 && size.height > 0)
+                android.util.Rational(size.width, size.height).let { r -> if (r.toFloat() in 0.42f..2.38f) r else android.util.Rational(16, 9) }
+            else android.util.Rational(16, 9)
+            enterPictureInPictureMode(android.app.PictureInPictureParams.Builder().setAspectRatio(ratio).build())
+        }.getOrDefault(false)
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (vm.player.value?.isPlaying == true) enterPip()
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        vm.inPip.value = isInPictureInPictureMode
+        if (isInPictureInPictureMode) { vm.showOptions(false); if (vm.channelListVisible.value) vm.toggleChannelList() }
+    }
     override fun onStop() { vm.detach(); super.onStop() }
 
     private val repeatGate = com.embyverse.app.ui.KeyRepeatGate()

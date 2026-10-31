@@ -40,6 +40,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import com.embyverse.app.ui.components.kenBurns
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -95,7 +97,7 @@ private fun DetailHeader(imageUrl: String?, poster: String?, kind: ContentKind, 
     val t = LocalEmby.current
     Box(Modifier.fillMaxWidth()) {
         Box(Modifier.fillMaxWidth().aspectRatio(if (t.device.isTv) 2.6f else 16f / 10f)) {
-            MediaImage(imageUrl ?: poster, kind, Modifier.fillMaxSize())
+            Box(Modifier.fillMaxSize().clipToBounds()) { MediaImage(imageUrl ?: poster, kind, Modifier.fillMaxSize().kenBurns()) }
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(t.background.copy(alpha = 0.2f), t.background.copy(alpha = 0.6f), t.background))))
         }
         IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(8.dp).background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(50))) {

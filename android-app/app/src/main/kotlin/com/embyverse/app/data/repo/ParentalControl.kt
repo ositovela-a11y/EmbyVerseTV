@@ -25,14 +25,20 @@ class ParentalControl(private val prefs: PreferencesRepository, db: EmbyDatabase
 
     /** Carpetas ocultas para el perfil activo en este momento (vacío si no hay bloqueo o ya se desbloqueó). */
     val hidden: Flow<Set<String>> = combine(activeLock, unlocked, db.categories().observeAllNames()) { (id, lock), open, cats ->
-        if (id in open || (lock.blocked.isEmpty() && !lock.blockAdult)) emptySet()
-        else lock.blocked + (if (lock.blockAdult) cats.filter(::isAdult) else emptyList())
+        when {
+            id in open -> emptySet()
+            // Perfil infantil: se oculta todo lo que no sea para niños (si la lista tiene carpetas infantiles).
+            lock.kids && cats.any(::isKids) -> cats.filterNot(::isKids).toSet() + lock.blocked
+            lock.kids -> lock.blocked + cats.filter(::isAdult)
+            lock.blocked.isEmpty() && !lock.blockAdult -> emptySet()
+            else -> lock.blocked + (if (lock.blockAdult) cats.filter(::isAdult) else emptyList())
+        }
     }.distinctUntilChanged()
 
     /** Hay contenido bloqueado que se puede desbloquear con el PIN (o ya está desbloqueado). */
     val status: Flow<Status> = combine(activeLock, unlocked) { (id, lock), open ->
         when {
-            lock.pin == null || (lock.blocked.isEmpty() && !lock.blockAdult) -> Status.OFF
+            lock.pin == null || (lock.blocked.isEmpty() && !lock.blockAdult && !lock.kids) -> Status.OFF
             id in open -> Status.UNLOCKED
             else -> Status.LOCKED
         }
@@ -54,5 +60,7 @@ class ParentalControl(private val prefs: PreferencesRepository, db: EmbyDatabase
     companion object {
         private val ADULT = Regex("(adult|adulto|xxx|\\+\\s?18|18\\s?\\+|porn|erotic|erótic|hentai|\\bsexy?\\b|for adults)", RegexOption.IGNORE_CASE)
         fun isAdult(category: String) = ADULT.containsMatchIn(category)
+        private val KIDS = Regex("(kids|infantil|niñ[oa]s|ninos|children|cartoon|caricatura|dibujos|animad|disney|nick|junior|baby|pequeñ|familia|family)", RegexOption.IGNORE_CASE)
+        fun isKids(category: String) = KIDS.containsMatchIn(category) && !isAdult(category)
     }
 }

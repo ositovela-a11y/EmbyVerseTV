@@ -31,6 +31,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.Subtitles
 import androidx.compose.animation.core.tween
@@ -64,7 +65,7 @@ import com.embyverse.core.model.ContentKind
 
 @OptIn(UnstableApi::class)
 @Composable
-fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit) {
+fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? = null) {
     val t = LocalEmby.current
     val player by vm.player.collectAsStateWithLifecycle()
     val np by vm.nowPlaying.collectAsStateWithLifecycle()
@@ -78,6 +79,12 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit) {
     val zap by vm.zapBanner.collectAsStateWithLifecycle()
     val optionsVisible by vm.optionsVisible.collectAsStateWithLifecycle()
     val listCategory by vm.listCategory.collectAsStateWithLifecycle()
+    val pip by vm.inPip.collectAsStateWithLifecycle()
+    // Calidad real del video que se está viendo (ExoPlayer ya elige la mejor según la red).
+    var videoHeight by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    LaunchedEffect(player) {
+        while (player != null) { videoHeight = player?.videoSize?.height ?: 0; kotlinx.coroutines.delay(1500) }
+    }
 
     BackHandler {
         when {
@@ -103,13 +110,14 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit) {
                     setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { v -> vm.controlsVisible.value = v == View.VISIBLE })
                 }
             },
-            update = { view -> view.player = player; if (listVisible || optionsVisible) view.hideController() },
+            update = { view -> view.player = player; view.useController = !pip; if (listVisible || optionsVisible || pip) view.hideController() },
             onRelease = { view -> view.player = null },
         )
 
         if (buffering && error == null) CircularProgressIndicator(Modifier.align(Alignment.Center).size(56.dp), color = t.primary, strokeWidth = 4.dp)
 
         // Cabecera: título, canal / episodio y programa actual.
+        if (pip) return@Box
         AnimatedVisibility(visible = controls || zap || error != null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopStart)) {
             Row(Modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.75f), Color.Transparent))).padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically) {
@@ -124,7 +132,15 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit) {
                     sub?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     if (vm.isLive && channels.size > 1) Text(stringResource(R.string.player_channels_hint), style = MaterialTheme.typography.labelMedium, color = t.primary)
                 }
+                qualityLabel(videoHeight)?.let { q ->
+                    Text(q, style = MaterialTheme.typography.labelMedium, color = Color.White, fontWeight = androidx.compose.ui.text.font.FontWeight.Black,
+                        modifier = Modifier.background(if (q == "4K") t.primary else Color.White.copy(alpha = 0.22f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp).testTag("quality_badge"))
+                }
                 com.embyverse.app.ui.components.Clock(Modifier.padding(horizontal = 8.dp), color = Color.White)
+                if (onPip != null) IconButton(onClick = onPip) {
+                    Icon(Icons.Rounded.PictureInPictureAlt, stringResource(R.string.player_pip), tint = Color.White)
+                }
                 IconButton(onClick = { vm.showOptions(true) }, modifier = Modifier.testTag("player_options")) {
                     Icon(Icons.Rounded.Subtitles, stringResource(R.string.player_options), tint = Color.White)
                 }
@@ -210,4 +226,13 @@ private fun EpisodeExtras(vm: PlayerViewModel, player: androidx.media3.exoplayer
             }
         }
     }
+}
+
+/** HD / FHD / 4K según la altura real del video. */
+internal fun qualityLabel(height: Int): String? = when {
+    height >= 2000 -> "4K"
+    height >= 1000 -> "FHD"
+    height >= 700 -> "HD"
+    height > 0 -> "SD"
+    else -> null
 }

@@ -39,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.rounded.EventBusy
 import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.CalendarViewWeek
 import com.embyverse.app.ui.components.MediaCardView
 import androidx.compose.foundation.layout.offset
@@ -97,6 +98,9 @@ fun HomeScreen(nav: Navigator) {
     val toTop: () -> Unit = { scope.launch { if (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0) listState.animateScrollToItem(0) } }
     LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(t.sectionGap)) {
         item(key = "header") { HomeHeader(s, nav) }
+        com.embyverse.app.ui.components.FeaturedEvent.from(s.config.texts, System.currentTimeMillis())?.let { ev ->
+            item(key = "featured_event") { com.embyverse.app.ui.components.FeaturedEventCard(ev) { nav.play(it) } }
+        }
         // Estilo «tablero» (sin barras): las secciones son mosaicos grandes.
         if (t.navVariant == com.embyverse.core.config.NavVariant.HUB) item(key = "hub") { HubTiles(nav) }
         s.expiresAt?.let { exp ->
@@ -161,6 +165,7 @@ fun HomeScreen(nav: Navigator) {
                             }
                         }
                     }
+                    if (type == SectionType.RECOMMENDED) becauseRows(s, nav)
                 }
             }
         }
@@ -357,9 +362,21 @@ private fun PromoRow(promos: List<Banner>, sec: SectionSpec, nav: Navigator) {
 private fun EventsRow(events: List<com.embyverse.app.data.repo.LiveEvent>, nav: Navigator) {
     val t = LocalEmby.current
     val w = if (t.device.isTv) 300.dp else 240.dp
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val reminders by com.embyverse.app.data.repo.Reminders.keys.collectAsStateWithLifecycle()
+    val notifPerm = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(Unit) { com.embyverse.app.data.repo.Reminders.load(context) }
     LazyRow(contentPadding = PaddingValues(horizontal = t.screenPadding, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(t.cardGap)) {
         items(events, key = { "${it.channel.sourceId}|${it.channel.providerId}" }) { e ->
+            val reminded = com.embyverse.app.data.repo.Reminders.key(e) in reminders
             FocusableSurface(onClick = { nav.play(com.embyverse.app.data.repo.ItemRef(ContentKind.LIVE, e.channel.sourceId, e.channel.providerId)) },
+                onLongClick = {
+                    val r = com.embyverse.app.data.repo.Reminders.toggle(context, e)
+                    if (r == true && android.os.Build.VERSION.SDK_INT >= 33 &&
+                        androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                        runCatching { notifPerm.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
+                    android.widget.Toast.makeText(context, when (r) { true -> R.string.reminder_set; false -> R.string.reminder_removed; null -> R.string.reminder_no_time }, android.widget.Toast.LENGTH_SHORT).show()
+                },
                 modifier = Modifier.width(w).height(w * 0.48f).testTag("event"), shape = RoundedCornerShape(t.cardRadius)) { focused ->
                 Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(t.secondary.copy(alpha = 0.55f), t.surface, t.primary.copy(alpha = if (focused) 0.45f else 0.2f))))
                     .padding(12.dp)) {
@@ -370,6 +387,7 @@ private fun EventsRow(events: List<com.embyverse.app.data.repo.LiveEvent>, nav: 
                             Spacer(Modifier.width(8.dp))
                         }
                         Text(stringResource(R.string.events_live_badge), style = MaterialTheme.typography.labelSmall, color = t.accent)
+                        if (reminded) { Spacer(Modifier.width(6.dp)); Icon(Icons.Rounded.NotificationsActive, null, tint = t.primary, modifier = Modifier.size(18.dp)) }
                     }
                     Text(e.title, style = MaterialTheme.typography.titleSmall, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, modifier = Modifier.align(Alignment.CenterStart).padding(top = 18.dp, end = 50.dp))
@@ -545,6 +563,19 @@ private fun HubTiles(nav: Navigator) {
                     }
                 }
                 repeat(cols - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+
+/** Filas «Porque viste X» (parecidos por género/carpeta a lo último que vio el perfil). */
+private fun androidx.compose.foundation.lazy.LazyListScope.becauseRows(s: HomeUiState, nav: Navigator) {
+    s.because.forEach { (title, cards) ->
+        item(key = "because|$title") {
+            Column {
+                SectionHeader(stringResource(R.string.because_you_watched, title), null, null)
+                CardRow(cards, CardAspect.POSTER, com.embyverse.core.config.CardSize.M) { nav.openItem(it.ref, seriesId = it.seriesId) }
             }
         }
     }
