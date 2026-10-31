@@ -17,6 +17,9 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.isDialog
 import androidx.test.platform.app.InstrumentationRegistry
 import com.embyverse.app.data.repo.SourceDraft
 import com.embyverse.app.data.repo.SyncState
@@ -283,16 +286,18 @@ class SmokeFlowTest {
         val c = app.container
         val profile = runBlocking { c.prefs.activeProfile() }
         try {
-            for (id in listOf("style_cristal", "style_cine_rojo", "style_purpura")) {
+            val styles = listOf("style_cristal" to "tpl_shelf", "style_cine_rojo" to "tpl_top10", "style_purpura" to "tpl_coll",
+                "style_oceano" to "tpl_spot", "style_estelar" to "tpl_hub", "style_naranja" to "tpl_wall")
+            for ((id, tpl) in styles) {
                 runBlocking { c.prefs.updateAppearance(profile) { it.copy(themeId = id) } }
                 ActivityScenario.launch(MainActivity::class.java).use {
-                    waitTag("nav_movies", 30_000)
+                    val moviesTag = if (id == "style_estelar") "hub_movies" else "nav_movies"
+                    waitTag(moviesTag, 30_000)
                     runCatching { compose.waitUntil(60_000) { compose.onAllNodes(hasTagPrefix("card:"), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() } }
                     Thread.sleep(2_000); shot("tema-$id-inicio")
-                    val tpl = when (id) { "style_cristal" -> "tpl_shelf"; "style_cine_rojo" -> "tpl_top10"; else -> "tpl_spot" }
                     waitTag(tpl, 20_000)
                     log("Estilo $id: plantilla $tpl visible en el inicio")
-                    compose.onNodeWithTag("nav_movies", useUnmergedTree = true).performClick()
+                    compose.onNodeWithTag(moviesTag, useUnmergedTree = true).performClick()
                     waitCards()
                     Thread.sleep(1_500); shot("tema-$id-peliculas")
                 }
@@ -300,6 +305,63 @@ class SmokeFlowTest {
             }
         } finally {
             runBlocking { c.prefs.updateAppearance(profile) { it.copy(themeId = null) } }
+        }
+    }
+
+    /** Funciones premium: multivista, perfil infantil, evento destacado, calidad, temporadas, «Porque viste». */
+    @Test fun g_funcionesPremium() {
+        val c = app.container
+        // Lógica sin pantalla.
+        assertTrue("4K", com.embyverse.app.player.qualityLabel(2160) == "4K")
+        assertTrue("FHD", com.embyverse.app.player.qualityLabel(1080) == "FHD")
+        assertTrue("HD", com.embyverse.app.player.qualityLabel(720) == "HD")
+        assertTrue("temporada", com.embyverse.app.ui.components.Season.of("Navidad") == com.embyverse.app.ui.components.Season.NAVIDAD)
+        val start = System.currentTimeMillis() + 3_600_000
+        val ev = com.embyverse.app.ui.components.FeaturedEvent.from(mapOf("event.title" to "Final", "event.start" to java.time.Instant.ofEpochMilli(start).toString(), "event.channels" to "espn, fox"))
+        assertTrue("evento destacado leído", ev != null && ev.keywords == listOf("espn", "fox"))
+        assertTrue("evento vencido se oculta", com.embyverse.app.ui.components.FeaturedEvent.from(mapOf("event.title" to "X", "event.start" to "2020-01-01T00:00:00Z")) == null)
+        runBlocking {
+            val hist = c.library.historySnapshot(40)
+            val because = c.catalog.becauseYouWatched(hist)
+            log("Porque viste: ${because.size} filas (historial ${hist.size})")
+            // Perfil infantil: solo carpetas de niños (si la lista tiene).
+            val p1 = c.prefs.activeProfile()
+            val kid = c.library.createProfile("Peques", 0xFFF59E0B.toInt())
+            try {
+                c.prefs.updateLock(kid) { it.copy(pin = "4321", kids = true) }
+                c.prefs.setActiveProfile(kid)
+                val cats = c.database.categories().observeAllNames().first()
+                val hidden = c.parental.hidden.first()
+                val kidsCats = cats.filter { com.embyverse.app.data.repo.ParentalControl.isKids(it) }
+                if (kidsCats.isNotEmpty()) assertTrue("infantil: solo carpetas de niños", cats.filter { it !in hidden }.all { it in kidsCats })
+                assertTrue("infantil: sin adultos", cats.filter { it !in hidden }.none { com.embyverse.app.data.repo.ParentalControl.isAdult(it) })
+                log("Perfil infantil: ${cats.size - hidden.size} de ${cats.size} carpetas visibles (${kidsCats.size} infantiles)")
+            } finally {
+                c.prefs.setActiveProfile(p1)
+                runCatching { c.library.deleteProfile(kid) }
+            }
+        }
+        // Multivista: aviso de conexiones y 2 ventanas con canales.
+        ActivityScenario.launch(MainActivity::class.java).use {
+            waitTag("nav_live", 30_000)
+            compose.onNodeWithTag("nav_live", useUnmergedTree = true).performClick()
+            waitTag("open_multiview", 20_000)
+            compose.onNodeWithTag("open_multiview", useUnmergedTree = true).performClick()
+            waitTag("multiview_ok", 10_000)
+            compose.onNodeWithTag("multiview_ok", useUnmergedTree = true).performClick()
+            for (slot in 0..1) {
+                waitTag("mv_slot_$slot", 10_000)
+                compose.onNodeWithTag("mv_slot_$slot", useUnmergedTree = true).performClick()
+                compose.waitUntil(20_000) { compose.onAllNodes(hasClickAction() and hasAnyAncestor(isDialog())).fetchSemanticsNodes().size >= 3 }
+                Thread.sleep(1_500)
+                compose.onAllNodes(hasClickAction()).fetchSemanticsNodes().size.let { log("multivista: $it elementos pulsables en el selector") }
+                // Primer canal de la lista del selector.
+                val nodes = compose.onAllNodes(hasClickAction() and hasAnyAncestor(isDialog()))
+                nodes[1].performClick()
+                Thread.sleep(2_000)
+            }
+            Thread.sleep(6_000); shot("multivista")
+            log("Multivista: 2 ventanas abiertas sin cierres")
         }
     }
 

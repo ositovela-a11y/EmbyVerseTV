@@ -146,7 +146,7 @@ class MainActivity : AppCompatActivity() {
                 val theme = remember(config, appearance, kids) {
                     ConfigResolver.theme(config, appearance).let { base ->
                         // Perfil infantil: estilo alegre (naranja, tarjetas grandes) sin importar el tema elegido.
-                        if (kids) com.embyverse.core.config.STYLE_THEMES.firstOrNull { it.id == "naranja" }?.transform?.invoke(base) ?: base else base
+                        if (kids) com.embyverse.core.config.STYLE_THEMES.firstOrNull { it.id == "style_naranja" }?.transform?.invoke(base) ?: base else base
                     }
                 }
                 val hasSourcesFlow = remember { container.sources.sources.map { it.isNotEmpty() } }

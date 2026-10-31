@@ -39,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.rounded.EventBusy
 import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.CalendarViewWeek
 import com.embyverse.app.ui.components.MediaCardView
@@ -544,15 +545,17 @@ private fun PosterWall(cards: List<com.embyverse.app.data.repo.MediaCard>, nav: 
 @Composable
 private fun HubTiles(nav: Navigator) {
     val t = LocalEmby.current
-    val tiles = com.embyverse.app.ui.navigation.TOP.filter { it.route != Routes.HOME } .map { Triple(it.label, it.icon, { nav.go(it.route) }) } +
-        Triple(R.string.guide_title, Icons.Rounded.CalendarViewWeek, { nav.go(Routes.GUIDE) })
+    data class Tile(val label: Int, val icon: androidx.compose.ui.graphics.vector.ImageVector, val route: String)
+    val tiles = com.embyverse.app.ui.navigation.TOP.filter { it.route != Routes.HOME }.map { Tile(it.label, it.icon, it.route) } +
+        Tile(R.string.guide_title, Icons.Rounded.CalendarViewWeek, Routes.GUIDE) + Tile(R.string.multiview_title, Icons.Rounded.GridView, Routes.MULTIVIEW)
     val cols = if (t.device.isTv) 3 else 2
     Column(Modifier.padding(horizontal = t.screenPadding, vertical = 6.dp).testTag("tpl_hub"), verticalArrangement = Arrangement.spacedBy(t.cardGap)) {
         tiles.chunked(cols).forEachIndexed { r, row ->
             Row(horizontalArrangement = Arrangement.spacedBy(t.cardGap)) {
-                row.forEachIndexed { i, (label, icon, go) ->
+                row.forEachIndexed { i, tile ->
+                    val label = tile.label; val icon = tile.icon; val go = { nav.go(tile.route) }
                     val hue = listOf(t.primary, t.secondary, t.accent)[(r * cols + i) % 3]
-                    FocusableSurface(onClick = go, focusScale = 1.05f, modifier = Modifier.weight(1f).height(if (t.device.isTv) 120.dp else 96.dp),
+                    FocusableSurface(onClick = go, focusScale = 1.05f, modifier = Modifier.weight(1f).height(if (t.device.isTv) 120.dp else 96.dp).testTag("hub_${tile.route}"),
                         shape = RoundedCornerShape(t.cardRadius)) { focused ->
                         Row(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(hue.copy(alpha = if (focused) 0.85f else 0.55f), t.surface)))
                             .padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
