@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": 3,
-  "publishedAt": "2026-10-31T17:14:56Z",
+  "version": 4,
+  "publishedAt": "2026-10-31T17:54:27Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "EmbyVerse",
@@ -244,7 +244,8 @@
     "home.emptySources": "Aún no tienes fuentes. Añade una lista M3U o un proveedor para ver contenido.",
     "support.contact": "soporte@ejemplo.com",
     "provider.epgUrl": "https://epgshare01.online/epgshare01/epg_ripper_MX1.xml.gz",
-    "season": "halloween",
-    "support.whatsapp": "4442011541"
+    "season": "auto",
+    "support.whatsapp": "4442011541",
+    "season.every": "24"
   }
 }
