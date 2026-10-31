@@ -39,6 +39,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.rounded.EventBusy
 import androidx.compose.ui.Modifier
+import com.embyverse.app.ui.components.MediaCardView
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.draw.clip
@@ -84,7 +89,11 @@ fun HomeScreen(nav: Navigator) {
 
     if (s.loading) { LoadingBox(); return }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(t.sectionGap)) {
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    // Al volver al banner con el control, el inicio sube hasta arriba: el banner se ve completo (antes quedaba cortado).
+    val toTop: () -> Unit = { scope.launch { if (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0) listState.animateScrollToItem(0) } }
+    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(t.sectionGap)) {
         item(key = "header") { HomeHeader(s, nav) }
         s.expiresAt?.let { exp ->
             val days = ((exp - System.currentTimeMillis() / 1000) / 86_400).toInt()
@@ -99,7 +108,23 @@ fun HomeScreen(nav: Navigator) {
             val type = sec.type ?: return@forEach
             when (type) {
                 SectionType.HERO_BANNER -> {
-                    if (s.hero.isNotEmpty()) item(key = sec.id) { HeroCarousel(s.hero, nav) }
+                    if (s.hero.isNotEmpty()) item(key = sec.id) { HeroCarousel(s.hero, nav, toTop) }
+                    // Fila característica de la plantilla del estilo de plataforma.
+                    val featured = (s.content[SectionType.RECENTLY_ADDED].orEmpty().ifEmpty { s.content[SectionType.MOVIES].orEmpty() })
+                        .distinctBy { "${it.ref.kind}|${it.ref.sourceId}|${it.ref.id}" }
+                    when (t.homeTemplate) {
+                        com.embyverse.core.config.HomeTemplate.TOP10 -> if (featured.isNotEmpty()) item(key = "tpl_top10") {
+                            Column { SectionHeader(stringResource(R.string.tpl_top10), null, null); Top10Row(featured.take(10), nav) }
+                        }
+                        com.embyverse.core.config.HomeTemplate.SHELF -> {
+                            val next = s.content[SectionType.CONTINUE_WATCHING].orEmpty().ifEmpty { featured }
+                            if (next.isNotEmpty() && s.hero.isNotEmpty()) item(key = "tpl_shelf") { UpNextShelf(next.take(12), nav) }
+                        }
+                        com.embyverse.core.config.HomeTemplate.SPOTLIGHT -> if (featured.isNotEmpty()) item(key = "tpl_spot") {
+                            Column { SectionHeader(stringResource(R.string.tpl_spotlight), null, null); SpotlightRow(featured.take(8), nav) }
+                        }
+                        else -> Unit
+                    }
                     // Justo debajo de las novedades: partidos y eventos de hoy.
                     if (s.events.isNotEmpty()) item(key = "events") {
                         Column {
@@ -195,7 +220,7 @@ private fun HomeHeaderRow(s: HomeUiState, nav: Navigator) {
 }
 
 @Composable
-private fun HeroCarousel(items: List<HeroItem>, nav: Navigator) {
+private fun HeroCarousel(items: List<HeroItem>, nav: Navigator, onFocused: () -> Unit = {}) {
     val t = LocalEmby.current
     val pager = rememberPagerState { items.size }
     val cfgW = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
@@ -233,7 +258,7 @@ private fun HeroCarousel(items: List<HeroItem>, nav: Navigator) {
         // La animación corre en su propio ámbito: no la cancela el cambio de página a mitad de camino.
         scope.launch { pager.animateScrollToPage(next, animationSpec = androidx.compose.animation.core.tween(700, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
     }
-    Box(Modifier.fillMaxWidth().height(height)) {
+    Box(Modifier.fillMaxWidth().height(height).onFocusChanged { if (it.hasFocus) onFocused() }) {
         HorizontalPager(pager, modifier = Modifier.fillMaxSize()) { page ->
             val h = items[page]
             val open = { if (h.item != null) nav.openItem(h.item) else h.route?.let(nav::appRoute) ?: Unit }
@@ -365,6 +390,78 @@ private fun ExpiryNotice(exp: Long, days: Int) {
                 else -> stringResource(R.string.expiry_in_days, days, date)
             }, style = MaterialTheme.typography.titleSmall, color = t.onBackground)
             Text(stringResource(R.string.expiry_renew), style = MaterialTheme.typography.bodySmall, color = t.textSecondary)
+        }
+    }
+}
+
+
+// ---------------------------------------------------------------- Plantillas de estilos de plataforma
+
+/** Tipo Netflix: «Top 10 de hoy» con números grandes junto a cada póster. */
+@Composable
+private fun Top10Row(cards: List<com.embyverse.app.data.repo.MediaCard>, nav: Navigator) {
+    val t = LocalEmby.current
+    val w = cardWidth(CardAspect.POSTER, com.embyverse.core.config.CardSize.M, t.device.isTv) * 1.15f
+    val numberSize = if (t.device.isTv) 150.sp else 110.sp
+    LazyRow(contentPadding = PaddingValues(horizontal = t.screenPadding, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.testTag("tpl_top10")) {
+        items(cards.size, key = { "top|${cards[it].ref.kind}|${cards[it].ref.sourceId}|${cards[it].ref.id}" }) { i ->
+            val c = cards[i]
+            Row(verticalAlignment = Alignment.Bottom) {
+                Box(Modifier.width(w * 0.62f), contentAlignment = Alignment.BottomEnd) {
+                    // Número con contorno (relleno del fondo) como en las listas de lo más visto.
+                    Text("${i + 1}", fontSize = numberSize, fontWeight = androidx.compose.ui.text.font.FontWeight.Black, color = t.background,
+                        style = androidx.compose.ui.text.TextStyle(drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(width = 6f)), maxLines = 1,
+                        modifier = Modifier.offset(x = 14.dp, y = 14.dp))
+                    Text("${i + 1}", fontSize = numberSize, fontWeight = androidx.compose.ui.text.font.FontWeight.Black,
+                        color = t.onBackground.copy(alpha = 0.18f), maxLines = 1, modifier = Modifier.offset(x = 14.dp, y = 14.dp))
+                }
+                MediaCardView(c, CardAspect.POSTER, com.embyverse.core.config.CardSize.M, { nav.openItem(c.ref, seriesId = c.seriesId) },
+                    modifier = Modifier.width(w), showText = false)
+            }
+        }
+    }
+}
+
+/** Tipo Apple TV: fila «A continuación» que se monta sobre la parte baja del banner. */
+@Composable
+private fun UpNextShelf(cards: List<com.embyverse.app.data.repo.MediaCard>, nav: Navigator) {
+    val t = LocalEmby.current
+    val overlap = if (t.device.isTv) 70.dp else 48.dp
+    Column(Modifier.testTag("tpl_shelf").layout { m, cons ->
+        val p = m.measure(cons); val o = overlap.roundToPx()
+        layout(p.width, (p.height - o).coerceAtLeast(0)) { p.place(0, -o) }
+    }) {
+        Text(stringResource(R.string.tpl_up_next), style = MaterialTheme.typography.titleMedium, color = t.onBackground,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, modifier = Modifier.padding(horizontal = t.screenPadding, vertical = 6.dp))
+        CardRow(cards, CardAspect.LANDSCAPE, com.embyverse.core.config.CardSize.L) { nav.openItem(it.ref, seriesId = it.seriesId) }
+    }
+}
+
+/** Tipo HBO Max / Fox / Prime: tarjetas grandes con el título sobre la imagen. */
+@Composable
+private fun SpotlightRow(cards: List<com.embyverse.app.data.repo.MediaCard>, nav: Navigator) {
+    val t = LocalEmby.current
+    val screenW = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
+    val w = (screenW * (if (t.device.isTv) 0.36f else 0.78f)).dp
+    LazyRow(contentPadding = PaddingValues(horizontal = t.screenPadding, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(t.cardGap),
+        modifier = Modifier.testTag("tpl_spot")) {
+        items(cards, key = { "spot|${it.ref.kind}|${it.ref.sourceId}|${it.ref.id}" }) { c ->
+            FocusableSurface(onClick = { nav.openItem(c.ref, seriesId = c.seriesId) }, focusScale = 1.04f,
+                modifier = Modifier.width(w).aspectRatio(16f / 9f), shape = RoundedCornerShape(t.cardRadius)) { focused ->
+                Box(Modifier.fillMaxSize()) {
+                    MediaImage(c.backdropUrl ?: c.imageUrl, c.ref.kind, Modifier.fillMaxSize(), fallbackText = null)
+                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.85f))))
+                    Column(Modifier.align(Alignment.BottomStart).padding(14.dp)) {
+                        Text(stringResource(R.string.tpl_new_badge), style = MaterialTheme.typography.labelSmall, color = t.buttonText,
+                            modifier = Modifier.background(t.primary, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
+                        Spacer(Modifier.height(6.dp))
+                        Text(c.title, style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        c.subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = if (focused) 0.95f else 0.75f), maxLines = 1) }
+                    }
+                }
+            }
         }
     }
 }

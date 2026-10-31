@@ -332,3 +332,12 @@ input[type=datetime-local] { min-width: 0; }
 .studio:has(> .editing-banner) { grid-template-rows: auto auto 1fr; }
 
 .vendor-links code.short-code, .short-code { font-size: 18px; font-weight: 700; background: #0f1b33; color: #fff; padding: 4px 10px; border-radius: 8px; }
+/* Celular en vertical: barra, franja de «Estás editando», menú de secciones (deslizable) y contenido. */
+@media (max-width: 760px) {
+  .studio:has(> .editing-banner) { grid-template-rows: auto auto auto 1fr; }
+  .studio { height: auto; min-height: 100%; }
+  .sidenav { position: sticky; top: 0; z-index: 5; }
+  .sidenav button { padding: 8px 12px; }
+  .editing-banner { font-size: 13px; }
+  .target-switch { flex-wrap: wrap; }
+}
