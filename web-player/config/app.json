@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": 1,
-  "publishedAt": "2026-10-29T00:00:00Z",
+  "version": 2,
+  "publishedAt": "2026-10-31T03:45:55Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "EmbyVerse",
@@ -242,6 +242,7 @@
   "texts": {
     "home.greeting": "Hola",
     "home.emptySources": "Aún no tienes fuentes. Añade una lista M3U o un proveedor para ver contenido.",
-    "support.contact": "soporte@ejemplo.com"
+    "support.contact": "soporte@ejemplo.com",
+    "provider.epgUrl": "https://epgshare01.online/epgshare01/epg_ripper_MX1.xml.gz"
   }
 }
