@@ -289,6 +289,9 @@ class SmokeFlowTest {
                     waitTag("nav_movies", 30_000)
                     runCatching { compose.waitUntil(60_000) { compose.onAllNodes(hasTagPrefix("card:"), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() } }
                     Thread.sleep(2_000); shot("tema-$id-inicio")
+                    val tpl = when (id) { "style_cristal" -> "tpl_shelf"; "style_cine_rojo" -> "tpl_top10"; else -> "tpl_spot" }
+                    waitTag(tpl, 20_000)
+                    log("Estilo $id: plantilla $tpl visible en el inicio")
                     compose.onNodeWithTag("nav_movies", useUnmergedTree = true).performClick()
                     waitCards()
                     Thread.sleep(1_500); shot("tema-$id-peliculas")

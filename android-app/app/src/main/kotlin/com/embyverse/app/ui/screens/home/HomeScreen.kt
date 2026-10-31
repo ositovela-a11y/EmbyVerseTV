@@ -111,6 +111,7 @@ fun HomeScreen(nav: Navigator) {
                     if (s.hero.isNotEmpty()) item(key = sec.id) { HeroCarousel(s.hero, nav, toTop) }
                     // Fila característica de la plantilla del estilo de plataforma.
                     val featured = (s.content[SectionType.RECENTLY_ADDED].orEmpty().ifEmpty { s.content[SectionType.MOVIES].orEmpty() })
+                        .distinctBy { "${it.ref.kind}|${it.ref.sourceId}|${it.ref.id}" }
                     when (t.homeTemplate) {
                         com.embyverse.core.config.HomeTemplate.TOP10 -> if (featured.isNotEmpty()) item(key = "tpl_top10") {
                             Column { SectionHeader(stringResource(R.string.tpl_top10), null, null); Top10Row(featured.take(10), nav) }
@@ -404,7 +405,7 @@ private fun Top10Row(cards: List<com.embyverse.app.data.repo.MediaCard>, nav: Na
     val numberSize = if (t.device.isTv) 150.sp else 110.sp
     LazyRow(contentPadding = PaddingValues(horizontal = t.screenPadding, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp),
         modifier = Modifier.testTag("tpl_top10")) {
-        items(cards.size, key = { "top${cards[it].ref.id}" }) { i ->
+        items(cards.size, key = { "top|${cards[it].ref.kind}|${cards[it].ref.sourceId}|${cards[it].ref.id}" }) { i ->
             val c = cards[i]
             Row(verticalAlignment = Alignment.Bottom) {
                 Box(Modifier.width(w * 0.62f), contentAlignment = Alignment.BottomEnd) {
@@ -445,7 +446,7 @@ private fun SpotlightRow(cards: List<com.embyverse.app.data.repo.MediaCard>, nav
     val w = (screenW * (if (t.device.isTv) 0.36f else 0.78f)).dp
     LazyRow(contentPadding = PaddingValues(horizontal = t.screenPadding, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(t.cardGap),
         modifier = Modifier.testTag("tpl_spot")) {
-        items(cards, key = { "spot${it.ref.id}" }) { c ->
+        items(cards, key = { "spot|${it.ref.kind}|${it.ref.sourceId}|${it.ref.id}" }) { c ->
             FocusableSurface(onClick = { nav.openItem(c.ref, seriesId = c.seriesId) }, focusScale = 1.04f,
                 modifier = Modifier.width(w).aspectRatio(16f / 9f), shape = RoundedCornerShape(t.cardRadius)) { focused ->
                 Box(Modifier.fillMaxSize()) {
