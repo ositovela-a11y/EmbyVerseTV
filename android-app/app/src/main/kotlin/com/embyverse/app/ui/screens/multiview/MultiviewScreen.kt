@@ -108,7 +108,7 @@ fun MultiviewScreen(nav: Navigator) {
     }
 
     Column(Modifier.fillMaxSize().background(Color.Black)) {
-        SubScreenTop(stringResource(R.string.multiview_title), nav::back) {
+        val buttons: @Composable () -> Unit = {
             listOf(2, 4).forEach { n ->
                 EmbyButton(stringResource(R.string.multiview_n, n), { count = n }, secondary = count != n, modifier = Modifier.padding(end = 8.dp))
             }
@@ -118,6 +118,12 @@ fun MultiviewScreen(nav: Navigator) {
                     nav.openItem(ItemRef(ContentKind.LIVE, ch.sourceId, ch.providerId))
                 }, icon = Icons.Rounded.Fullscreen, secondary = true)
             }
+        }
+        // En TV los botones van en la barra; en celular, en su propia fila (no caben junto al título).
+        if (t.device.isTv) SubScreenTop(stringResource(R.string.multiview_title), nav::back) { buttons() }
+        else {
+            SubScreenTop(stringResource(R.string.multiview_title), nav::back)
+            Row(Modifier.fillMaxWidth().padding(horizontal = t.screenPadding), verticalAlignment = Alignment.CenterVertically) { buttons() }
         }
         Text(stringResource(R.string.multiview_hint), style = MaterialTheme.typography.bodySmall, color = t.textSecondary,
             modifier = Modifier.padding(horizontal = t.screenPadding, vertical = 4.dp))
