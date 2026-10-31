@@ -36,6 +36,11 @@ export function IdentityPanel({ ed, canEdit, assets, publicBase, onUpload }: Pan
         {c.texts['provider.host'] && !/^https?:\/\/[^\s/]+/i.test(c.texts['provider.host']) && <Notice kind="error">Debe empezar por http:// o https://</Notice>}
         {!c.texts['provider.host'] && <p className="hint">Vacío = el de la APK (https://krnosmx.com:443).</p>}
       </Group>
+      <Group title="Guía de canales (EPG)" hint="La app ya usa la guía de tu proveedor. Aquí puedes AÑADIR guías XMLTV extra (hasta 3, una por línea): se emparejan por id y, si no coincide, por el NOMBRE del canal. Así los canales que llegan sin guía muestran su programación. Se aplica en la siguiente actualización de listas de cada cliente.">
+        <TextField label="URL de guías XMLTV extra (.xml o .xml.gz)" value={c.texts['provider.epgUrl'] ?? ''} max={500} multiline placeholder="https://…/guia.xml.gz" disabled={!canEdit}
+          onChange={(v) => ed.update((d) => { const x = v.trim(); if (x) d.texts['provider.epgUrl'] = x; else delete d.texts['provider.epgUrl']; }, 'epg')} />
+        {c.texts['provider.epgUrl'] && c.texts['provider.epgUrl'].split(/[\s,]+/).some((u) => u && !/^https?:\/\//i.test(u)) && <Notice kind="error">Cada URL debe empezar por http:// o https://</Notice>}
+      </Group>
       <Group title="Logotipo" hint="Solo se pueden usar el logotipo oficial integrado o variantes aprobadas por un propietario en Recursos.">
         <div className="choice-grid">
           {([['bundled_full', 'Logotipo completo', '/brand/embyverse-logo.webp'], ['bundled_planet', 'Solo planeta', '/brand/embyverse-icon.png']] as const).map(([v, label, src]) => (

@@ -29,6 +29,15 @@ class XmltvParserTest {
         val filtered = XmltvParser().parse(Fixtures.file("tests/fixtures/epg-sample.xml").reader(), from, from + 86400, setOf("demo.sports"))
         assertEquals(1, filtered.programs.size)
     }
+
+    @Test fun `guia externa se empareja por nombre de canal`() {
+        val from = 1793232000L
+        // La lista solo conoce "mi.canal"; la guía externa trae "demo.sports" con nombre "Demo & Sports".
+        val r = XmltvParser().parse(Fixtures.file("tests/fixtures/epg-sample.xml").reader(), from, from + 86400, setOf("mi.canal")) { xc ->
+            if (xc.displayName == "Demo & Sports") "mi.canal" else null
+        }
+        assertEquals(listOf("mi.canal"), r.programs.map { it.channelId }.distinct())
+    }
 }
 
 class CatalogLogicTest {

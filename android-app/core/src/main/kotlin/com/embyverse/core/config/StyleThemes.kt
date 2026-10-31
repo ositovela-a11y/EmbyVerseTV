@@ -19,7 +19,7 @@ private fun c(hex: Long) = hex.toInt()
 
 val STYLE_THEMES: List<StyleTheme> = listOf(
     // Ambiente "Apple TV": negro grafito, tarjetas grises, botones claros, esquinas suaves, sin brillos.
-    StyleTheme("style_cristal", "Cristal", "Grafito · menú arriba, tarjetas anchas y foco que se eleva") { s ->
+    StyleTheme("style_cristal", "Cristal", "Píldoras arriba, banner centrado y tarjetas que se elevan") { s ->
         s.copy(
             palette = s.palette.copy(primary = c(0xFFF2F2F7), secondary = c(0xFF3A3A3F), accent = c(0xFF4DA3FF),
                 background = c(0xFF050506), surface = c(0xFF18181B), surfaceVariant = c(0xFF2A2A2F),
@@ -28,10 +28,11 @@ val STYLE_THEMES: List<StyleTheme> = listOf(
             backgroundStyle = BackgroundStyle.GRADIENT, gradientStart = c(0xFF050506), gradientEnd = c(0xFF1A1A1E),
             cardRadius = 16, buttonRadius = 12, bannerRadius = 22, glowEnabled = false, buttonStyle = ButtonStyle.FILLED,
             navStyle = NavStyle.TOP_TABS, tvNavFromTheme = true, heroStyle = HeroStyle.CENTERED, cardStyle = CardStyle.TITLES, focusStyle = FocusStyle.LIFT, rowAspect = CardAspect.LANDSCAPE, font = FontChoice.INTER, navShowLabels = true,
+            navVariant = NavVariant.PILLS,
         )
     },
     // Ambiente "Netflix": negro profundo y rojo cine, esquinas rectas.
-    StyleTheme("style_cine_rojo", "Cine Rojo", "Negro y rojo · banner de cine y solo pósters") { s ->
+    StyleTheme("style_cine_rojo", "Cine Rojo", "Menú lateral desplegable, banner de cine y solo pósters") { s ->
         s.copy(
             palette = s.palette.copy(primary = c(0xFFE3262F), secondary = c(0xFF8A1218), accent = c(0xFFFF5A5F),
                 background = c(0xFF0A0A0A), surface = c(0xFF161616), surfaceVariant = c(0xFF242424),
@@ -39,10 +40,11 @@ val STYLE_THEMES: List<StyleTheme> = listOf(
                 onPrimary = c(0xFFFFFFFF), buttonBackground = c(0xFFE3262F), buttonText = c(0xFFFFFFFF), focusRing = c(0xFFFFFFFF)),
             backgroundStyle = BackgroundStyle.SOLID, cardRadius = 5, buttonRadius = 5, bannerRadius = 6, glowEnabled = false,
             navStyle = NavStyle.BOTTOM_BAR, heroStyle = HeroStyle.CINEMA, cardStyle = CardStyle.CLEAN, focusStyle = FocusStyle.WHITE, rowAspect = CardAspect.POSTER, font = FontChoice.INTER, cardGap = 8,
+            navVariant = NavVariant.RAIL_EXPAND, homeChips = true,
         )
     },
     // Ambiente "HBO Max": degradado violeta-azul nocturno con brillo.
-    StyleTheme("style_purpura", "Púrpura Premium", "Violeta · menú arriba, banner de cine y tarjetas anchas") { s ->
+    StyleTheme("style_purpura", "Púrpura Premium", "Logo y secciones arriba, banner de cine y tarjetas anchas") { s ->
         s.copy(
             palette = s.palette.copy(primary = c(0xFF9D5CFF), secondary = c(0xFF3D2BD9), accent = c(0xFF5EC8FF),
                 background = c(0xFF07031A), surface = c(0xFF140B33), surfaceVariant = c(0xFF22154D),
@@ -51,10 +53,11 @@ val STYLE_THEMES: List<StyleTheme> = listOf(
             backgroundStyle = BackgroundStyle.NEBULA, gradientStart = c(0xFF07031A), gradientEnd = c(0xFF1C0B4F),
             cardRadius = 10, buttonRadius = 22, glowEnabled = true, glowIntensity = 0.5f,
             navStyle = NavStyle.TOP_TABS, tvNavFromTheme = true, heroStyle = HeroStyle.CINEMA, cardStyle = CardStyle.CLEAN, focusStyle = FocusStyle.WHITE, rowAspect = CardAspect.LANDSCAPE, font = FontChoice.POPPINS,
+            navVariant = NavVariant.TEXT_TABS,
         )
     },
     // Ambiente "Disney+": azul marino mágico con destellos celestes.
-    StyleTheme("style_azul_magico", "Azul Mágico", "Azul marino · banner de cine y tarjetas que se elevan") { s ->
+    StyleTheme("style_azul_magico", "Azul Mágico", "Menú lateral desplegable y tarjetas que se elevan") { s ->
         s.copy(
             palette = s.palette.copy(primary = c(0xFF3EC5F5), secondary = c(0xFF1B3A8C), accent = c(0xFFB9E9FF),
                 background = c(0xFF081028), surface = c(0xFF111C3D), surfaceVariant = c(0xFF1B2A55),
@@ -63,10 +66,11 @@ val STYLE_THEMES: List<StyleTheme> = listOf(
             backgroundStyle = BackgroundStyle.GRADIENT, gradientStart = c(0xFF081028), gradientEnd = c(0xFF1A2F6B),
             cardRadius = 12, buttonRadius = 8, glowEnabled = true, glowIntensity = 0.3f,
             navStyle = NavStyle.BOTTOM_BAR, heroStyle = HeroStyle.CINEMA, cardStyle = CardStyle.CLEAN, focusStyle = FocusStyle.LIFT, rowAspect = CardAspect.LANDSCAPE, font = FontChoice.INTER,
+            navVariant = NavVariant.RAIL_EXPAND,
         )
     },
     // Ambiente "Prime Video": azul petróleo y celeste.
-    StyleTheme("style_oceano", "Océano", "Petróleo · menú arriba y tarjetas anchas con título") { s ->
+    StyleTheme("style_oceano", "Océano", "Logo y secciones arriba, tarjetas anchas con título") { s ->
         s.copy(
             palette = s.palette.copy(primary = c(0xFF1AA7EC), secondary = c(0xFF0E4D6E), accent = c(0xFF7AD3FF),
                 background = c(0xFF0D161E), surface = c(0xFF17222D), surfaceVariant = c(0xFF22313F),
@@ -74,10 +78,11 @@ val STYLE_THEMES: List<StyleTheme> = listOf(
                 onPrimary = c(0xFFFFFFFF), buttonBackground = c(0xFF1AA7EC), buttonText = c(0xFFFFFFFF), focusRing = c(0xFFFFFFFF)),
             backgroundStyle = BackgroundStyle.SOLID, cardRadius = 8, buttonRadius = 6, glowEnabled = false,
             navStyle = NavStyle.TOP_TABS, tvNavFromTheme = true, heroStyle = HeroStyle.CLASSIC, cardStyle = CardStyle.TITLES, focusStyle = FocusStyle.WHITE, rowAspect = CardAspect.LANDSCAPE, font = FontChoice.INTER,
+            navVariant = NavVariant.TEXT_TABS,
         )
     },
     // Ambiente "Paramount+": azul intenso estelar.
-    StyleTheme("style_estelar", "Estelar", "Azul intenso · menú arriba, banner de cine y pósters") { s ->
+    StyleTheme("style_estelar", "Estelar", "Logo y secciones arriba, banner de cine y pósters") { s ->
         s.copy(
             palette = s.palette.copy(primary = c(0xFF2F6BFF), secondary = c(0xFF0B2A80), accent = c(0xFF8FB4FF),
                 background = c(0xFF030A1C), surface = c(0xFF0B1735), surfaceVariant = c(0xFF14234A),
@@ -86,10 +91,11 @@ val STYLE_THEMES: List<StyleTheme> = listOf(
             backgroundStyle = BackgroundStyle.NEBULA, gradientStart = c(0xFF030A1C), gradientEnd = c(0xFF0A1F5C),
             cardRadius = 12, buttonRadius = 24, glowEnabled = true, glowIntensity = 0.4f,
             navStyle = NavStyle.TOP_TABS, tvNavFromTheme = true, heroStyle = HeroStyle.CINEMA, cardStyle = CardStyle.TITLES, focusStyle = FocusStyle.LIFT, rowAspect = CardAspect.POSTER,
+            navVariant = NavVariant.TEXT_TABS,
         )
     },
     // Ambiente "Hulu": negro carbón con verde neón.
-    StyleTheme("style_verde_neon", "Verde Neón", "Carbón y neón · tarjetas anchas con título") { s ->
+    StyleTheme("style_verde_neon", "Verde Neón", "Logo y secciones arriba, tarjetas anchas neón") { s ->
         s.copy(
             palette = s.palette.copy(primary = c(0xFF2BE38A), secondary = c(0xFF136B45), accent = c(0xFF9CFFCF),
                 background = c(0xFF0B0D0F), surface = c(0xFF15181C), surfaceVariant = c(0xFF20252B),
@@ -97,10 +103,11 @@ val STYLE_THEMES: List<StyleTheme> = listOf(
                 onPrimary = c(0xFF04140B), buttonBackground = c(0xFF2BE38A), buttonText = c(0xFF04140B), focusRing = c(0xFF2BE38A)),
             backgroundStyle = BackgroundStyle.SOLID, cardRadius = 10, buttonRadius = 10, glowEnabled = false,
             navStyle = NavStyle.BOTTOM_BAR, heroStyle = HeroStyle.CLASSIC, cardStyle = CardStyle.TITLES, focusStyle = FocusStyle.RING, rowAspect = CardAspect.LANDSCAPE, font = FontChoice.INTER,
+            navVariant = NavVariant.TEXT_TABS,
         )
     },
     // Ambiente "Crunchyroll": oscuro con naranja vibrante.
-    StyleTheme("style_naranja", "Naranja Vibrante", "Naranja · banner de cine y pósters con título") { s ->
+    StyleTheme("style_naranja", "Naranja Vibrante", "Menú lateral desplegable, banner de cine y pósters") { s ->
         s.copy(
             palette = s.palette.copy(primary = c(0xFFFF7A1A), secondary = c(0xFF8C3B06), accent = c(0xFFFFB774),
                 background = c(0xFF0C0A09), surface = c(0xFF1A1613), surfaceVariant = c(0xFF2A231E),
@@ -109,10 +116,11 @@ val STYLE_THEMES: List<StyleTheme> = listOf(
             backgroundStyle = BackgroundStyle.GRADIENT, gradientStart = c(0xFF0C0A09), gradientEnd = c(0xFF231409),
             cardRadius = 8, buttonRadius = 8, glowEnabled = false,
             navStyle = NavStyle.BOTTOM_BAR, heroStyle = HeroStyle.CINEMA, cardStyle = CardStyle.TITLES, focusStyle = FocusStyle.RING, rowAspect = CardAspect.POSTER,
+            navVariant = NavVariant.RAIL_EXPAND,
         )
     },
     // Lujo: negro y oro.
-    StyleTheme("style_oro", "Oro Negro", "Negro y oro · menú arriba, banner centrado y pósters") { s ->
+    StyleTheme("style_oro", "Oro Negro", "Píldoras arriba, banner centrado y pósters limpios") { s ->
         s.copy(
             palette = s.palette.copy(primary = c(0xFFD9B45A), secondary = c(0xFF6B5420), accent = c(0xFFF3DC9A),
                 background = c(0xFF080706), surface = c(0xFF15130F), surfaceVariant = c(0xFF231F17),
@@ -121,6 +129,7 @@ val STYLE_THEMES: List<StyleTheme> = listOf(
             backgroundStyle = BackgroundStyle.GRADIENT, gradientStart = c(0xFF080706), gradientEnd = c(0xFF1E1910),
             cardRadius = 12, buttonRadius = 4, glowEnabled = true, glowIntensity = 0.2f, buttonStyle = ButtonStyle.FILLED,
             navStyle = NavStyle.TOP_TABS, tvNavFromTheme = true, heroStyle = HeroStyle.CENTERED, cardStyle = CardStyle.CLEAN, focusStyle = FocusStyle.LIFT, rowAspect = CardAspect.POSTER, font = FontChoice.POPPINS,
+            navVariant = NavVariant.PILLS,
         )
     },
 )

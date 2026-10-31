@@ -509,14 +509,15 @@ private fun VodScreen(nav: Navigator, kind: ContentKind) {
                     s.cards.isEmpty() -> MessageState(if (kind == ContentKind.MOVIE) Icons.Rounded.Theaters else Icons.Rounded.VideoLibrary,
                         stringResource(R.string.vod_empty_title), stringResource(R.string.vod_empty_message))
                     else -> {
-                        val minW = cardWidth(CardAspect.POSTER, CardSize.M, t.device.isTv)
+                        // Celular: 4 columnas (o más en pantallas grandes); TV: según el ancho.
+                        val minW = if (t.device.isTv) cardWidth(CardAspect.POSTER, CardSize.M, true) else 76.dp
                         val gridState = androidx.compose.runtime.key("$selectedFolder|${s.query}") { androidx.compose.foundation.lazy.grid.rememberLazyGridState() }
                         val grid = @Composable {
                             LazyVerticalGrid(GridCells.Adaptive(minW), Modifier.fillMaxSize().testTag("grid"), state = gridState,
                                 contentPadding = PaddingValues(t.screenPadding), horizontalArrangement = Arrangement.spacedBy(t.cardGap), verticalArrangement = Arrangement.spacedBy(t.cardGap + 6.dp)) {
                                 items(s.cards, key = { "${it.ref.sourceId}|${it.ref.id}" }, contentType = { 0 }) { c ->
                                     MediaCardView(c, CardAspect.POSTER, CardSize.M, { nav.openItem(c.ref) },
-                                        modifier = Modifier.onFocusChanged { if (it.hasFocus) vm.focused.value = c.ref },
+                                        modifier = Modifier.fillMaxWidth().onFocusChanged { if (it.hasFocus) vm.focused.value = c.ref },
                                         showText = !t.device.isTv) // en TV el título y la ficha se ven arriba, en grande
                                 }
                             }

@@ -256,10 +256,13 @@
     <string name="update_allow">Allow and update</string>
     <string name="update_downloading">Downloading version %1$s…</string>
     <string name="update_failed">Update download failed</string>
+    <string name="update_install">Install</string>
     <string name="update_later">Later</string>
     <string name="update_message">New improvements are available. It installs over the current app; nothing is lost.</string>
     <string name="update_now">Update now</string>
     <string name="update_permission">Allow this app to install updates, then come back and try again.</string>
+    <string name="update_ready_message">Already downloaded. Tap Install; nothing is lost.</string>
+    <string name="update_ready_title">Version %1$s ready to install</string>
     <string name="update_title">Version %1$s available</string>
     <string name="vod_empty_message">Your sources have no content in this section or the filter has no results.</string>
     <string name="vod_empty_title">Nothing here</string>

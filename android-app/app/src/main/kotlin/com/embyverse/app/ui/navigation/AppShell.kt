@@ -29,6 +29,7 @@ import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Arrangement
@@ -136,8 +137,14 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
     val backStack by nav.currentBackStackEntryAsState()
     val current = backStack?.destination?.route?.substringBefore('?')
     val showNav = current in TOP.map { it.route }
-    // En TV el menú lateral es el normal; algunos estilos de plataforma usan pestañas arriba.
-    val style = if (t.device.useRail && !(t.tvNavFromTheme && t.navStyle == NavStyle.TOP_TABS)) NavStyle.SIDE_RAIL else t.navStyle
+    // Menú según el estilo de plataforma elegido (o el del panel si es STANDARD).
+    val variant = t.navVariant
+    val style = when (variant) {
+        com.embyverse.core.config.NavVariant.PILLS, com.embyverse.core.config.NavVariant.TEXT_TABS -> NavStyle.TOP_TABS
+        com.embyverse.core.config.NavVariant.RAIL_EXPAND -> if (t.device.useRail) NavStyle.SIDE_RAIL else NavStyle.BOTTOM_BAR
+        com.embyverse.core.config.NavVariant.STANDARD ->
+            if (t.device.useRail && !(t.tvNavFromTheme && t.navStyle == NavStyle.TOP_TABS)) NavStyle.SIDE_RAIL else t.navStyle
+    }
 
     val host: @Composable (Modifier) -> Unit = { m ->
         NavHost(nav, startDestination = if (startOnboarding) Routes.SOURCE_EDIT else Routes.HOME, modifier = m,
@@ -187,6 +194,17 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
     val rail = showNav && style == NavStyle.SIDE_RAIL
     val tabs = showNav && style == NavStyle.TOP_TABS
     val bottom = showNav && style != NavStyle.SIDE_RAIL && style != NavStyle.TOP_TABS
+    val goTop: (String) -> Unit = { navigator.goTop(it) }
+
+    // Estilo Netflix / Disney+ en TV: iconos a la izquierda que se despliegan sobre el contenido.
+    // (Estructura fija mientras dure el estilo: el NavHost nunca cambia de sitio al ocultar el menú.)
+    if (variant == com.embyverse.core.config.NavVariant.RAIL_EXPAND && t.device.useRail) {
+        Box(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize().padding(start = if (rail) 76.dp else 0.dp)) { host(Modifier.fillMaxSize()) }
+            if (rail) ExpandingRail(current, logoVariant, logoUrl, goTop, Modifier.align(Alignment.CenterStart))
+        }
+        return
+    }
     Row(Modifier.fillMaxSize()) {
         if (rail) NavigationRail(containerColor = t.surface.copy(alpha = 0.94f), modifier = Modifier.statusBarsPadding(), header = {
             BrandLogo(if (logoVariant == LogoVariant.ASSET) logoVariant else LogoVariant.BUNDLED_PLANET, logoUrl, Modifier.padding(top = 12.dp).size(52.dp))
@@ -204,41 +222,115 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
         }
         Column(Modifier.weight(1f).fillMaxSize()) {
             if (tabs) {
-                // Barra superior estilo plataforma: logotipo + secciones en texto con subrayado.
-                Row(Modifier.fillMaxWidth().statusBarsPadding().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(t.background, t.background.copy(alpha = 0.6f))))
-                    .padding(horizontal = t.screenPadding, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    BrandLogo(logoVariant, logoUrl, Modifier.height(if (t.device.isTv) 40.dp else 32.dp).width(if (t.device.isTv) 110.dp else 84.dp))
-                    Spacer(Modifier.width(if (t.device.isTv) 28.dp else 10.dp))
-                    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(if (t.device.isTv) 10.dp else 2.dp)) {
-                        items(TOP.size) { i ->
-                            val d = TOP[i]
-                            val sel = current == d.route
-                            com.embyverse.app.ui.components.FocusableSurface(onClick = { navigator.goTop(d.route) }, focusScale = 1.05f,
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(50), modifier = Modifier.testTag("nav_${d.route}")) { focused ->
-                                Column(Modifier.background(if (focused) t.onBackground.copy(alpha = 0.12f) else androidx.compose.ui.graphics.Color.Transparent)
-                                    .padding(horizontal = 12.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(stringResource(d.label), maxLines = 1, style = MaterialTheme.typography.titleSmall,
-                                        color = if (sel || focused) t.onBackground else t.textSecondary,
-                                        fontWeight = if (sel) androidx.compose.ui.text.font.FontWeight.Bold else null)
-                                    Box(Modifier.padding(top = 3.dp).width(if (sel) 18.dp else 0.dp).height(3.dp)
-                                        .background(t.primary, androidx.compose.foundation.shape.RoundedCornerShape(2.dp)))
-                                }
-                            }
-                        }
+                if (variant == com.embyverse.core.config.NavVariant.PILLS) PillTabs(current, goTop) else TextTabs(current, logoVariant, logoUrl, goTop)
+            }
+            Box(Modifier.weight(1f).fillMaxWidth()) { host(Modifier.fillMaxSize()) }
+            if (bottom) {
+                // Con estilo de plataforma la barra inferior es sobria: icono blanco, sin «píldora» de color.
+                val platform = variant != com.embyverse.core.config.NavVariant.STANDARD
+                NavigationBar(containerColor = if (platform) t.background.copy(alpha = 0.98f) else t.surface.copy(alpha = 0.97f),
+                    modifier = Modifier.navigationBarsPadding(), windowInsets = androidx.compose.foundation.layout.WindowInsets(0)) {
+                    TOP.forEach { d ->
+                        NavigationBarItem(
+                            modifier = Modifier.testTag("nav_${d.route}").focusHighlight(t.focusRing, t.primary),
+                            selected = current == d.route, onClick = { navigator.goTop(d.route) },
+                            icon = { Icon(d.icon, null) }, label = if (t.navShowLabels) ({ Text(stringResource(d.label), maxLines = 1) }) else null,
+                            alwaysShowLabel = platform,
+                            colors = if (platform) NavigationBarItemDefaults.colors(selectedIconColor = t.onBackground, indicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                                unselectedIconColor = t.textSecondary, selectedTextColor = t.onBackground, unselectedTextColor = t.textSecondary)
+                            else NavigationBarItemDefaults.colors(selectedIconColor = t.buttonText, indicatorColor = t.primary,
+                                unselectedIconColor = t.textSecondary, selectedTextColor = t.onBackground, unselectedTextColor = t.textSecondary),
+                        )
                     }
                 }
             }
-            Box(Modifier.weight(1f).fillMaxWidth()) { host(Modifier.fillMaxSize()) }
-            if (bottom) NavigationBar(containerColor = t.surface.copy(alpha = 0.97f), modifier = Modifier.navigationBarsPadding(), windowInsets = androidx.compose.foundation.layout.WindowInsets(0)) {
-                TOP.forEach { d ->
-                    NavigationBarItem(
-                        modifier = Modifier.testTag("nav_${d.route}").focusHighlight(t.focusRing, t.primary),
-                        selected = current == d.route, onClick = { navigator.goTop(d.route) },
-                        icon = { Icon(d.icon, null) }, label = if (t.navShowLabels) ({ Text(stringResource(d.label), maxLines = 1) }) else null,
-                        alwaysShowLabel = false,
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = t.buttonText, indicatorColor = t.primary,
-                            unselectedIconColor = t.textSecondary, selectedTextColor = t.onBackground, unselectedTextColor = t.textSecondary),
-                    )
+        }
+    }
+}
+
+/** Estilo Apple TV: pestañas en «píldora» centradas arriba; la elegida en blanco. */
+@Composable
+private fun PillTabs(current: String?, go: (String) -> Unit) {
+    val t = LocalEmby.current
+    Box(Modifier.fillMaxWidth().statusBarsPadding().padding(vertical = if (t.device.isTv) 14.dp else 8.dp), contentAlignment = Alignment.Center) {
+        androidx.compose.foundation.lazy.LazyRow(
+            Modifier.background(t.surface.copy(alpha = 0.72f), androidx.compose.foundation.shape.RoundedCornerShape(50)).padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            items(TOP.size) { i ->
+                val d = TOP[i]
+                val sel = current == d.route
+                com.embyverse.app.ui.components.FocusableSurface(onClick = { go(d.route) }, focusScale = 1.08f,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(50), modifier = Modifier.testTag("nav_${d.route}")) { focused ->
+                    Box(Modifier.background(when { sel -> t.onBackground; focused -> t.onBackground.copy(alpha = 0.22f); else -> androidx.compose.ui.graphics.Color.Transparent })
+                        .padding(horizontal = if (t.device.isTv) 20.dp else 12.dp, vertical = if (t.device.isTv) 9.dp else 6.dp)) {
+                        Text(stringResource(d.label), maxLines = 1, style = MaterialTheme.typography.titleSmall,
+                            color = if (sel) t.background else t.onBackground, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Estilo HBO Max / Prime: logotipo a la izquierda y secciones en texto con subrayado. */
+@Composable
+private fun TextTabs(current: String?, logoVariant: LogoVariant, logoUrl: String?, go: (String) -> Unit) {
+    val t = LocalEmby.current
+    Row(Modifier.fillMaxWidth().statusBarsPadding().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(t.background, t.background.copy(alpha = 0.6f))))
+        .padding(horizontal = t.screenPadding, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        BrandLogo(logoVariant, logoUrl, Modifier.height(if (t.device.isTv) 40.dp else 32.dp).width(if (t.device.isTv) 110.dp else 84.dp))
+        Spacer(Modifier.width(if (t.device.isTv) 28.dp else 10.dp))
+        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(if (t.device.isTv) 10.dp else 2.dp)) {
+            items(TOP.size) { i ->
+                val d = TOP[i]
+                val sel = current == d.route
+                com.embyverse.app.ui.components.FocusableSurface(onClick = { go(d.route) }, focusScale = 1.05f,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(50), modifier = Modifier.testTag("nav_${d.route}")) { focused ->
+                    Column(Modifier.background(if (focused) t.onBackground.copy(alpha = 0.12f) else androidx.compose.ui.graphics.Color.Transparent)
+                        .padding(horizontal = 12.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(stringResource(d.label), maxLines = 1, style = MaterialTheme.typography.titleSmall,
+                            color = if (sel || focused) t.onBackground else t.textSecondary,
+                            fontWeight = if (sel) androidx.compose.ui.text.font.FontWeight.Bold else null)
+                        Box(Modifier.padding(top = 3.dp).width(if (sel) 18.dp else 0.dp).height(3.dp)
+                            .background(t.primary, androidx.compose.foundation.shape.RoundedCornerShape(2.dp)))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Estilo Netflix / Disney+ en TV: columna de iconos; al llegar con el control se despliega con los
+ * nombres y oscurece el contenido detrás. La sección actual se marca con una barra.
+ */
+@Composable
+private fun ExpandingRail(current: String?, logoVariant: LogoVariant, logoUrl: String?, go: (String) -> Unit, modifier: Modifier) {
+    val t = LocalEmby.current
+    var open by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val w by androidx.compose.animation.core.animateDpAsState(if (open) 250.dp else 76.dp, androidx.compose.animation.core.tween(180), label = "rail")
+    Column(modifier.fillMaxHeight().width(w)
+        .background(androidx.compose.ui.graphics.Brush.horizontalGradient(
+            if (open) listOf(t.background, t.background.copy(alpha = 0.92f), t.background.copy(alpha = 0.0f))
+            else listOf(t.background.copy(alpha = 0.9f), t.background.copy(alpha = 0.0f))))
+        .onFocusChanged { open = it.hasFocus }
+        .statusBarsPadding().padding(vertical = 18.dp), verticalArrangement = Arrangement.Center) {
+        BrandLogo(if (logoVariant == LogoVariant.ASSET) logoVariant else LogoVariant.BUNDLED_PLANET, logoUrl, Modifier.padding(start = 16.dp, bottom = 24.dp).size(44.dp))
+        TOP.forEach { d ->
+            val sel = current == d.route
+            com.embyverse.app.ui.components.FocusableSurface(onClick = { go(d.route) }, focusScale = 1f,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp), modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp).testTag("nav_${d.route}")) { focused ->
+                Row(Modifier.width(w - 16.dp).background(if (focused) t.onBackground.copy(alpha = 0.16f) else androidx.compose.ui.graphics.Color.Transparent)
+                    .padding(horizontal = 14.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.width(3.dp).height(20.dp).background(if (sel) t.primary else androidx.compose.ui.graphics.Color.Transparent))
+                    Spacer(Modifier.width(10.dp))
+                    Icon(d.icon, null, tint = if (sel || focused) t.onBackground else t.textSecondary)
+                    if (open) {
+                        Spacer(Modifier.width(16.dp))
+                        Text(stringResource(d.label), maxLines = 1, style = MaterialTheme.typography.titleMedium,
+                            color = if (sel || focused) t.onBackground else t.textSecondary,
+                            fontWeight = if (sel) androidx.compose.ui.text.font.FontWeight.Bold else null)
+                    }
                 }
             }
         }

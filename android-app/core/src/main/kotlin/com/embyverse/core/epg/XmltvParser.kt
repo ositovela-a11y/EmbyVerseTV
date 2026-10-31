@@ -19,7 +19,13 @@ class XmltvParser(private val maxPrograms: Int = 200_000) {
         fromEpoch: Long,
         toEpoch: Long,
         wantedChannels: Set<String>? = null,
+        /**
+         * Opcional: para guías externas cuyos ids no coinciden con los de la lista. Recibe cada canal de
+         * la guía y devuelve el id con el que se guardará su programación (o null para ignorarlo).
+         */
+        mapChannel: ((XmltvChannel) -> String?)? = null,
     ): XmltvResult {
+        val alias = HashMap<String, String>()
         val r = XmlTokenizer(reader)
         val channels = ArrayList<XmltvChannel>()
         val programs = ArrayList<EpgProgram>()
@@ -52,11 +58,22 @@ class XmltvParser(private val maxPrograms: Int = 200_000) {
                     "display-name" -> if (capture == "dn") { chName = text.toString().trim(); capture = null }
                     "title" -> if (capture == "t") { pTitle = text.toString().trim(); capture = null }
                     "desc" -> if (capture == "d") { pDesc = text.toString().trim(); capture = null }
-                    "channel" -> { chId?.let { channels += XmltvChannel(it, chName, chIcon?.takeIf { s -> s.startsWith("http") }) }; chId = null }
+                    "channel" -> {
+                        chId?.let { id ->
+                            val xc = XmltvChannel(id, chName, chIcon?.takeIf { s -> s.startsWith("http") })
+                            channels += xc
+                            if (mapChannel != null && (wantedChannels == null || id !in wantedChannels)) mapChannel(xc)?.let { alias[id] = it }
+                        }
+                        chId = null
+                    }
                     "programme" -> {
-                        val ch = pCh
-                        if (ch != null && pStart > 0 && pStop > pStart && pStop >= fromEpoch && pStart <= toEpoch &&
-                            (wantedChannels == null || ch in wantedChannels) && programs.size < maxPrograms) {
+                        val raw = pCh
+                        val ch = when {
+                            raw == null -> null
+                            wantedChannels == null || raw in wantedChannels -> raw
+                            else -> alias[raw]
+                        }
+                        if (ch != null && pStart > 0 && pStop > pStart && pStop >= fromEpoch && pStart <= toEpoch && programs.size < maxPrograms) {
                             programs += EpgProgram(ch, pStart, pStop, pTitle?.ifBlank { null } ?: "Sin título", pDesc?.ifBlank { null })
                         }
                         pCh = null

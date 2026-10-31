@@ -150,9 +150,10 @@ fun FocusableSurface(
 
 fun cardWidth(aspect: CardAspect, size: CardSize, tv: Boolean): Dp {
     val base = when (aspect) {
-        CardAspect.POSTER -> if (tv) 150 else 112
-        CardAspect.LANDSCAPE -> if (tv) 264 else 208
-        CardAspect.SQUARE -> if (tv) 140 else 108
+        // Más tarjetas por fila: en celular se ven ~4 pósters y en TV ~7 (antes 3 y 5).
+        CardAspect.POSTER -> if (tv) 124 else 90
+        CardAspect.LANDSCAPE -> if (tv) 224 else 168
+        CardAspect.SQUARE -> if (tv) 118 else 88
     }
     return (base * size.scale).dp
 }
