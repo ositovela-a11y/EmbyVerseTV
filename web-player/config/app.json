@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": 2,
-  "publishedAt": "2026-10-31T03:45:55Z",
+  "version": 3,
+  "publishedAt": "2026-10-31T17:14:56Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "EmbyVerse",
@@ -34,7 +34,7 @@
     },
     "typography": {
       "family": "poppins",
-      "scale": 1.0
+      "scale": 1
     },
     "shape": {
       "cardRadius": 14,
@@ -243,6 +243,8 @@
     "home.greeting": "Hola",
     "home.emptySources": "Aún no tienes fuentes. Añade una lista M3U o un proveedor para ver contenido.",
     "support.contact": "soporte@ejemplo.com",
-    "provider.epgUrl": "https://epgshare01.online/epgshare01/epg_ripper_MX1.xml.gz"
+    "provider.epgUrl": "https://epgshare01.online/epgshare01/epg_ripper_MX1.xml.gz",
+    "season": "halloween",
+    "support.whatsapp": "4442011541"
   }
 }
