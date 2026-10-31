@@ -113,12 +113,18 @@ class SmokeFlowTest {
             val t0 = System.currentTimeMillis()
             waitTag("nav_movies", 30_000)
             log("Inicio visible en ${System.currentTimeMillis() - t0} ms")
+            runCatching { compose.waitUntil(60_000) { compose.onAllNodes(hasTagPrefix("card:"), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() } }
+            log("Inicio con contenido en ${System.currentTimeMillis() - t0} ms")
             Thread.sleep(1500); shot("01-inicio")
 
             // ---- Películas
             var t = System.currentTimeMillis()
             compose.onNodeWithTag("nav_movies", useUnmergedTree = true).performClick()
             waitCards()
+            log("Películas: abre en «Lo más nuevo» en ${System.currentTimeMillis() - t} ms")
+            shot("02a-peliculas-nuevas")
+            compose.onNodeWithTag("folder_all", useUnmergedTree = true).performClick() // la prueba recorre «Todas»
+            Thread.sleep(800); waitCards()
             log("Películas: cuadrícula en ${System.currentTimeMillis() - t} ms · ${memory()}")
             shot("02-peliculas")
             for (index in listOf(0, 1, 3)) { // .mp4, .mkv y .avi en el catálogo (el simulador entrega el mismo clip)
@@ -139,6 +145,8 @@ class SmokeFlowTest {
             // ---- Series: formatos distintos de get_series_info (objeto, array, vacía, info: [])
             compose.onNodeWithTag("nav_series", useUnmergedTree = true).performClick()
             waitCards()
+            compose.onNodeWithTag("folder_all", useUnmergedTree = true).performClick()
+            Thread.sleep(800); waitCards()
             for (index in listOf(0, 4, 3, 6)) { // Serie 1 (normal), 5 (array), 4 (info: []), 7 (sin episodios)
                 t = System.currentTimeMillis()
                 openCard("SERIES", (index + 1).toString(), index)
@@ -279,7 +287,8 @@ class SmokeFlowTest {
                 runBlocking { c.prefs.updateAppearance(profile) { it.copy(themeId = id) } }
                 ActivityScenario.launch(MainActivity::class.java).use {
                     waitTag("nav_movies", 30_000)
-                    Thread.sleep(7_000); shot("tema-$id-inicio")
+                    runCatching { compose.waitUntil(60_000) { compose.onAllNodes(hasTagPrefix("card:"), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() } }
+                    Thread.sleep(2_000); shot("tema-$id-inicio")
                     compose.onNodeWithTag("nav_movies", useUnmergedTree = true).performClick()
                     waitCards()
                     Thread.sleep(1_500); shot("tema-$id-peliculas")

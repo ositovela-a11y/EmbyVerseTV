@@ -54,6 +54,7 @@ S = {
 "update_downloading": ("Descargando versión %1$s…", "Downloading version %1$s…"), "update_failed": ("No se pudo descargar la actualización", "Update download failed"),
 "update_ready_title": ("Versión %1$s lista para instalar", "Version %1$s ready to install"), "update_ready_message": ("Ya se descargó en segundo plano. Toca Instalar: tarda unos segundos y no pierdes tu cuenta, favoritos ni historial.", "Already downloaded. Tap Install; nothing is lost."),
 "update_install": ("Instalar", "Install"),
+"folder_newest": ("Lo más nuevo", "Newest"),
 "player_options": ("Audio y subtítulos", "Audio & subtitles"), "options_audio": ("Audio", "Audio"), "options_subtitles": ("Subtítulos", "Subtitles"),
 "options_subtitles_off": ("Desactivados", "Off"), "options_subtitles_none": ("Este contenido no trae subtítulos.", "No subtitles available."),
 "options_audio_single": ("Solo hay una pista de audio.", "Only one audio track."), "options_audio_default": ("Audio original del canal.", "Original audio."),

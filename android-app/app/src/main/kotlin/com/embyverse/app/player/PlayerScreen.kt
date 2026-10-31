@@ -124,6 +124,7 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit) {
                     sub?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     if (vm.isLive && channels.size > 1) Text(stringResource(R.string.player_channels_hint), style = MaterialTheme.typography.labelMedium, color = t.primary)
                 }
+                com.embyverse.app.ui.components.Clock(Modifier.padding(horizontal = 8.dp), color = Color.White)
                 IconButton(onClick = { vm.showOptions(true) }, modifier = Modifier.testTag("player_options")) {
                     Icon(Icons.Rounded.Subtitles, stringResource(R.string.player_options), tint = Color.White)
                 }

@@ -182,6 +182,7 @@ private fun HomeHeaderRow(s: HomeUiState, nav: Navigator) {
                 style = MaterialTheme.typography.titleMedium, color = t.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
             s.config.brand.tagline?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = t.textSecondary, maxLines = 1) }
         }
+        com.embyverse.app.ui.components.Clock(Modifier.padding(horizontal = 8.dp))
         IconButton(onClick = { nav.goTop(Routes.SEARCH) }) { Icon(Icons.Rounded.Search, stringResource(R.string.nav_search), tint = t.onBackground) }
         FocusableSurface(onClick = { nav.go(Routes.PROFILES) }, shape = CircleShape) { _ ->
             Box(Modifier.size(36.dp).background(t.primary), contentAlignment = Alignment.Center) {
@@ -201,11 +202,16 @@ private fun HeroCarousel(items: List<HeroItem>, nav: Navigator) {
     val cinema = t.heroStyle == com.embyverse.core.config.HeroStyle.CINEMA
     val centered = t.heroStyle == com.embyverse.core.config.HeroStyle.CENTERED
     // CINEMA (tipo Netflix/HBO): banner más alto, imagen dominante. CENTERED (tipo Apple TV): texto centrado.
+    // Altura según la pantalla: el banner completo (texto y botones) siempre queda a la vista,
+    // también con el menú arriba de los estilos de plataforma.
+    val screenH = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
+    val topMenu = t.navVariant == com.embyverse.core.config.NavVariant.PILLS || t.navVariant == com.embyverse.core.config.NavVariant.TEXT_TABS
+    val maxH = (screenH * (if (t.device.isTv) (if (topMenu) 0.58f else 0.66f) else 0.52f)).dp
     val height = when {
         t.device.isTv -> if (cinema) 470.dp else 380.dp
         cfgW >= 600 -> if (cinema) 420.dp else 340.dp
         else -> if (cinema) 440.dp else 300.dp
-    }
+    }.coerceAtMost(maxH).coerceAtLeast(240.dp)
     // Cada novedad dura 6.5 s (tiempo para leerla); la barra del indicador muestra cuánto falta.
     // Se avanza con un temporizador ligero (no una animación continua): menos trabajo para el TV.
     val progress = remember { androidx.compose.runtime.mutableFloatStateOf(0f) }

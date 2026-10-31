@@ -122,7 +122,9 @@ private fun FolderRow(folders: List<Folder>, selected: String, onSelect: (String
         if (i > 0) state.scrollToItem((i - 1).coerceAtLeast(0))
     }
     LazyRow(state = state, contentPadding = PaddingValues(horizontal = t.screenPadding, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(folders, key = { it.key }) { f -> CategoryChip(f.label, selected == f.key) { onSelect(f.key) } }
+        items(folders, key = { it.key }) { f ->
+            Box(Modifier.testTag(if (f.key == KEY_ALL) "folder_all" else "folder")) { CategoryChip(f.label, selected == f.key) { onSelect(f.key) } }
+        }
     }
 }
 
@@ -152,7 +154,7 @@ private fun FolderColumn(folders: List<Folder>, selected: String, onSelect: (Str
         items(folders, key = { it.key }, contentType = { 0 }) { f ->
             val isSel = f.key == selected
             FocusableSurface(onClick = { pending = null; onSelect(f.key) }, focusScale = 1f,
-                modifier = Modifier.fillMaxWidth().testTag("folder")
+                modifier = Modifier.fillMaxWidth().testTag(if (f.key == KEY_ALL) "folder_all" else "folder")
                     .then(if (isSel) Modifier.focusRequester(restore) else Modifier)
                     .onFocusChanged { if (it.isFocused && f.key != KEY_LOCK) pending = f.key }) { focused ->
                 Row(Modifier.fillMaxWidth().background(when { focused -> t.primary.copy(alpha = 0.28f); isSel -> t.surfaceVariant; else -> Color.Transparent })
@@ -227,16 +229,18 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
     }
     val fullscreen: (ChannelEntity) -> Unit = { ch ->
         preview.release()
-        nav.play(ItemRef(ContentKind.LIVE, ch.sourceId, ch.providerId), s.category)
+        nav.play(ItemRef(ContentKind.LIVE, ch.sourceId, ch.providerId), s.category?.takeIf { !it.startsWith("\u0000") })
     }
     val onChannel: (ChannelEntity) -> Unit = { ch -> if (preview.isPreviewing(ch)) fullscreen(ch) else preview.play(ch) }
 
     val allLabel = stringResource(R.string.category_all)
     val favLabel = stringResource(R.string.filter_favorites)
     val histLabel = stringResource(R.string.filter_history)
+    val eventsLabel = stringResource(R.string.events_today)
     val (lockFolder, onLockFolder) = rememberParentalFolder()
-    val folders = remember(s.categories, allLabel, lockFolder) {
-        listOf(Folder(KEY_FAV, "♥ $favLabel"), Folder(KEY_HIST, "⟲ $histLabel"), Folder(KEY_ALL, allLabel)) + s.categories.map { Folder(it, it) } + listOfNotNull(lockFolder)
+    val folders = remember(s.categories, allLabel, lockFolder, eventsLabel) {
+        listOf(Folder(CATEGORY_EVENTS, "⚽ $eventsLabel"), Folder(KEY_FAV, "♥ $favLabel"), Folder(KEY_HIST, "⟲ $histLabel"), Folder(KEY_ALL, allLabel)) +
+            s.categories.map { Folder(it, it) } + listOfNotNull(lockFolder)
     }
     val selectedFolder = when (s.filter) { LiveFilter.FAVORITES -> KEY_FAV; LiveFilter.HISTORY -> KEY_HIST; else -> s.category ?: KEY_ALL }
     val onFolder: (String) -> Unit = { k ->
@@ -253,6 +257,7 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
         if (t.device.isTv) {
             Row(Modifier.statusBarsPadding().padding(end = t.screenPadding), verticalAlignment = Alignment.CenterVertically) {
                 ScreenTitle(stringResource(R.string.nav_live), Modifier.weight(1f))
+                com.embyverse.app.ui.components.Clock(Modifier.padding(end = 16.dp))
                 com.embyverse.app.ui.components.EmbyButton(stringResource(R.string.guide_title), { nav.go(Routes.GUIDE) }, icon = Icons.Rounded.CalendarViewWeek, secondary = true)
                 Spacer(Modifier.width(12.dp))
                 SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_channels), Modifier.width(360.dp))
@@ -488,7 +493,10 @@ private fun VodScreen(nav: Navigator, kind: ContentKind) {
     Column(Modifier.fillMaxSize()) {
         val allLabel = stringResource(R.string.category_all)
         val (lockFolder, onLockFolder) = rememberParentalFolder()
-        val folders = remember(s.categories, allLabel, lockFolder) { listOf(Folder(KEY_ALL, allLabel)) + s.categories.map { Folder(it, it) } + listOfNotNull(lockFolder) }
+        val newLabel = stringResource(R.string.folder_newest)
+        val folders = remember(s.categories, allLabel, lockFolder, newLabel) {
+            listOf(Folder(CATEGORY_NEW, "★ $newLabel"), Folder(KEY_ALL, allLabel)) + s.categories.map { Folder(it, it) } + listOfNotNull(lockFolder)
+        }
         val selectedFolder = s.category ?: KEY_ALL
         val onFolder: (String) -> Unit = { k -> if (k == KEY_LOCK) onLockFolder() else vm.setCategory(if (k == KEY_ALL) null else k) }
         if (t.device.isTv) {

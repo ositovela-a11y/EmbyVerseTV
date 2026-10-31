@@ -34,14 +34,48 @@ export function EditingBanner({ vendors }: { vendors: Vendor[] }) {
     : <div className="editing-banner clients">Estás editando la <b>app de tus clientes</b>. Al publicar, todos tus clientes ven los cambios al abrir la app o al conectarse a internet, sin descargar nada.</div>;
 }
 
+/** Acorta un enlace con is.gd (gratis, sin cuenta). Se usa JSONP porque is.gd no permite peticiones directas desde el navegador. */
+function shorten(url: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const cb = `evShort${Date.now()}${Math.floor(Math.random() * 1000)}`;
+    const w = window as unknown as Record<string, unknown>;
+    const s = document.createElement('script');
+    const done = () => { delete w[cb]; s.remove(); };
+    w[cb] = (r: { shorturl?: string; errormessage?: string }) => { done(); if (r.shorturl) resolve(r.shorturl); else reject(new Error(r.errormessage || 'No se pudo crear el enlace corto')); };
+    s.onerror = () => { done(); reject(new Error('No se pudo conectar con is.gd')); };
+    s.src = `https://is.gd/create.php?format=json&callback=${cb}&url=${encodeURIComponent(url)}`;
+    document.head.appendChild(s);
+  });
+}
+
+const SHORT_KEY = (slug: string) => `ev.studio.short:${slug || 'principal'}`;
+
 function Links({ slug }: { slug: string }) {
   const l = linksFor(slug);
   const copy = (t: string) => navigator.clipboard?.writeText(t);
+  const [short, setShort] = useState<string>(() => { try { return localStorage.getItem(SHORT_KEY(slug)) || ''; } catch { return ''; } });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const make = async () => {
+    setBusy(true); setErr('');
+    try {
+      const s = (await shorten(l.apk)).replace(/^https?:\/\//, '');
+      setShort(s); try { localStorage.setItem(SHORT_KEY(slug), s); } catch { /* */ }
+    } catch (e) { setErr(e instanceof Error ? e.message : 'Error'); }
+    finally { setBusy(false); }
+  };
   return (
     <div className="vendor-links">
-      <span><b>Descarga directa (Downloader):</b> <code>{l.short}</code> <button className="link" onClick={() => copy(l.short)}>Copiar</button></span>
+      <span><b>Código para Downloader:</b>{' '}
+        {short ? <><code className="short-code">{short}</code> <button className="link" onClick={() => copy(short)}>Copiar</button></>
+          : <button className="btn" disabled={busy} onClick={() => void make()}>{busy ? 'Creando…' : 'Generar código para Downloader'}</button>}
+      </span>
+      {err && <span className="hint" style={{ color: '#b42318' }}>{err}</span>}
+      {short && <span className="hint">Tus clientes escriben <b>{short}</b> en Downloader y se instala la app. Siempre baja la versión más reciente; después se actualiza sola dentro de la app.</span>}
+      <span><b>Enlace largo:</b> <code>{l.short}</code> <button className="link" onClick={() => copy(l.short)}>Copiar</button></span>
       <span><b>APK:</b> <a href={l.apk} target="_blank" rel="noreferrer">{l.apk.split('/').pop()}</a></span>
       <span><b>Página de descarga:</b> <a href={l.web} target="_blank" rel="noreferrer">{l.web.replace('https://', '')}</a></span>
+      <span className="hint">¿Prefieres un código numérico de Downloader? Pégale el enlace largo en <a href="https://go.aftvnews.com/" target="_blank" rel="noreferrer">go.aftvnews.com</a> (pide resolver un captcha, por eso no se puede hacer automático).</span>
     </div>
   );
 }
@@ -88,7 +122,7 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
           </div>
         ))}
       </Group>
-      <p className="hint">Para Downloader: crea un código en go.aftvnews.com con el enlace de «Descarga directa» de cada vendedor (es fijo; siempre baja su APK más reciente).</p>
+      <p className="hint">Pasos para una app nueva: 1) «Crear app de vendedor» · 2) «Editar su app» y cambia logo, nombre y colores · 3) «Publicar» · 4) en unos 15 minutos su APK está lista: pulsa «Generar código para Downloader» y entrégaselo a tu vendedor. Cada versión nueva le llega sola a sus clientes.</p>
     </div>
   );
 }

@@ -26,6 +26,10 @@ import kotlinx.coroutines.launch
 
 enum class LiveFilter { ALL, FAVORITES, HISTORY }
 
+/** Carpetas especiales: eventos de hoy (TV en vivo) y lo más nuevo (películas y series). */
+const val CATEGORY_EVENTS = "\u0000events"
+const val CATEGORY_NEW = "\u0000new"
+
 data class ChannelRow(val channel: ChannelEntity, val nowPlaying: EpgEntity?, val favorite: Boolean)
 
 data class LiveUiState(
@@ -46,7 +50,10 @@ class LiveViewModel(private val c: AppContainer, initialCategory: String?) : Vie
     /** La guía se consulta cuando el foco se detiene, no en cada canal por el que pasa el control. */
     val selectedSettled = selected.debounce(220).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    private val channels = category.flatMapLatest { c.catalog.channels(it, 5000) }
+    private val channels = category.flatMapLatest { cat ->
+        if (cat == CATEGORY_EVENTS) c.catalog.eventCandidates().map { l -> com.embyverse.app.data.repo.Events.today(l, limit = 300).map { it.channel } }
+        else c.catalog.channels(cat, 5000)
+    }
     private val favKeys = c.library.favorites().map { l -> l.filter { it.kind == "LIVE" }.map { it.sourceId to it.itemId }.toSet() }
     private val histKeys = c.library.history(200).map { l -> l.filter { it.kind == "LIVE" }.map { it.sourceId to it.itemId } }
 
@@ -92,10 +99,13 @@ data class VodUiState(
 /** Catálogo de películas o de series (misma pantalla, distinto origen de datos). */
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class VodViewModel(private val c: AppContainer, private val kind: ContentKind) : ViewModel() {
-    private val category = MutableStateFlow<String?>(null)
+    // Películas y series abren en «Lo más nuevo».
+    private val category = MutableStateFlow<String?>(CATEGORY_NEW)
     private val query = MutableStateFlow("")
 
     private val items = category.flatMapLatest { cat ->
+        if (cat == CATEGORY_NEW) return@flatMapLatest (if (kind == ContentKind.MOVIE) c.catalog.recentMovies(300).map { l -> l.map { it.searchKey to it.toCard() } }
+            else c.catalog.recentSeries(300).map { l -> l.map { it.searchKey to it.toCard() } })
         (if (kind == ContentKind.MOVIE) c.database.movies().observeCards(cat, 5000) else c.database.series().observeCards(cat, 5000))
             .let { f -> kotlinx.coroutines.flow.combine(f, c.parental.hidden) { l, h -> if (h.isEmpty()) l else l.filter { it.category !in h } } }
             .map { l -> l.map { it.searchKey to it.toCard(kind) } }
