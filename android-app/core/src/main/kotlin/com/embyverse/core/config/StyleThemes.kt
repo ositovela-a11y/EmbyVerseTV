@@ -29,6 +29,7 @@ val STYLE_THEMES: List<StyleTheme> = listOf(
             cardRadius = 16, buttonRadius = 12, bannerRadius = 22, glowEnabled = false, buttonStyle = ButtonStyle.FILLED,
             navStyle = NavStyle.TOP_TABS, tvNavFromTheme = true, heroStyle = HeroStyle.CENTERED, cardStyle = CardStyle.TITLES, focusStyle = FocusStyle.LIFT, rowAspect = CardAspect.LANDSCAPE, font = FontChoice.INTER, navShowLabels = true,
             navVariant = NavVariant.PILLS,
+            homeTemplate = HomeTemplate.SHELF,
         )
     },
     // Ambiente "Netflix": negro profundo y rojo cine, esquinas rectas.
@@ -41,6 +42,7 @@ val STYLE_THEMES: List<StyleTheme> = listOf(
             backgroundStyle = BackgroundStyle.SOLID, cardRadius = 5, buttonRadius = 5, bannerRadius = 6, glowEnabled = false,
             navStyle = NavStyle.BOTTOM_BAR, heroStyle = HeroStyle.CINEMA, cardStyle = CardStyle.CLEAN, focusStyle = FocusStyle.WHITE, rowAspect = CardAspect.POSTER, font = FontChoice.INTER, cardGap = 8,
             navVariant = NavVariant.RAIL_EXPAND, homeChips = true,
+            homeTemplate = HomeTemplate.TOP10,
         )
     },
     // Ambiente "HBO Max": degradado violeta-azul nocturno con brillo.
@@ -54,6 +56,7 @@ val STYLE_THEMES: List<StyleTheme> = listOf(
             cardRadius = 10, buttonRadius = 22, glowEnabled = true, glowIntensity = 0.5f,
             navStyle = NavStyle.TOP_TABS, tvNavFromTheme = true, heroStyle = HeroStyle.CINEMA, cardStyle = CardStyle.CLEAN, focusStyle = FocusStyle.WHITE, rowAspect = CardAspect.LANDSCAPE, font = FontChoice.POPPINS,
             navVariant = NavVariant.TEXT_TABS,
+            homeTemplate = HomeTemplate.SPOTLIGHT,
         )
     },
     // Ambiente "Disney+": azul marino mágico con destellos celestes.
@@ -67,6 +70,7 @@ val STYLE_THEMES: List<StyleTheme> = listOf(
             cardRadius = 12, buttonRadius = 8, glowEnabled = true, glowIntensity = 0.3f,
             navStyle = NavStyle.BOTTOM_BAR, heroStyle = HeroStyle.CINEMA, cardStyle = CardStyle.CLEAN, focusStyle = FocusStyle.LIFT, rowAspect = CardAspect.LANDSCAPE, font = FontChoice.INTER,
             navVariant = NavVariant.RAIL_EXPAND,
+            homeTemplate = HomeTemplate.SPOTLIGHT,
         )
     },
     // Ambiente "Prime Video": azul petróleo y celeste.
@@ -79,6 +83,7 @@ val STYLE_THEMES: List<StyleTheme> = listOf(
             backgroundStyle = BackgroundStyle.SOLID, cardRadius = 8, buttonRadius = 6, glowEnabled = false,
             navStyle = NavStyle.TOP_TABS, tvNavFromTheme = true, heroStyle = HeroStyle.CLASSIC, cardStyle = CardStyle.TITLES, focusStyle = FocusStyle.WHITE, rowAspect = CardAspect.LANDSCAPE, font = FontChoice.INTER,
             navVariant = NavVariant.TEXT_TABS,
+            homeTemplate = HomeTemplate.SPOTLIGHT,
         )
     },
     // Ambiente "Paramount+": azul intenso estelar.
@@ -92,6 +97,7 @@ val STYLE_THEMES: List<StyleTheme> = listOf(
             cardRadius = 12, buttonRadius = 24, glowEnabled = true, glowIntensity = 0.4f,
             navStyle = NavStyle.TOP_TABS, tvNavFromTheme = true, heroStyle = HeroStyle.CINEMA, cardStyle = CardStyle.TITLES, focusStyle = FocusStyle.LIFT, rowAspect = CardAspect.POSTER,
             navVariant = NavVariant.TEXT_TABS,
+            homeTemplate = HomeTemplate.SPOTLIGHT,
         )
     },
     // Ambiente "Hulu": negro carbón con verde neón.
@@ -104,6 +110,7 @@ val STYLE_THEMES: List<StyleTheme> = listOf(
             backgroundStyle = BackgroundStyle.SOLID, cardRadius = 10, buttonRadius = 10, glowEnabled = false,
             navStyle = NavStyle.BOTTOM_BAR, heroStyle = HeroStyle.CLASSIC, cardStyle = CardStyle.TITLES, focusStyle = FocusStyle.RING, rowAspect = CardAspect.LANDSCAPE, font = FontChoice.INTER,
             navVariant = NavVariant.TEXT_TABS,
+            homeTemplate = HomeTemplate.SPOTLIGHT,
         )
     },
     // Ambiente "Crunchyroll": oscuro con naranja vibrante.
@@ -117,6 +124,7 @@ val STYLE_THEMES: List<StyleTheme> = listOf(
             cardRadius = 8, buttonRadius = 8, glowEnabled = false,
             navStyle = NavStyle.BOTTOM_BAR, heroStyle = HeroStyle.CINEMA, cardStyle = CardStyle.TITLES, focusStyle = FocusStyle.RING, rowAspect = CardAspect.POSTER,
             navVariant = NavVariant.RAIL_EXPAND,
+            homeTemplate = HomeTemplate.TOP10,
         )
     },
     // Lujo: negro y oro.
@@ -130,6 +138,7 @@ val STYLE_THEMES: List<StyleTheme> = listOf(
             cardRadius = 12, buttonRadius = 4, glowEnabled = true, glowIntensity = 0.2f, buttonStyle = ButtonStyle.FILLED,
             navStyle = NavStyle.TOP_TABS, tvNavFromTheme = true, heroStyle = HeroStyle.CENTERED, cardStyle = CardStyle.CLEAN, focusStyle = FocusStyle.LIFT, rowAspect = CardAspect.POSTER, font = FontChoice.POPPINS,
             navVariant = NavVariant.PILLS,
+            homeTemplate = HomeTemplate.SHELF,
         )
     },
 )

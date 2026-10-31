@@ -107,7 +107,16 @@ data class ThemeSpec(
     val navVariant: NavVariant = NavVariant.STANDARD,
     /** Celular: atajos «Series · Películas · En vivo» bajo la cabecera del inicio (estilo Netflix). */
     val homeChips: Boolean = false,
+    /** Plantilla del inicio según el estilo de plataforma (ver [HomeTemplate]). */
+    val homeTemplate: HomeTemplate = HomeTemplate.CLASSIC,
 )
+
+/**
+ * CLASSIC: inicio del panel. TOP10: fila «Top 10 de hoy» con números grandes (tipo Netflix).
+ * SHELF: fila «A continuación» sobre el banner (tipo Apple TV). SPOTLIGHT: fila de tarjetas grandes
+ * destacadas con el título sobre la imagen (tipo HBO Max / Fox / Prime).
+ */
+enum class HomeTemplate { CLASSIC, TOP10, SHELF, SPOTLIGHT }
 
 /**
  * PILLS: pestañas en píldora centradas arriba (estilo Apple TV). TEXT_TABS: logotipo + secciones en texto

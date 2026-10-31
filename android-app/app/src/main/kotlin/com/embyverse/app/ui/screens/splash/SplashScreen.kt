@@ -50,6 +50,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.togetherWith
 import com.embyverse.app.R
 import com.embyverse.app.ui.LocalAppContainer
 import com.embyverse.app.ui.components.BrandLogo
@@ -62,6 +63,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 private val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+private const val SPLASH_MESSAGES = 4
 
 /**
  * Entrada premium (~3.5 s):
@@ -83,6 +85,11 @@ fun SplashScreen(brand: Brand, onFinished: () -> Unit) {
     val exit = remember { Animatable(0f) }     // salida hacia la app
     val defaultProfile = stringResource(R.string.profile_default)
     val player = remember { arrayOfNulls<MediaPlayer>(1) }
+    val message = remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val messages = listOf(
+        stringResource(R.string.splash_msg_1), stringResource(R.string.splash_msg_2),
+        stringResource(R.string.splash_msg_3), stringResource(R.string.splash_msg_4),
+    )
 
     DisposableEffect(Unit) { onDispose { player[0]?.runCatching { release() }; player[0] = null } }
 
@@ -103,7 +110,9 @@ fun SplashScreen(brand: Brand, onFinished: () -> Unit) {
         delay(650)
         launch { shine.animateTo(1.5f, tween(900, easing = LinearEasing)) }
         launch { text.animateTo(1f, tween(700, easing = FastOutSlowInEasing)) }
-        delay(1_800)
+        // Mensajes que van cambiando mientras se prepara todo (≈ 1.1 s cada uno).
+        for (i in 1 until SPLASH_MESSAGES) { delay(1_100); message.intValue = i }
+        delay(900)
         ensure.await(); fetch.await()
         exit.animateTo(1f, tween(420, easing = FastOutSlowInEasing))
         onFinished()
@@ -120,6 +129,17 @@ fun SplashScreen(brand: Brand, onFinished: () -> Unit) {
     val out = 1f - exit.value
     Box(Modifier.fillMaxSize().graphicsLayer { alpha = out; val s = 1f + exit.value * 0.12f; scaleX = s; scaleY = s },
         contentAlignment = Alignment.Center) {
+        // Estrellas que se desplazan lentamente (fondo dinámico).
+        val drift by rememberInfiniteTransition(label = "stars").animateFloat(0f, 1f,
+            infiniteRepeatable(tween(14_000, easing = LinearEasing)), label = "drift")
+        Canvas(Modifier.fillMaxSize()) {
+            for (i in 0 until 46) {
+                val sx = ((i * 73 % 100) / 100f + drift * (0.03f + (i % 5) * 0.012f)) % 1f
+                val sy = ((i * 37 % 100) / 100f + drift * 0.02f * (i % 3)) % 1f
+                val tw = 0.35f + 0.65f * kotlin.math.abs(kotlin.math.sin((drift * 6.28f * (1 + i % 4)) + i))
+                drawCircle(Color.White.copy(alpha = 0.55f * tw * ring.value), radius = (0.8f + (i % 3) * 0.7f) * density, center = Offset(sx * size.width, sy * size.height))
+            }
+        }
         // Halo de luz de los colores de la marca.
         Canvas(Modifier.fillMaxSize()) {
             val e = ring.value
@@ -163,8 +183,16 @@ fun SplashScreen(brand: Brand, onFinished: () -> Unit) {
             Text(brand.appName.uppercase(), style = MaterialTheme.typography.headlineSmall.copy(letterSpacing = 6.sp), fontWeight = FontWeight.Bold,
                 color = t.onBackground, modifier = Modifier.graphicsLayer { alpha = text.value; translationY = (1f - text.value) * 12.dp.toPx() })
             Spacer(Modifier.height(6.dp))
-            Text(brand.tagline ?: stringResource(R.string.splash_loading), style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 1.5.sp),
-                color = t.textSecondary, modifier = Modifier.graphicsLayer { alpha = text.value * 0.9f })
+            Text(brand.tagline ?: stringResource(R.string.splash_welcome, brand.appName), style = MaterialTheme.typography.titleMedium.copy(letterSpacing = 0.8.sp),
+                color = t.onSurface, modifier = Modifier.graphicsLayer { alpha = text.value })
+            Spacer(Modifier.height(8.dp))
+            // Mensaje profesional que cambia con un fundido.
+            androidx.compose.animation.AnimatedContent(message.intValue, label = "splashMsg",
+                transitionSpec = { (androidx.compose.animation.fadeIn(tween(380)) + androidx.compose.animation.slideInVertically(tween(380)) { it / 2 }) togetherWith
+                    androidx.compose.animation.fadeOut(tween(260)) }) { i ->
+                Text(messages[i.coerceIn(0, messages.lastIndex)], style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 1.2.sp),
+                    color = t.textSecondary, modifier = Modifier.graphicsLayer { alpha = text.value * 0.95f })
+            }
             Spacer(Modifier.height(22.dp))
             // Barra fina de carga.
             Canvas(Modifier.width(120.dp).height(3.dp).graphicsLayer { alpha = text.value }) {
