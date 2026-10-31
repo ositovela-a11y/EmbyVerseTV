@@ -298,7 +298,7 @@ fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) {
 
 /** Reloj (hora local del equipo). Se actualiza al cambiar el minuto, sin animaciones continuas. */
 @Composable
-fun Clock(modifier: Modifier = Modifier, color: Color = LocalEmby.current.onBackground) {
+fun Clock(modifier: Modifier = Modifier, color: Color = LocalEmby.current.onBackground, small: Boolean = false) {
     val fmt = remember { java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT) }
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -307,6 +307,6 @@ fun Clock(modifier: Modifier = Modifier, color: Color = LocalEmby.current.onBack
             kotlinx.coroutines.delay(60_000 - now % 60_000 + 50)
         }
     }
-    Text(fmt.format(java.util.Date(now)), style = MaterialTheme.typography.titleMedium, color = color, maxLines = 1,
+    Text(fmt.format(java.util.Date(now)), style = if (small) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleMedium, color = color, maxLines = 1,
         modifier = modifier.testTag("clock"))
 }

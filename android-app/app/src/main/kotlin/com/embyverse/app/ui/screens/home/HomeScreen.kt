@@ -182,7 +182,8 @@ private fun HomeHeaderRow(s: HomeUiState, nav: Navigator) {
                 style = MaterialTheme.typography.titleMedium, color = t.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
             s.config.brand.tagline?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = t.textSecondary, maxLines = 1) }
         }
-        com.embyverse.app.ui.components.Clock(Modifier.padding(horizontal = 8.dp))
+        // En celular el reloj es pequeño para no recortar el saludo.
+        com.embyverse.app.ui.components.Clock(Modifier.padding(horizontal = if (t.device.isTv) 8.dp else 2.dp), small = !t.device.isTv)
         IconButton(onClick = { nav.goTop(Routes.SEARCH) }) { Icon(Icons.Rounded.Search, stringResource(R.string.nav_search), tint = t.onBackground) }
         FocusableSurface(onClick = { nav.go(Routes.PROFILES) }, shape = CircleShape) { _ ->
             Box(Modifier.size(36.dp).background(t.primary), contentAlignment = Alignment.Center) {
