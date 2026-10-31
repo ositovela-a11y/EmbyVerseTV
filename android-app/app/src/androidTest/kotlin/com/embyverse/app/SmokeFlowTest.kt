@@ -270,6 +270,27 @@ class SmokeFlowTest {
         }
     }
 
+    /** Estilos de plataforma: se aplican y se fotografía el inicio y Películas con cada uno. */
+    @Test fun f_estilosDePlataforma() {
+        val c = app.container
+        val profile = runBlocking { c.prefs.activeProfile() }
+        try {
+            for (id in listOf("style_cristal", "style_cine_rojo", "style_purpura")) {
+                runBlocking { c.prefs.updateAppearance(profile) { it.copy(themeId = id) } }
+                ActivityScenario.launch(MainActivity::class.java).use {
+                    waitTag("nav_movies", 30_000)
+                    Thread.sleep(7_000); shot("tema-$id-inicio")
+                    compose.onNodeWithTag("nav_movies", useUnmergedTree = true).performClick()
+                    waitCards()
+                    Thread.sleep(1_500); shot("tema-$id-peliculas")
+                }
+                log("Estilo $id: menú, inicio y películas sin cierres")
+            }
+        } finally {
+            runBlocking { c.prefs.updateAppearance(profile) { it.copy(themeId = null) } }
+        }
+    }
+
     private fun hasTagPrefix(prefix: String) = SemanticsMatcher("tag empieza por $prefix") {
         it.config.getOrNull(SemanticsProperties.TestTag)?.startsWith(prefix) == true
     }

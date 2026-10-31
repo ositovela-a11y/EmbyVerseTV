@@ -25,7 +25,7 @@ class AppContainer(val app: Application) {
     val parental by lazy { com.embyverse.app.data.repo.ParentalControl(prefs, database) }
     val catalog by lazy { CatalogRepository(database, parental.hidden) }
     val library by lazy { LibraryRepository(database, prefs) }
-    val epg by lazy { EpgRepository(database, okHttp, sources) }
+    val epg by lazy { EpgRepository(database, okHttp, sources) { config.config.value.texts["provider.epgUrl"] } }
     val config by lazy { ConfigRepository(app, okHttp) }
     val updater by lazy { com.embyverse.app.data.repo.AppUpdater(app, okHttp) }
 

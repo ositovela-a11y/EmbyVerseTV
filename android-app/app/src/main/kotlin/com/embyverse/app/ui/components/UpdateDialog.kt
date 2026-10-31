@@ -46,6 +46,13 @@ fun UpdateDialog(updater: AppUpdater) {
             },
             dismissButton = { TextButton(onClick = { updater.later(); hidden = true }) { Text(stringResource(R.string.update_later)) } },
         )
+        is AppUpdater.State.Ready -> AlertDialog(
+            onDismissRequest = { updater.later(); hidden = true },
+            title = { Text(stringResource(R.string.update_ready_title, s.versionName)) },
+            text = { Text(stringResource(R.string.update_ready_message)) },
+            confirmButton = { TextButton(onClick = { scope.launch { updater.downloadAndInstall() } }, modifier = Modifier.testTag("update_install")) { Text(stringResource(R.string.update_install)) } },
+            dismissButton = { TextButton(onClick = { updater.later(); hidden = true }) { Text(stringResource(R.string.update_later)) } },
+        )
         is AppUpdater.State.Downloading -> AlertDialog(
             onDismissRequest = {},
             title = { Text(stringResource(R.string.update_downloading, s.versionName)) },

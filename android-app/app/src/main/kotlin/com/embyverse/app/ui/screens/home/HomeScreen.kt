@@ -1,6 +1,7 @@
 package com.embyverse.app.ui.screens.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -150,6 +151,25 @@ private fun gridColumns(sec: SectionSpec, tv: Boolean): Int {
 
 @Composable
 private fun HomeHeader(s: HomeUiState, nav: Navigator) {
+    val t = LocalEmby.current
+    Column {
+        // Con menú arriba (Apple TV / HBO Max) el logotipo ya está en la barra: el inicio empieza directo con el banner.
+        val topMenu = t.navVariant == com.embyverse.core.config.NavVariant.PILLS || t.navVariant == com.embyverse.core.config.NavVariant.TEXT_TABS
+        if (!topMenu) HomeHeaderRow(s, nav)
+        // Estilo de plataforma (tipo Netflix en celular): atajos de texto bajo la cabecera.
+        if (t.homeChips && !t.device.isTv) Row(Modifier.padding(horizontal = t.screenPadding), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(R.string.nav_series to Routes.SERIES, R.string.nav_movies to Routes.MOVIES, R.string.nav_live to Routes.LIVE).forEach { (label, route) ->
+                FocusableSurface(onClick = { nav.goTop(route) }, shape = RoundedCornerShape(50), focusScale = 1.04f) { _ ->
+                    Text(stringResource(label), style = MaterialTheme.typography.labelLarge, color = t.onBackground,
+                        modifier = Modifier.border(1.dp, t.onBackground.copy(alpha = 0.5f), RoundedCornerShape(50)).padding(horizontal = 14.dp, vertical = 6.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeHeaderRow(s: HomeUiState, nav: Navigator) {
     val t = LocalEmby.current
     Row(
         Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = t.screenPadding, vertical = 8.dp),

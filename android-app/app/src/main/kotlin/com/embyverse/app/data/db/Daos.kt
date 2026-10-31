@@ -67,6 +67,14 @@ interface ChannelDao {
 
     @Query("SELECT DISTINCT epgChannelId FROM channels WHERE sourceId = :sourceId AND epgChannelId IS NOT NULL")
     suspend fun epgIds(sourceId: String): List<String>
+
+    /** Datos mínimos para emparejar la guía por nombre de canal. */
+    @Query("SELECT providerId, name, epgChannelId FROM channels WHERE sourceId = :sourceId")
+    suspend fun epgCandidates(sourceId: String): List<EpgCandidate>
+
+    /** Canales sin id de guía: se les asigna el de la guía emparejada por nombre. */
+    @Query("UPDATE channels SET epgChannelId = :epgId WHERE sourceId = :sourceId AND providerId IN (:ids) AND epgChannelId IS NULL")
+    suspend fun assignEpgId(sourceId: String, ids: List<String>, epgId: String)
 }
 
 @Dao
@@ -273,3 +281,5 @@ data class CardRow(
     val rating: Double?,
     val category: String? = null,
 )
+
+data class EpgCandidate(val providerId: String, val name: String, val epgChannelId: String?)

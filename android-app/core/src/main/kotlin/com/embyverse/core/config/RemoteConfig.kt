@@ -103,7 +103,18 @@ data class ThemeSpec(
     val rowAspect: CardAspect? = null,
     /** TV: usar el menú del tema (p. ej. pestañas arriba) en lugar del menú lateral. */
     val tvNavFromTheme: Boolean = false,
+    /** Menú tipo plataforma (ver [NavVariant]). STANDARD = el del panel. */
+    val navVariant: NavVariant = NavVariant.STANDARD,
+    /** Celular: atajos «Series · Películas · En vivo» bajo la cabecera del inicio (estilo Netflix). */
+    val homeChips: Boolean = false,
 )
+
+/**
+ * PILLS: pestañas en píldora centradas arriba (estilo Apple TV). TEXT_TABS: logotipo + secciones en texto
+ * arriba (estilo HBO Max / Prime). RAIL_EXPAND: en TV, iconos a la izquierda que se despliegan con nombres
+ * al llegar con el control (estilo Netflix / Disney+); en celular, barra inferior.
+ */
+enum class NavVariant { STANDARD, PILLS, TEXT_TABS, RAIL_EXPAND }
 
 /** CLASSIC: banner con texto a la izquierda. CINEMA: a pantalla grande, texto grande abajo. CENTERED: título centrado, minimalista. */
 enum class HeroStyle { CLASSIC, CINEMA, CENTERED }

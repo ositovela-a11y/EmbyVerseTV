@@ -31,6 +31,8 @@ class AppUpdater(private val context: Context, private val http: OkHttpClient) {
         data object Idle : State
         data class Available(val versionName: String, val versionCode: Int, val url: String) : State
         data class Downloading(val versionName: String, val progress: Float) : State
+        /** Ya descargada en segundo plano (Wi-Fi): solo falta tocar «Instalar». */
+        data class Ready(val versionName: String, val versionCode: Int, val file: File) : State
         data class Failed(val message: String) : State
     }
 
@@ -63,40 +65,62 @@ class AppUpdater(private val context: Context, private val http: OkHttpClient) {
             val name = app["versionName"]?.jsonPrimitive?.content ?: "$code"
             val path = app["path"]?.jsonPrimitive?.content ?: return@withContext
             val url = if (path.startsWith("http")) path else "$base/${path.trimStart('/')}"
-            _state.value = if (code > BuildConfig.VERSION_CODE) State.Available(name, code, url) else State.Idle
+            val cur = _state.value
+            if (code <= BuildConfig.VERSION_CODE) { _state.value = State.Idle; return@withContext }
+            if (cur is State.Ready && cur.versionCode == code && cur.file.exists()) return@withContext
+            _state.value = State.Available(name, code, url)
+            // Con Wi-Fi (o red sin límite) y permiso de instalar: se descarga sola en segundo plano.
+            if (canInstall() && unmetered()) fetch(State.Available(name, code, url), silent = true)?.let { _state.value = State.Ready(name, code, it) }
         }.onFailure { Log.i("AppUpdater", "no se pudo comprobar: ${it.message}") }
+    }
+
+    private fun unmetered(): Boolean = runCatching {
+        val cm = context.getSystemService(android.net.ConnectivityManager::class.java)
+        !cm.isActiveNetworkMetered
+    }.getOrDefault(false)
+
+    private fun fetch(a: State.Available, silent: Boolean): File? = runCatching {
+        val dir = File(context.cacheDir, "updates").apply { mkdirs() }
+        val out = File(dir, "app-${a.versionCode}.apk")
+        val tmp = File(dir, "app-${a.versionCode}.part")
+        dir.listFiles()?.filter { it != out }?.forEach { it.delete() }
+        if (out.exists() && out.length() > 0) return@runCatching out
+        http.newCall(Request.Builder().url(a.url).build()).execute().use { r ->
+            if (!r.isSuccessful) error("HTTP ${r.code}")
+            val total = r.body.contentLength().takeIf { it > 0 } ?: -1L
+            r.body.byteStream().use { input -> tmp.outputStream().use { o ->
+                val buf = ByteArray(64 * 1024); var read = 0L
+                while (true) {
+                    val n = input.read(buf); if (n < 0) break
+                    o.write(buf, 0, n); read += n
+                    if (!silent && total > 0) _state.value = State.Downloading(a.versionName, read.toFloat() / total)
+                }
+            } }
+        }
+        tmp.renameTo(out); out
+    }.onFailure { if (!silent) _state.value = State.Failed(it.message ?: "Error de descarga") }.getOrNull()
+
+    private fun install(file: File) {
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.updates", file)
+        context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
     fun later() { snoozed = true }
 
-    /** Descarga la APK y abre el instalador de Android. Devuelve false si falta el permiso de instalar. */
+    /** Descarga la APK (si no está ya) y abre el instalador de Android. Devuelve false si falta el permiso de instalar. */
     suspend fun downloadAndInstall(): Boolean {
-        val a = _state.value as? State.Available ?: return true
+        val st = _state.value
         if (!canInstall()) return false
-        val file = withContext(Dispatchers.IO) {
-            runCatching {
-                val dir = File(context.cacheDir, "updates").apply { mkdirs(); listFiles()?.forEach { it.delete() } }
-                val out = File(dir, "app-${a.versionCode}.apk")
-                http.newCall(Request.Builder().url(a.url).build()).execute().use { r ->
-                    if (!r.isSuccessful) error("HTTP ${r.code}")
-                    val total = r.body.contentLength().takeIf { it > 0 } ?: -1L
-                    r.body.byteStream().use { input -> out.outputStream().use { o ->
-                        val buf = ByteArray(64 * 1024); var read = 0L
-                        while (true) {
-                            val n = input.read(buf); if (n < 0) break
-                            o.write(buf, 0, n); read += n
-                            if (total > 0) _state.value = State.Downloading(a.versionName, read.toFloat() / total)
-                        }
-                    } }
-                }
-                out
-            }.onFailure { _state.value = State.Failed(it.message ?: "Error de descarga") }.getOrNull()
-        } ?: return true
-        _state.value = State.Downloading(a.versionName, 1f)
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.updates", file)
-        context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK))
-        _state.value = a // si se cancela la instalación, se puede volver a intentar
+        when (st) {
+            is State.Ready -> { install(st.file); return true }
+            is State.Available -> {
+                val file = withContext(Dispatchers.IO) { fetch(st, silent = false) } ?: return true
+                _state.value = State.Ready(st.versionName, st.versionCode, file)
+                install(file)
+            }
+            else -> Unit
+        }
         return true
     }
 
