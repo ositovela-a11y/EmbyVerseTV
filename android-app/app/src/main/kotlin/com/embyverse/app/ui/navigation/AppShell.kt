@@ -87,7 +87,7 @@ object Routes {
     const val SEARCH = "search"; const val SETTINGS = "settings"; const val SOURCES = "sources"; const val FAVORITES = "favorites"
     const val SOURCE_EDIT = "source_edit?id={id}&first={first}"
     const val MOVIE = "movie/{sid}/{id}"; const val SERIES_DETAIL = "series_detail/{sid}/{id}"
-    const val APPEARANCE = "appearance"; const val PLAYBACK = "playback"; const val ABOUT = "about"; const val PRIVACY = "privacy"; const val PROFILES = "profiles"; const val PARENTAL = "parental"; const val GUIDE = "guide"; const val MULTIVIEW = "multiview"
+    const val APPEARANCE = "appearance"; const val PLAYBACK = "playback"; const val ABOUT = "about"; const val PRIVACY = "privacy"; const val PROFILES = "profiles"; const val PARENTAL = "parental"; const val GUIDE = "guide"
 
     fun sourceEdit(id: String? = null, first: Boolean = false) = "source_edit?id=${id?.let(Uri::encode) ?: ""}&first=$first"
     fun movie(sid: String, id: String) = "movie/${Uri.encode(sid)}/${Uri.encode(id)}"
@@ -195,7 +195,6 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
             composable(Routes.PROFILES) { ProfilesScreen(navigator) }
             composable(Routes.PARENTAL) { com.embyverse.app.ui.screens.settings.ParentalScreen(navigator) }
             composable(Routes.GUIDE) { com.embyverse.app.ui.screens.guide.GuideScreen(navigator) }
-            composable(Routes.MULTIVIEW) { com.embyverse.app.ui.screens.multiview.MultiviewScreen(navigator) }
         }
     }
 

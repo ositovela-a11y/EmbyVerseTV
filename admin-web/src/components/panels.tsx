@@ -448,7 +448,15 @@ export function TextsPanel({ ed, canEdit }: PanelProps) {
 
 
 const SEASONS = [
-  { value: '', label: 'Ninguna' }, { value: 'navidad', label: 'Navidad (nieve)' }, { value: 'halloween', label: 'Halloween (murciélagos y calabazas)' },
+  { value: '', label: 'Ninguno' },
+  { value: 'auto', label: '★ Automático: fechas especiales + rotación' },
+  { value: 'rotar', label: '★ Rotar entre los fondos generales' },
+  { value: 'cine', label: 'Cine (claquetas, rollos y estrellas)' }, { value: 'palomitas', label: 'Noche de película (palomitas y boletos)' },
+  { value: 'galaxia', label: 'Galaxia (estrellas titilando y planetas)' }, { value: 'estrellas', label: 'Cielo estrellado' },
+  { value: 'deportes', label: 'Deportes (balones)' }, { value: 'musica', label: 'Música (notas)' },
+  { value: 'primavera', label: 'Primavera (flores y mariposas)' }, { value: 'verano', label: 'Verano (palmeras y sol)' }, { value: 'burbujas', label: 'Burbujas' },
+  { value: 'navidad', label: 'Navidad (nieve)' }, { value: 'anonuevo', label: 'Año Nuevo (fuegos y confeti)' }, { value: 'sanvalentin', label: 'San Valentín (corazones)' },
+  { value: 'patrias', label: 'Fiestas Patrias (verde, blanco y rojo)' }, { value: 'halloween', label: 'Halloween (murciélagos y calabazas)' },
   { value: 'muertos', label: 'Día de Muertos (cempasúchil y papel picado)' }, { value: 'mundial', label: 'Mundial / fútbol (balones y confeti)' },
 ] as const;
 
@@ -461,9 +469,15 @@ export function PremiumPanel({ ed, canEdit }: PanelProps) {
   const wa = t['support.whatsapp'] ?? '';
   return (
     <>
-      <Group title="Fondo de temporada" hint="Animación ligera encima del fondo de la app (Navidad, Halloween, Día de Muertos, Mundial). Se activa en todas las apps al publicar.">
+      <Group title="Fondo animado" hint="Animación ligera encima del fondo de la app. Puede ser fijo, ir cambiando solo o seguir las fechas especiales. Se activa en todas las apps al publicar.">
         <Select label="Temporada" value={(t['season'] ?? '') as string} options={SEASONS.map((s) => ({ value: s.value as string, label: s.label }))} disabled={!canEdit}
           onChange={(v) => set('season', v, 'season')} />
+        {(t['season'] === 'auto' || t['season'] === 'rotar') && (
+          <Select label="Cambiar de fondo cada" value={(t['season.every'] ?? '3') as string}
+            options={['1', '2', '3', '6', '12', '24'].map((h) => ({ value: h, label: h === '1' ? '1 hora' : `${h} horas` }))} disabled={!canEdit}
+            onChange={(v) => set('season.every', v, 'season.every')} />
+        )}
+        <p className="hint">«Automático» pone solo Navidad, Año Nuevo, San Valentín, Fiestas Patrias, Halloween y Día de Muertos en sus fechas; el resto del tiempo va cambiando entre cine, galaxia, deportes, música, primavera, verano y más.</p>
       </Group>
       <Group title="Evento destacado" hint="Tarjeta grande en el inicio con cuenta regresiva y los canales que lo transmiten (se buscan por las palabras que pongas). Desaparece 3 horas después de empezar.">
         <TextField label="Título" value={t['event.title'] ?? ''} max={80} placeholder="Final: México vs Brasil" disabled={!canEdit} onChange={(v) => set('event.title', v)} />

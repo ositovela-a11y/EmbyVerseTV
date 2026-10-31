@@ -104,18 +104,18 @@ fun SplashScreen(brand: Brand, onFinished: () -> Unit) {
                     ?.also { player[0] = it }
             }
         }
-        launch { warp.animateTo(1f, tween(1_500, easing = WarpEasing)) }
-        delay(900)
-        launch { galaxy.animateTo(1f, tween(1_400, easing = FastOutSlowInEasing)) }
-        delay(500)
-        launch { flash.animateTo(1f, tween(140)); flash.animateTo(0f, tween(600)) }
-        launch { logo.animateTo(1f, tween(900, easing = Emphasized)) }
+        launch { warp.animateTo(1f, tween(2_300, easing = WarpEasing)) }
+        delay(1_500)
+        launch { galaxy.animateTo(1f, tween(1_900, easing = FastOutSlowInEasing)) }
         delay(800)
-        launch { text.animateTo(1f, tween(600, easing = FastOutSlowInEasing)) }
-        for (i in 1 until messages.size) { delay(650); message.intValue = i }
-        delay(500)
+        launch { flash.animateTo(1f, tween(160)); flash.animateTo(0f, tween(800)) }
+        launch { logo.animateTo(1f, tween(1_200, easing = Emphasized)) }
+        delay(1_100)
+        launch { text.animateTo(1f, tween(800, easing = FastOutSlowInEasing)) }
+        for (i in 1 until messages.size) { delay(1_100); message.intValue = i }
+        delay(900)
         ensure.await(); fetch.await()
-        exit.animateTo(1f, tween(420, easing = FastOutSlowInEasing))
+        exit.animateTo(1f, tween(600, easing = FastOutSlowInEasing))
         onFinished()
     }
 
