@@ -83,6 +83,7 @@
     <string name="filter_history">Historial</string>
     <string name="folder_empty_message">No hay canales aquí. Prueba otra carpeta.</string>
     <string name="folder_empty_title">Carpeta vacía</string>
+    <string name="folder_newest">Lo más nuevo</string>
     <string name="guide_earlier">Antes</string>
     <string name="guide_hint">Muévete por la guía: aquí verás qué pasa en cada canal. OK en un programa en curso para verlo.</string>
     <string name="guide_later">Más tarde</string>

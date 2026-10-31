@@ -330,3 +330,5 @@ input[type=datetime-local] { min-width: 0; }
 .editing-banner.clients { background: #e8f7df; color: #24510f; }
 .editing-banner.vendor { background: #fff1dc; color: #6b3d00; }
 .studio:has(> .editing-banner) { grid-template-rows: auto auto 1fr; }
+
+.vendor-links code.short-code, .short-code { font-size: 18px; font-weight: 700; background: #0f1b33; color: #fff; padding: 4px 10px; border-radius: 8px; }

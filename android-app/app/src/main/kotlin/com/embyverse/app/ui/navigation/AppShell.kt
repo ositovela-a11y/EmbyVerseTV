@@ -253,6 +253,7 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
 private fun PillTabs(current: String?, go: (String) -> Unit) {
     val t = LocalEmby.current
     Box(Modifier.fillMaxWidth().statusBarsPadding().padding(vertical = if (t.device.isTv) 14.dp else 8.dp), contentAlignment = Alignment.Center) {
+        if (t.device.isTv) com.embyverse.app.ui.components.Clock(Modifier.align(Alignment.CenterEnd).padding(end = t.screenPadding))
         androidx.compose.foundation.lazy.LazyRow(
             Modifier.background(t.surface.copy(alpha = 0.72f), androidx.compose.foundation.shape.RoundedCornerShape(50)).padding(4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -280,7 +281,7 @@ private fun TextTabs(current: String?, logoVariant: LogoVariant, logoUrl: String
         .padding(horizontal = t.screenPadding, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         BrandLogo(logoVariant, logoUrl, Modifier.height(if (t.device.isTv) 40.dp else 32.dp).width(if (t.device.isTv) 110.dp else 84.dp))
         Spacer(Modifier.width(if (t.device.isTv) 28.dp else 10.dp))
-        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(if (t.device.isTv) 10.dp else 2.dp)) {
+        androidx.compose.foundation.lazy.LazyRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(if (t.device.isTv) 10.dp else 2.dp)) {
             items(TOP.size) { i ->
                 val d = TOP[i]
                 val sel = current == d.route
@@ -297,6 +298,7 @@ private fun TextTabs(current: String?, logoVariant: LogoVariant, logoUrl: String
                 }
             }
         }
+        if (t.device.isTv) com.embyverse.app.ui.components.Clock(Modifier.padding(start = 12.dp))
     }
 }
 
@@ -315,7 +317,8 @@ private fun ExpandingRail(current: String?, logoVariant: LogoVariant, logoUrl: S
             else listOf(t.background.copy(alpha = 0.9f), t.background.copy(alpha = 0.0f))))
         .onFocusChanged { open = it.hasFocus }
         .statusBarsPadding().padding(vertical = 18.dp), verticalArrangement = Arrangement.Center) {
-        BrandLogo(if (logoVariant == LogoVariant.ASSET) logoVariant else LogoVariant.BUNDLED_PLANET, logoUrl, Modifier.padding(start = 16.dp, bottom = 24.dp).size(44.dp))
+        BrandLogo(if (logoVariant == LogoVariant.ASSET) logoVariant else LogoVariant.BUNDLED_PLANET, logoUrl, Modifier.padding(start = 16.dp, bottom = 8.dp).size(44.dp))
+        com.embyverse.app.ui.components.Clock(Modifier.padding(start = 16.dp, bottom = 18.dp))
         TOP.forEach { d ->
             val sel = current == d.route
             com.embyverse.app.ui.components.FocusableSurface(onClick = { go(d.route) }, focusScale = 1f,

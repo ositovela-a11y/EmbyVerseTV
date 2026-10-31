@@ -61,6 +61,12 @@ data class HomeUiState(
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel(private val c: AppContainer) : ViewModel() {
+    private val t0 = System.currentTimeMillis()
+    /** Registra cuándo llega por primera vez cada parte del inicio (para detectar la que lo frena). */
+    private fun <T> Flow<T>.timed(name: String): Flow<T> {
+        var first = true
+        return kotlinx.coroutines.flow.flow { collect { v -> if (first) { first = false; android.util.Log.i("EmbyVerse", "inicio: $name en ${System.currentTimeMillis() - t0} ms") }; emit(v) } }
+    }
     private val minuteTicker: Flow<Long> = flow { while (true) { emit(System.currentTimeMillis() / 1000); delay(60_000) } }
     private val appearance = c.prefs.activeProfileId.flatMapLatest { c.prefs.appearance(it) }
 
@@ -124,10 +130,11 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
         .onStart { emit(emptyList()) }
 
     val state: StateFlow<HomeUiState> = combine(
-        combine(c.config.config, appearance, minuteTicker) { cfg, app, now -> Triple(cfg, ConfigResolver.sections(cfg, app), now) },
-        lists, combine(recent, novedades) { r, n -> r to n }, recommended,
+        combine(c.config.config, appearance, minuteTicker) { cfg, app, now -> Triple(cfg, ConfigResolver.sections(cfg, app), now) }.timed("config"),
+        lists.timed("filas"), combine(recent, novedades) { r, n -> r to n }.timed("novedades"), recommended.timed("recomendados"),
         combine(profileName, combine(c.sources.sources, c.prefs.sourceExpiries) { s, e -> s.isNotEmpty() to e.filterKeys { k -> s.any { it.id == k } }.values.minOrNull() },
-            c.catalog.eventCandidates().map { com.embyverse.app.data.repo.Events.today(it) }) { n, s, e -> Triple(n, s, e) },
+            // Se recalcula cada minuto: los eventos que ya pasaron se van quitando solos.
+            combine(c.catalog.eventCandidates(), minuteTicker) { list, _ -> com.embyverse.app.data.repo.Events.today(list) }.timed("eventos")) { n, s, e -> Triple(n, s, e) }.timed("perfil+fuentes+eventos"),
     ) { (cfg, sections, now), base, (rec, news), recs, (name, srcInfo, events) ->
         val (hasSources, expiresAt) = srcInfo
         val content = base + mapOf(SectionType.RECENTLY_ADDED to rec, SectionType.RECOMMENDED to recs)

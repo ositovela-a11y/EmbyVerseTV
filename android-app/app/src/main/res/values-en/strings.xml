@@ -82,6 +82,7 @@
     <string name="filter_history">History</string>
     <string name="folder_empty_message">No channels here. Try another folder.</string>
     <string name="folder_empty_title">Empty folder</string>
+    <string name="folder_newest">Newest</string>
     <string name="guide_earlier">Earlier</string>
     <string name="guide_hint">Move through the guide; OK on a live program to watch it.</string>
     <string name="guide_later">Later</string>

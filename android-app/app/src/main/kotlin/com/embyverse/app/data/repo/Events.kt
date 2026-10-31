@@ -7,6 +7,8 @@ import java.util.Calendar
 data class LiveEvent(val channel: ChannelEntity, val title: String, val timeLabel: String?, val minuteOfDay: Int?)
 
 object Events {
+    /** Un evento deja de mostrarse 2 h después de su hora de inicio (lo que dura un partido). */
+    const val FINISHED_AFTER_MIN = 120
     private val TIME = Regex("\\b(\\d{1,2})[:.](\\d{2})\\s*(am|pm|a\\.m\\.|p\\.m\\.)?", RegexOption.IGNORE_CASE)
     private val DATE = Regex("\\b(\\d{1,2})/(\\d{1,2})\\b")
     private val VS = Regex("\\b(vs\\.?|v\\.?|contra)\\b", RegexOption.IGNORE_CASE)
@@ -35,7 +37,7 @@ object Events {
             }
             val title = name.replace(DATE, "").replace(TIME, "").replace(Regex("\\s{2,}"), " ").trim(' ', '-', '|', '·')
             LiveEvent(ch, title.ifBlank { name }, time?.value?.trim(), minute)
-        }.filter { e -> e.minuteOfDay == null || e.minuteOfDay >= nowMinute - 180 } // ya terminados: fuera
+        }.filter { e -> e.minuteOfDay == null || e.minuteOfDay >= nowMinute - FINISHED_AFTER_MIN } // ya terminados: fuera
             .distinctBy { it.title.lowercase() + it.minuteOfDay }
             .sortedWith(compareBy({ it.minuteOfDay == null }, { it.minuteOfDay }))
             .take(limit)
