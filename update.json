@@ -1,0 +1,9 @@
+{
+ "apps": {
+  "EmbyVerse.apk": {
+   "versionCode": 18,
+   "versionName": "1.10.0",
+   "path": "apk/EmbyVerse.apk"
+  }
+ }
+}
