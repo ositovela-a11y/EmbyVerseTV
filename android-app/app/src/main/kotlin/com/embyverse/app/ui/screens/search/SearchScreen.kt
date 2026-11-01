@@ -67,7 +67,7 @@ fun SearchScreen(nav: Navigator) {
     var text by rememberSaveable { mutableStateOf("") }
     val t = LocalEmby.current
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    val micFocus = remember { FocusRequester() }
     val context = androidx.compose.ui.platform.LocalContext.current
     val voiceAvailable = remember { android.speech.SpeechRecognizer.isRecognitionAvailable(context) ||
         context.packageManager.queryIntentActivities(android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH), 0).isNotEmpty() }
@@ -76,6 +76,8 @@ fun SearchScreen(nav: Navigator) {
         r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { said -> text = said; vm.query.value = said }
     }
 
+    // En TV el foco empieza en el micrófono (buscar por voz con el control); en celular, en el texto.
+    LaunchedEffect(Unit) { runCatching { if (t.device.isTv && voiceAvailable) micFocus.requestFocus() else focus.requestFocus() } }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { ScreenTitle(stringResource(R.string.nav_search)) }
         item {
@@ -89,7 +91,7 @@ fun SearchScreen(nav: Navigator) {
                         runCatching { voice.launch(android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
                             .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                             .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, voicePrompt)) }
-                    }, shape = androidx.compose.foundation.shape.CircleShape, modifier = Modifier.testTag("voice_search")) { _ ->
+                    }, shape = androidx.compose.foundation.shape.CircleShape, modifier = Modifier.focusRequester(micFocus).testTag("voice_search")) { _ ->
                         androidx.compose.foundation.layout.Box(Modifier.size(52.dp).background(t.buttonBackground), contentAlignment = androidx.compose.ui.Alignment.Center) {
                             Icon(Icons.Rounded.Mic, stringResource(R.string.search_voice), tint = t.buttonText)
                         }

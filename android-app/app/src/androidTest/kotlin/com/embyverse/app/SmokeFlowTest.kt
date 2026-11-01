@@ -341,6 +341,22 @@ class SmokeFlowTest {
                 runCatching { c.library.deleteProfile(kid) }
             }
         }
+        // Estilo predeterminado del panel (por app o vendedor) y «Continuar viendo» inteligente.
+        val cfg0 = c.config.config.value
+        val withStyle = cfg0.copy(texts = cfg0.texts + ("style.default" to "style_oceano"))
+        val th = com.embyverse.core.config.ConfigResolver.theme(withStyle, com.embyverse.core.config.UserAppearance())
+        assertTrue("estilo predeterminado del panel", th.palette.primary == com.embyverse.core.config.STYLE_THEMES.first { it.id == "style_oceano" }.transform(cfg0.theme).palette.primary)
+        runBlocking {
+            val cw = c.library.continueWatchingSmart(20).first()
+            log("Continuar viendo inteligente: ${cw.size} tarjetas")
+            val favs = c.library.favorites().first()
+            if (favs.size >= 2) {
+                val second = favs[1]
+                c.library.moveFavorite(second.kind, second.sourceId, second.itemId, -1)
+                assertTrue("favorito subió", c.library.favorites().first().first().itemId == second.itemId)
+                log("Favoritos: reordenar funciona")
+            } else log("Favoritos: menos de 2, no se prueba reordenar")
+        }
         // Fondos animados: rotación y fechas especiales.
         val rot = com.embyverse.app.ui.components.Season.resolve(mapOf("season" to "rotar", "season.every" to "1"))
         assertTrue("rotar elige un fondo general", rot != null && rot.general)

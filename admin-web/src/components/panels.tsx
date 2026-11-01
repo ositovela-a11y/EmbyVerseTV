@@ -238,11 +238,29 @@ export function HomeBuilderPanel({ ed, canEdit, selected, setSelected }: PanelPr
 }
 
 // ---------------------------------------------------------------- APARIENCIA
+const NAV_STYLES: [string, string][] = [
+  ['', 'El del diseño (sin estilo de plataforma)'],
+  ['style_cine_rojo', 'Cine Rojo — menú lateral desplegable y Top 10'],
+  ['style_cristal', 'Cristal — barra de cristal flotante'],
+  ['style_purpura', 'Púrpura Premium — logo al centro y colecciones'],
+  ['style_azul_magico', 'Azul Mágico — menú lateral y colecciones'],
+  ['style_oceano', 'Océano — barra lateral fija y destacados'],
+  ['style_estelar', 'Estelar — tablero de mosaicos, sin barras'],
+  ['style_verde_neon', 'Verde Neón — secciones arriba y muro de pósters'],
+  ['style_naranja', 'Naranja Vibrante — dock flotante y muro'],
+  ['style_oro', 'Oro Negro — dock dorado y «A continuación»'],
+];
+
 export function AppearancePanel({ ed, canEdit }: PanelProps) {
   const t = ed.config.theme;
   const u = (f: (d: RemoteConfig) => void, k: string) => ed.update(f, k);
+  const style = ed.config.texts['style.default'] ?? '';
   return (
     <>
+      <Group title="Estilo de navegación" hint="Cómo se ve y se navega la app al abrirla (menú, inicio y plantillas). Si editas la app de un vendedor, solo cambia la suya. Si permites elegir tema, cada cliente puede cambiarlo en Apariencia.">
+        <Select label="Estilo predeterminado" value={style} options={NAV_STYLES.map(([v, l]) => ({ value: v, label: l }))} disabled={!canEdit}
+          onChange={(v) => ed.update((d) => { if (v) d.texts['style.default'] = v; else delete d.texts['style.default']; }, 'style.default')} />
+      </Group>
       <Group title="Bordes" hint="Radio de las esquinas en píxeles de densidad independiente (dp).">
         <Slider label="Tarjetas" value={t.shape.cardRadius} min={0} max={32} unit=" dp" disabled={!canEdit} onChange={(v) => u((d) => { d.theme.shape.cardRadius = v; }, 'cr')} />
         <Slider label="Botones" value={t.shape.buttonRadius} min={0} max={32} unit=" dp" disabled={!canEdit} onChange={(v) => u((d) => { d.theme.shape.buttonRadius = v; }, 'br')} />
@@ -489,6 +507,11 @@ export function PremiumPanel({ ed, canEdit }: PanelProps) {
         {t['event.image'] && !/^https:\/\//i.test(t['event.image']) && <Notice kind="error">La imagen debe empezar por https://</Notice>}
         <TextField label="Palabras para encontrar los canales" value={t['event.channels'] ?? ''} max={200} placeholder="tudn, espn, fox sports" disabled={!canEdit} onChange={(v) => set('event.channels', v)} />
         <p className="hint">Separa con comas. Se muestran los canales cuyo nombre contenga alguna palabra.</p>
+      </Group>
+      <Group title="Canales destacados en el inicio" hint="Una fila fija en el inicio con los canales que elijas (p. ej. los deportivos del fin de semana). Se buscan por nombre.">
+        <TextField label="Título de la fila" value={t['home.channelsTitle'] ?? ''} max={60} placeholder="Deportes del fin de semana" disabled={!canEdit} onChange={(v) => set('home.channelsTitle', v)} />
+        <TextField label="Canales (palabras del nombre, separadas por comas)" value={t['home.channels'] ?? ''} max={400} placeholder="espn, tudn, fox sports, azteca 7" disabled={!canEdit} onChange={(v) => set('home.channels', v)} />
+        <p className="hint">Se muestran en el orden que escribas; vacío = sin fila.</p>
       </Group>
       <Group title="Ayuda por WhatsApp" hint="Botón «Ayuda» en Ajustes: abre WhatsApp con un reporte (versión, dispositivo, red, cuenta) para que puedas atender rápido. Nunca envía la contraseña.">
         <TextField label="Número con lada (solo dígitos)" value={wa} max={20} placeholder="5215512345678" disabled={!canEdit} onChange={(v) => set('support.whatsapp', v.replace(/[^0-9]/g, ''), 'wa')} />

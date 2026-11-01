@@ -222,12 +222,51 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     }
 
     // ---------------------------------------------------------------- TV en vivo
+    /** Canal al que se está cambiando: se ve al instante mientras se pulsa ▲▼ rápido. */
+    val zapTarget = MutableStateFlow<ChannelEntity?>(null)
+    /** Número de canal que se está tecleando con el control (p. ej. «105»). */
+    val digits = MutableStateFlow("")
+    private var zapJob: Job? = null
+
+    /**
+     * ▲▼: la primera pulsación cambia de inmediato; si se siguen pulsando rápido, solo se muestra el
+     * nombre del canal y se carga el último al soltar (no se gastan conexiones en cada canal intermedio).
+     */
     fun zap(delta: Int) {
         val list = zapList.ifEmpty { channels.value }
         if (list.isEmpty()) return
-        val idx = list.indexOfFirst { it.sourceId == ref.sourceId && it.providerId == ref.id }
+        val base = zapTarget.value
+        val idx = if (base != null) list.indexOfFirst { it.sourceId == base.sourceId && it.providerId == base.providerId }
+            else list.indexOfFirst { it.sourceId == ref.sourceId && it.providerId == ref.id }
         val next = list[((if (idx < 0) 0 else idx) + delta).mod(list.size)]
-        playChannel(next)
+        val rapid = zapJob?.isActive == true
+        zapTarget.value = next
+        zapJob?.cancel()
+        zapJob = viewModelScope.launch {
+            if (!rapid) playChannel(next)
+            delay(450)
+            if (rapid) playChannel(next)
+            zapTarget.value = null
+        }
+    }
+
+    /** Teclas numéricas: se acumulan 1,5 s y se va al canal con ese número. */
+    fun typeDigit(d: Int) {
+        digits.value = (digits.value + d).takeLast(4)
+        zapJob?.cancel()
+        zapJob = viewModelScope.launch {
+            delay(1_500)
+            val n = digits.value.toIntOrNull(); digits.value = ""
+            if (n != null && n > 0) goToNumber(n)
+        }
+    }
+
+    private suspend fun goToNumber(n: Int) {
+        val list = zapList.ifEmpty { channels.value }
+        val ch = list.firstOrNull { it.number == n }
+            ?: visible(c.database.channels().listForZapping(null)).firstOrNull { it.number == n }
+            ?: list.getOrNull(n - 1)
+        ch?.let { playChannel(it) }
     }
 
     fun playChannel(ch: ChannelEntity) {

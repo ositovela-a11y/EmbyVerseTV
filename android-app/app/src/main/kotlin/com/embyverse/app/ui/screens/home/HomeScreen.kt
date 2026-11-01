@@ -102,6 +102,9 @@ fun HomeScreen(nav: Navigator) {
         com.embyverse.app.ui.components.FeaturedEvent.from(s.config.texts, System.currentTimeMillis())?.let { ev ->
             item(key = "featured_event") { com.embyverse.app.ui.components.FeaturedEventCard(ev) { nav.play(it) } }
         }
+        if (!s.config.texts["home.channels"].isNullOrBlank()) item(key = "featured_channels") {
+            com.embyverse.app.ui.components.FeaturedChannelsRow(s.config.texts) { nav.play(it) }
+        }
         // Estilo «tablero» (sin barras): las secciones son mosaicos grandes.
         if (t.navVariant == com.embyverse.core.config.NavVariant.HUB) item(key = "hub") { HubTiles(nav) }
         s.expiresAt?.let { exp ->

@@ -16,6 +16,7 @@
     <string name="action_clear">Borrar</string>
     <string name="action_close">Cerrar</string>
     <string name="action_delete">Eliminar</string>
+    <string name="action_done">Listo</string>
     <string name="action_edit">Editar</string>
     <string name="action_favorite">Añadir a favoritos</string>
     <string name="action_more_info">Más información</string>
@@ -54,6 +55,9 @@
     <string name="cd_hours">horas</string>
     <string name="cd_min">min</string>
     <string name="cd_sec">seg</string>
+    <string name="check_update">Buscar actualización</string>
+    <string name="check_update_checking">Buscando…</string>
+    <string name="check_update_none">Ya tienes la versión más reciente</string>
     <string name="config_checking">Comprobando…</string>
     <string name="config_needs_update">Este diseño requiere una versión más nueva de la app</string>
     <string name="config_not_configured">Sin servidor de diseño configurado (se usa el diseño integrado)</string>
@@ -84,7 +88,10 @@
     <string name="expiry_tomorrow">Tu servicio vence mañana (%1$s)</string>
     <string name="favorites_empty_message">Marca canales, películas o series con el corazón para encontrarlos aquí.</string>
     <string name="favorites_empty_title">Aún no tienes favoritos</string>
+    <string name="favorites_order">Ordenar</string>
+    <string name="favorites_order_hint">Usa ▲ ▼ para acomodar tus favoritos. Los canales favoritos de TV en vivo salen en este orden.</string>
     <string name="favorites_title">Favoritos</string>
+    <string name="featured_channels">Canales destacados</string>
     <string name="filter_all">Todos</string>
     <string name="filter_favorites">Favoritos</string>
     <string name="filter_history">Historial</string>
@@ -120,6 +127,8 @@
     <string name="menu_awake">Pantalla encendida en los menús</string>
     <string name="menu_awake_always">Siempre</string>
     <string name="menu_awake_sub">Tiempo sin tocar el control antes de que la TV pueda apagar la pantalla o poner el protector. Mientras reproduces, siempre se queda encendida.</string>
+    <string name="move_down">Bajar</string>
+    <string name="move_up">Subir</string>
     <string name="multiview_full">Pantalla completa</string>
     <string name="multiview_hint">Mueve el foco para cambiar el audio · OK para cambiar el canal</string>
     <string name="multiview_n">%1$d ventanas</string>
@@ -289,6 +298,8 @@
     <string name="splash_universe">TU UNIVERSO DE ENTRETENIMIENTO</string>
     <string name="splash_welcome">Bienvenido a %1$s</string>
     <string name="spotlight_hint">Muévete por los títulos para ver su información aquí.</string>
+    <string name="start_last_channel">Abrir en el último canal</string>
+    <string name="start_last_channel_sub">Al abrir la app entra directo al último canal que viste, como una TV normal.</string>
     <string name="support_default">Contacta con quien te proporcionó la aplicación.</string>
     <string name="support_title">Soporte</string>
     <string name="tpl_collections">Colecciones</string>
@@ -310,5 +321,6 @@
     <string name="update_title">Nueva versión %1$s disponible</string>
     <string name="vod_empty_message">Tus fuentes no incluyen contenido en esta sección o el filtro no tiene resultados.</string>
     <string name="vod_empty_title">No hay contenido</string>
+    <string name="voice_search">Buscar por voz</string>
     <string name="who_is_watching">¿Quién está viendo?</string>
 </resources>

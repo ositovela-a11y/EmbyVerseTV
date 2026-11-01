@@ -36,6 +36,8 @@ data class PlaybackPrefs(
     val navSounds: Boolean = true,
     /** Protector de pantalla propio en los menús tras 5 min sin usar el control. */
     val screensaver: Boolean = true,
+    /** Al abrir la app, entrar directo al último canal que se vio (como una TV normal). */
+    val startOnLastChannel: Boolean = false,
 )
 
 /**
@@ -99,6 +101,7 @@ class PreferencesRepository(private val context: Context) {
     private val MENU_AWAKE = intPreferencesKey("app.menuAwake")
     private val NAV_SOUNDS = booleanPreferencesKey("app.navSounds")
     private val SCREENSAVER = booleanPreferencesKey("app.screensaver")
+    private val LAST_CHANNEL = booleanPreferencesKey("app.startOnLastChannel")
 
     val playback: Flow<PlaybackPrefs> = ds.data.map { p ->
         PlaybackPrefs(
@@ -113,6 +116,7 @@ class PreferencesRepository(private val context: Context) {
             menuAwakeMinutes = p[MENU_AWAKE] ?: 120,
             navSounds = p[NAV_SOUNDS] ?: true,
             screensaver = p[SCREENSAVER] ?: true,
+            startOnLastChannel = p[LAST_CHANNEL] ?: false,
         )
     }.distinctUntilChanged()
 
@@ -130,6 +134,7 @@ class PreferencesRepository(private val context: Context) {
             p[MENU_AWAKE] = n.menuAwakeMinutes
             p[NAV_SOUNDS] = n.navSounds
             p[SCREENSAVER] = n.screensaver
+            p[LAST_CHANNEL] = n.startOnLastChannel
         }
     }
 

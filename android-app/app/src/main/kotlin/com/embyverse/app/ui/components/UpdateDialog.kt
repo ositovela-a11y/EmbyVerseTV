@@ -29,7 +29,8 @@ fun UpdateDialog(updater: AppUpdater) {
     val t = LocalEmby.current
     val state by updater.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    var hidden by remember { mutableStateOf(updater.snoozed) }
+    val nudge by updater.nudge.collectAsStateWithLifecycle()
+    var hidden by remember(nudge) { mutableStateOf(updater.snoozed) }
     var needsPermission by remember { mutableStateOf(false) }
     val s = state
     if (hidden) return

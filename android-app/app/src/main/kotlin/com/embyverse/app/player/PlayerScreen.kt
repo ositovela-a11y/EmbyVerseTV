@@ -80,6 +80,8 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
     val optionsVisible by vm.optionsVisible.collectAsStateWithLifecycle()
     val listCategory by vm.listCategory.collectAsStateWithLifecycle()
     val pip by vm.inPip.collectAsStateWithLifecycle()
+    val zapTarget by vm.zapTarget.collectAsStateWithLifecycle()
+    val digits by vm.digits.collectAsStateWithLifecycle()
     // Calidad real del video que se está viendo (ExoPlayer ya elige la mejor según la red).
     var videoHeight by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
     LaunchedEffect(player) {
@@ -118,6 +120,19 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
 
         // Cabecera: título, canal / episodio y programa actual.
         if (pip) return@Box
+        // Cambio de canal al instante: número tecleado o canal al que se va con ▲▼.
+        if (digits.isNotEmpty() || zapTarget != null) {
+            Row(Modifier.align(Alignment.TopCenter).padding(top = 28.dp).background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(14.dp))
+                .padding(horizontal = 20.dp, vertical = 10.dp).testTag("zap_target"), verticalAlignment = Alignment.CenterVertically) {
+                if (digits.isNotEmpty()) Text(digits.padEnd(3, '_').toList().joinToString(" "), style = MaterialTheme.typography.headlineMedium,
+                    color = t.primary, fontWeight = androidx.compose.ui.text.font.FontWeight.Black)
+                zapTarget?.let { ch ->
+                    if (ch.logoUrl != null) Box(Modifier.size(width = 54.dp, height = 34.dp)) { MediaImage(ch.logoUrl, ContentKind.LIVE, Modifier.fillMaxSize(), androidx.compose.ui.layout.ContentScale.Fit) }
+                    Spacer(Modifier.width(10.dp))
+                    Text(listOfNotNull(ch.number?.toString(), ch.name).joinToString("  "), style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 1)
+                }
+            }
+        }
         AnimatedVisibility(visible = controls || zap || error != null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopStart)) {
             Row(Modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.75f), Color.Transparent))).padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically) {

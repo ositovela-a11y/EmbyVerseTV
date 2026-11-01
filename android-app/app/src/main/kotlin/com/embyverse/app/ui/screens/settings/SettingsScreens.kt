@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Info
@@ -361,6 +362,7 @@ fun PlaybackSettingsScreen(nav: Navigator) {
             item { SwitchRow(stringResource(R.string.playback_subtitles), null, p.subtitlesEnabled) { v -> vm.update { it.copy(subtitlesEnabled = v) } } }
             item { SwitchRow(stringResource(R.string.intro_sound), stringResource(R.string.intro_sound_sub), p.introSound) { v -> vm.update { it.copy(introSound = v) } } }
             if (t.device.isTv) item { SwitchRow(stringResource(R.string.nav_sounds), stringResource(R.string.nav_sounds_sub), p.navSounds) { v -> vm.update { it.copy(navSounds = v) } } }
+            item { SwitchRow(stringResource(R.string.start_last_channel), stringResource(R.string.start_last_channel_sub), p.startOnLastChannel) { v -> vm.update { it.copy(startOnLastChannel = v) } } }
             item { SwitchRow(stringResource(R.string.screensaver), stringResource(R.string.screensaver_sub), p.screensaver) { v -> vm.update { it.copy(screensaver = v) } } }
             item { Text(stringResource(R.string.menu_awake), style = MaterialTheme.typography.titleMedium, color = t.onBackground) }
             item { Text(stringResource(R.string.menu_awake_sub), style = MaterialTheme.typography.bodySmall, color = t.textSecondary) }
@@ -520,6 +522,20 @@ fun AboutScreen(nav: Navigator) {
         SettingsList {
             item { com.embyverse.app.ui.components.BrandLogo(cfg.brand.logoVariant, cfg.brand.logoUrl, Modifier.fillMaxWidth().size(160.dp)) }
             item { InfoLine(stringResource(R.string.about_version), "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})") }
+            item {
+                val c = com.embyverse.app.ui.LocalAppContainer.current
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val scope = androidx.compose.runtime.rememberCoroutineScope()
+                var checking by remember { mutableStateOf(false) }
+                EmbyButton(stringResource(if (checking) R.string.check_update_checking else R.string.check_update), {
+                    if (!checking) scope.launch {
+                        checking = true
+                        val found = c.updater.checkNow()
+                        checking = false
+                        if (!found) android.widget.Toast.makeText(context, R.string.check_update_none, android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }, icon = Icons.Rounded.SystemUpdate, modifier = Modifier.testTag("check_update"))
+            }
             item { InfoLine(stringResource(R.string.about_design_version), if (cfg.version == 0) stringResource(R.string.about_design_bundled) else "v${cfg.version}") }
             item { InfoLine(stringResource(R.string.about_design_status), statusText(status)) }
             item {

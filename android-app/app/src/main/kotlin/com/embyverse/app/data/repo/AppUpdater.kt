@@ -108,6 +108,14 @@ class AppUpdater(private val context: Context, private val http: OkHttpClient) {
 
     fun later() { snoozed = true }
 
+    /** «Buscar actualización» (Acerca de): vuelve a preguntar aunque antes se haya elegido «Después». */
+    val nudge = MutableStateFlow(0)
+    suspend fun checkNow(): Boolean {
+        snoozed = false; nudge.value++
+        check()
+        return _state.value !is State.Idle
+    }
+
     /** Descarga la APK (si no está ya) y abre el instalador de Android. Devuelve false si falta el permiso de instalar. */
     suspend fun downloadAndInstall(): Boolean {
         val st = _state.value
