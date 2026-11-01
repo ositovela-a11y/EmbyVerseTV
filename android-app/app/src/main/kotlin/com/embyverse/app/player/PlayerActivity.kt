@@ -143,6 +143,13 @@ class PlayerActivity : AppCompatActivity() {
                 if (idle && vm.isLive) { vm.showOptions(true); return true }
         }
         if (!vm.isLive) return false
+        // Teclear el número del canal (0-9 del control o teclado numérico).
+        val digit = when (code) {
+            in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9 -> code - KeyEvent.KEYCODE_0
+            in KeyEvent.KEYCODE_NUMPAD_0..KeyEvent.KEYCODE_NUMPAD_9 -> code - KeyEvent.KEYCODE_NUMPAD_0
+            else -> -1
+        }
+        if (digit >= 0 && !list && !opts) { vm.typeDigit(digit); return true }
         when (code) {
             KeyEvent.KEYCODE_CHANNEL_UP -> vm.zap(+1)
             KeyEvent.KEYCODE_CHANNEL_DOWN -> vm.zap(-1)

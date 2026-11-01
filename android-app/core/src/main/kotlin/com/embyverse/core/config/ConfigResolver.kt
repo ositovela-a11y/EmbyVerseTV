@@ -24,7 +24,9 @@ object ConfigResolver {
     fun theme(config: RemoteConfig, prefs: UserAppearance): ThemeSpec {
         val uc = config.userCustomization
         // Tema de estilo completo (Cristal, Cine Rojo…): cambia colores, fondo, esquinas y botones.
-        val style = if (uc.allowThemeSelection) STYLE_THEMES.firstOrNull { it.id == prefs.themeId } else null
+        val chosen = if (uc.allowThemeSelection) STYLE_THEMES.firstOrNull { it.id == prefs.themeId } else null
+        // Estilo de navegación predeterminado del panel (por app o por vendedor) si el cliente no eligió otro.
+        val style = chosen ?: if (prefs.themeId == null || !uc.allowThemeSelection) STYLE_THEMES.firstOrNull { it.id == config.texts["style.default"] } else null
         val base = style?.transform?.invoke(config.theme) ?: config.theme
         var palette = base.palette
         if (style == null && uc.allowThemeSelection && prefs.themeId != null) {

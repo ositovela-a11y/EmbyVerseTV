@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -304,6 +305,62 @@ fun FeaturedEventCard(ev: FeaturedEvent, onChannel: (ItemRef) -> Unit) {
                         Spacer(Modifier.width(8.dp))
                         Text(ch.name, style = MaterialTheme.typography.labelLarge, color = t.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(150.dp))
                         Icon(Icons.Rounded.PlayArrow, null, tint = t.primary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+/** Botón de micrófono: dicta y devuelve el texto (Android TV y celulares con reconocimiento de voz). */
+@Composable
+fun VoiceSearchButton(onResult: (String) -> Unit, modifier: Modifier = Modifier) {
+    val t = LocalEmby.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val available = remember { context.packageManager.queryIntentActivities(android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH), 0).isNotEmpty() }
+    if (!available) return
+    val prompt = stringResource(R.string.search_voice_prompt)
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { r ->
+        r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let(onResult)
+    }
+    FocusableSurface(onClick = {
+        runCatching { launcher.launch(android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, prompt)) }
+    }, shape = androidx.compose.foundation.shape.CircleShape, modifier = modifier.testTag("voice_live")) { _ ->
+        Box(Modifier.size(48.dp).background(t.buttonBackground), contentAlignment = Alignment.Center) {
+            Icon(androidx.compose.material.icons.Icons.Rounded.Mic, stringResource(R.string.search_voice), tint = t.buttonText)
+        }
+    }
+}
+
+
+/** Fila «Canales destacados» del panel (texto «home.channels»): en el orden que escribió el administrador. */
+@Composable
+fun FeaturedChannelsRow(texts: Map<String, String>, onChannel: (ItemRef) -> Unit) {
+    val t = LocalEmby.current
+    val c = LocalAppContainer.current
+    val keys = remember(texts["home.channels"]) { texts["home.channels"].orEmpty().split(',').map { it.trim() }.filter { it.length >= 2 } }
+    if (keys.isEmpty()) return
+    var channels by remember { mutableStateOf<List<ChannelEntity>>(emptyList()) }
+    LaunchedEffect(keys) {
+        val hidden = c.parental.hidden.first()
+        channels = keys.flatMap { k -> c.database.channels().search(com.embyverse.core.m3u.M3uCatalogBuilder.normalize(k), 6) }
+            .distinctBy { it.sourceId + it.providerId }.filter { it.category !in hidden }.take(20)
+    }
+    if (channels.isEmpty()) return
+    val w = if (t.device.isTv) 200.dp else 150.dp
+    Column(Modifier.fillMaxWidth().testTag("featured_channels")) {
+        SectionHeader(texts["home.channelsTitle"]?.trim()?.ifEmpty { null } ?: stringResource(R.string.featured_channels), null, null)
+        LazyRow(contentPadding = PaddingValues(horizontal = t.screenPadding, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(t.cardGap)) {
+            items(channels, key = { it.sourceId + "|" + it.providerId }) { ch ->
+                FocusableSurface(onClick = { onChannel(ItemRef(ContentKind.LIVE, ch.sourceId, ch.providerId)) }, modifier = Modifier.width(w)) { focused ->
+                    Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(if (focused) t.primary.copy(alpha = 0.35f) else t.surfaceVariant, t.surface))).padding(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(Modifier.fillMaxWidth().height(w * 0.42f)) { MediaImage(ch.logoUrl, ContentKind.LIVE, Modifier.fillMaxSize(), androidx.compose.ui.layout.ContentScale.Fit, fallbackText = ch.name) }
+                        Spacer(Modifier.height(6.dp))
+                        Text(ch.name, style = MaterialTheme.typography.labelLarge, color = t.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }

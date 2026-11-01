@@ -31,6 +31,7 @@ import com.embyverse.app.ui.theme.EmbyTheme
 import com.embyverse.core.config.ConfigResolver
 import com.embyverse.core.config.UserAppearance
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 
 /**
  * Actividad principal (AppCompat para el cambio de idioma por app en Android < 13).
@@ -88,10 +89,13 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() { sounds?.release(); sounds = null; super.onDestroy() }
 
     /** «Ver ahora» de un recordatorio: abre directo el canal. */
+    private var openedFromReminder = false
+
     private fun handlePlayIntent(intent: android.content.Intent?) {
         val sid = intent?.getStringExtra(com.embyverse.app.data.repo.Reminders.EXTRA_SOURCE) ?: return
         val cid = intent.getStringExtra(com.embyverse.app.data.repo.Reminders.EXTRA_CHANNEL) ?: return
         intent.removeExtra(com.embyverse.app.data.repo.Reminders.EXTRA_SOURCE)
+        openedFromReminder = true
         com.embyverse.app.data.repo.Reminders.due.value = null
         com.embyverse.app.player.PlayerActivity.start(this, com.embyverse.app.data.repo.ItemRef(com.embyverse.core.model.ContentKind.LIVE, sid, cid))
     }
@@ -172,6 +176,18 @@ class MainActivity : AppCompatActivity() {
                                 // La decisión de mostrar la configuración inicial se toma una sola vez por sesión.
                                 val startOnboarding = rememberSaveable { hasSources == false }
                                 AppShell(startOnboarding, config.brand.logoVariant, config.brand.logoUrl)
+                                // «Abrir en el último canal»: una vez por sesión, al entrar a la app.
+                                var autoChannelDone by rememberSaveable { mutableStateOf(false) }
+                                androidx.compose.runtime.LaunchedEffect(Unit) {
+                                    if (autoChannelDone || startOnboarding || openedFromReminder) return@LaunchedEffect
+                                    autoChannelDone = true
+                                    if (container.prefs.playback.first().startOnLastChannel) {
+                                        container.library.historySnapshot(30).firstOrNull { it.kind == "LIVE" }?.let { last ->
+                                            com.embyverse.app.player.PlayerActivity.start(this@MainActivity,
+                                                com.embyverse.app.data.repo.ItemRef(com.embyverse.core.model.ContentKind.LIVE, last.sourceId, last.itemId))
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

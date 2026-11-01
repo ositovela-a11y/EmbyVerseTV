@@ -104,6 +104,19 @@ fun SplashScreen(brand: Brand, onFinished: () -> Unit) {
                     ?.also { player[0] = it }
             }
         }
+        // Arranque más rápido: mientras corre la entrada se precargan las imágenes del banner y de las
+        // novedades, y se «calienta» la base de datos; al llegar al inicio todo aparece al instante.
+        launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                val loader = coil3.SingletonImageLoader.get(context)
+                val recent = container.catalog.recentMovies(16).first()
+                recent.flatMap { listOfNotNull(it.backdropUrl, it.posterUrl) }.take(24).forEach { url ->
+                    loader.enqueue(coil3.request.ImageRequest.Builder(context).data(url).build())
+                }
+                container.library.historySnapshot(40)
+                container.catalog.categories(com.embyverse.core.model.ContentKind.MOVIE).first()
+            }
+        }
         launch { warp.animateTo(1f, tween(2_300, easing = WarpEasing)) }
         delay(1_500)
         launch { galaxy.animateTo(1f, tween(1_900, easing = FastOutSlowInEasing)) }

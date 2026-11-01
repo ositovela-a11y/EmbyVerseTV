@@ -35,6 +35,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.CalendarViewWeek
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -270,6 +272,8 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
                 com.embyverse.app.ui.components.EmbyButton(stringResource(R.string.guide_title), { nav.go(Routes.GUIDE) }, icon = Icons.Rounded.CalendarViewWeek, secondary = true)
                 Spacer(Modifier.width(10.dp))
                 SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_channels), Modifier.width(300.dp))
+                Spacer(Modifier.width(8.dp))
+                com.embyverse.app.ui.components.VoiceSearchButton({ said -> text = said; vm.setQuery(said) })
             }
         } else {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -593,10 +597,32 @@ fun FavoritesScreen(nav: Navigator) {
     val history by vm.history.collectAsStateWithLifecycle()
     val t = LocalEmby.current
     val list = favs
+    var ordering by remember { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-        item { ScreenTitle(stringResource(R.string.favorites_title)) }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ScreenTitle(stringResource(R.string.favorites_title), Modifier.weight(1f))
+                if ((list?.size ?: 0) > 1) com.embyverse.app.ui.components.EmbyButton(stringResource(if (ordering) R.string.action_done else R.string.favorites_order),
+                    { ordering = !ordering }, secondary = !ordering, modifier = Modifier.padding(end = t.screenPadding).testTag("fav_order"))
+            }
+        }
         if (list == null) item { LoadingBox(Modifier.height(200.dp)) }
         else if (list.isEmpty()) item { MessageState(Icons.Rounded.FavoriteBorder, stringResource(R.string.favorites_empty_title), stringResource(R.string.favorites_empty_message)) }
+        else if (ordering) {
+            item { Text(stringResource(R.string.favorites_order_hint), style = MaterialTheme.typography.bodySmall, color = t.textSecondary, modifier = Modifier.padding(horizontal = t.screenPadding)) }
+            items(list.size, key = { "o|${list[it].ref.kind}|${list[it].ref.sourceId}|${list[it].ref.id}" }) { i ->
+                val c = list[i]
+                Row(Modifier.fillMaxWidth().padding(horizontal = t.screenPadding, vertical = 3.dp).background(t.surface, RoundedCornerShape(t.cardRadius)).padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("${i + 1}", style = MaterialTheme.typography.titleMedium, color = t.primary, modifier = Modifier.width(36.dp))
+                    Box(Modifier.size(width = 64.dp, height = 40.dp)) { com.embyverse.app.ui.components.MediaImage(c.imageUrl, c.ref.kind, Modifier.fillMaxSize()) }
+                    Spacer(Modifier.width(12.dp))
+                    Text(c.title, color = t.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { vm.move(c, -1) }, enabled = i > 0) { Icon(Icons.Rounded.KeyboardArrowUp, stringResource(R.string.move_up), tint = t.onBackground) }
+                    IconButton(onClick = { vm.move(c, +1) }, enabled = i < list.size - 1) { Icon(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.move_down), tint = t.onBackground) }
+                }
+            }
+        }
         else item {
             LazyRow(contentPadding = PaddingValues(horizontal = t.screenPadding), horizontalArrangement = Arrangement.spacedBy(t.cardGap)) {
                 items(list, key = { "${it.ref.kind}|${it.ref.sourceId}|${it.ref.id}" }) { c ->

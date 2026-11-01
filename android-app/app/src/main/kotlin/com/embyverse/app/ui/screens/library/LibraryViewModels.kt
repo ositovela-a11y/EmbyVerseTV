@@ -54,7 +54,8 @@ class LiveViewModel(private val c: AppContainer, initialCategory: String?) : Vie
         if (cat == CATEGORY_EVENTS) c.catalog.eventCandidates().map { l -> com.embyverse.app.data.repo.Events.today(l, limit = 300).map { it.channel } }
         else c.catalog.channels(cat, 5000)
     }
-    private val favKeys = c.library.favorites().map { l -> l.filter { it.kind == "LIVE" }.map { it.sourceId to it.itemId }.toSet() }
+    /** Favoritos de TV en el orden que eligió el cliente (Favoritos › Ordenar). */
+    private val favKeys = c.library.favorites().map { l -> l.filter { it.kind == "LIVE" }.map { it.sourceId to it.itemId } }
     private val histKeys = c.library.history(200).map { l -> l.filter { it.kind == "LIVE" }.map { it.sourceId to it.itemId } }
 
     val state: StateFlow<LiveUiState> = combine(
@@ -64,10 +65,10 @@ class LiveViewModel(private val c: AppContainer, initialCategory: String?) : Vie
         var filtered = if (nq.isEmpty()) list else list.filter { it.searchKey.contains(nq) }
         filtered = when (f) {
             LiveFilter.ALL -> filtered
-            LiveFilter.FAVORITES -> filtered.filter { (it.sourceId to it.providerId) in favs }
+            LiveFilter.FAVORITES -> { val order = favs.withIndex().associate { it.value to it.index }; filtered.filter { (it.sourceId to it.providerId) in order }.sortedBy { order[it.sourceId to it.providerId] } }
             LiveFilter.HISTORY -> { val order = hist.withIndex().associate { it.value to it.index }; filtered.filter { (it.sourceId to it.providerId) in order }.sortedBy { order[it.sourceId to it.providerId] } }
         }
-        Triple(cats, filtered, favs) to (f to q)
+        Triple(cats, filtered, favs.toSet()) to (f to q)
     }.mapLatest { (data, fq) ->
         val (cats, list, favs) = data
         // EPG "ahora" para los primeros canales visibles (consulta acotada).
@@ -147,7 +148,8 @@ class VodViewModel(private val c: AppContainer, private val kind: ContentKind, i
     }
 }
 
-class FavoritesViewModel(c: AppContainer) : ViewModel() {
+class FavoritesViewModel(private val c: AppContainer) : ViewModel() {
+    fun move(card: MediaCard, delta: Int) = viewModelScope.launch { c.library.moveFavorite(card.ref.kind.name, card.ref.sourceId, card.ref.id, delta) }
     val favorites: StateFlow<List<MediaCard>?> = c.library.favorites().map { l -> l.map { it.toCard() } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val history: StateFlow<List<MediaCard>> = c.library.history(60).map { l -> l.map { it.toCard() } }

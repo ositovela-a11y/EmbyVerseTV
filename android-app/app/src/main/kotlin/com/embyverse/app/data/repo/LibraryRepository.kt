@@ -16,6 +16,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 
 /** Referencia ligera a un elemento reproducible o navegable. */
 data class ItemRef(val kind: ContentKind, val sourceId: String, val id: String)
@@ -135,6 +136,46 @@ class LibraryRepository(private val db: EmbyDatabase, private val prefs: Prefere
 
     fun favorites(): Flow<List<FavoriteEntity>> = prefs.activeProfileId.flatMapLatest { db.library().observeFavorites(it) }
     fun continueWatching(limit: Int = 20) = prefs.activeProfileId.flatMapLatest { db.library().observeContinueWatching(it, limit) }
+
+    /**
+     * «Continuar viendo» inteligente: lo que quedó a medias (sin lo ya terminado) y, en series cuyo
+     * último episodio se terminó, el SIGUIENTE episodio. Una sola tarjeta por serie.
+     */
+    fun continueWatchingSmart(limit: Int = 30): Flow<List<MediaCard>> = prefs.activeProfileId.flatMapLatest { db.library().observeHistory(it, 120) }
+        .map { hist ->
+            val out = ArrayList<MediaCard>(); val seenSeries = HashSet<String>()
+            for (p in hist) {
+                if (out.size >= limit) break
+                when (p.kind) {
+                    "MOVIE" -> if (!p.completed && p.positionMs > 15_000 && p.fraction < 0.95f) out += p.toCard()
+                    "EPISODE" -> {
+                        val sid = p.seriesId ?: continue
+                        if (!seenSeries.add("${p.sourceId}|$sid")) continue
+                        if (!p.completed && p.positionMs > 15_000 && p.fraction < 0.95f) { out += p.toCard(); continue }
+                        val eps = db.episodes().forSeries(p.sourceId, sid)
+                        val i = eps.indexOfFirst { it.providerId == p.itemId }
+                        val next = eps.getOrNull(if (i >= 0) i + 1 else -1) ?: continue
+                        val title = db.series().get(p.sourceId, sid)?.title ?: p.title
+                        out += MediaCard(ItemRef(ContentKind.EPISODE, p.sourceId, next.providerId), title, next.thumbnailUrl ?: p.imageUrl,
+                            subtitle = "▶ T${next.season} · E${next.episode}", seriesId = sid)
+                    }
+                }
+            }
+            out
+        }
+
+    /** Mueve un favorito una posición (se reordena intercambiando su fecha, sin tocar la base de datos). */
+    suspend fun moveFavorite(kind: String, sourceId: String, itemId: String, delta: Int) {
+        val p = prefs.activeProfile()
+        val list = db.library().favorites(p).sortedByDescending { it.addedAt }
+        val i = list.indexOfFirst { it.kind == kind && it.sourceId == sourceId && it.itemId == itemId }
+        val j = i + delta
+        if (i < 0 || j !in list.indices) return
+        val a = list[i]; val b = list[j]
+        // Fechas distintas aunque se hayan guardado en el mismo milisegundo.
+        val ta = if (a.addedAt == b.addedAt) b.addedAt + (if (delta < 0) 1 else -1) else b.addedAt
+        db.library().addFavorite(a.copy(addedAt = ta)); db.library().addFavorite(b.copy(addedAt = a.addedAt))
+    }
     fun history(limit: Int = 50) = prefs.activeProfileId.flatMapLatest { db.library().observeHistory(it, limit) }
     fun isFavorite(ref: ItemRef) = prefs.activeProfileId.flatMapLatest { db.library().observeIsFavorite(it, ref.kind.name, ref.sourceId, ref.id) }
     fun episodeProgress(sourceId: String, seriesId: String) = prefs.activeProfileId.flatMapLatest { db.library().observeEpisodeProgress(it, sourceId, seriesId) }

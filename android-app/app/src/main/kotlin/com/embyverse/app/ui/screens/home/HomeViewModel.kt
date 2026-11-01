@@ -77,7 +77,7 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
     private val profileName = combine(c.library.profiles, c.prefs.activeProfileId) { all, id -> all.firstOrNull { it.id == id }?.name }
 
     private val lists = combine(
-        c.library.continueWatching(40).map { l -> l.map { it.toCard() } },
+        c.library.continueWatchingSmart(40),
         c.library.favorites().map { l -> l.map { it.toCard() } },
         combine(c.library.history(60), c.catalog.channels(null, 60)) { hist, ch ->
             // Primero los canales vistos recientemente, después el resto en el orden de la lista.
