@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": 6,
-  "publishedAt": "2026-11-04T16:51:36Z",
+  "version": 7,
+  "publishedAt": "2026-11-04T19:49:10Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "EmbyVerse",
@@ -244,7 +244,7 @@
     "home.emptySources": "Aún no tienes fuentes. Añade una lista M3U o un proveedor para ver contenido.",
     "support.contact": "soporte@ejemplo.com",
     "provider.epgUrl": "https://epgshare01.online/epgshare01/epg_ripper_MX1.xml.gz",
-    "season": "galaxia",
+    "season": "noche",
     "support.whatsapp": "4442011541",
     "season.every": "24"
   },
