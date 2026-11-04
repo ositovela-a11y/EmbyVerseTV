@@ -120,11 +120,15 @@
     <string name="home_no_sources_title">Todavía no hay contenido</string>
     <string name="intro_sound">Sonido de entrada</string>
     <string name="intro_sound_sub">Sonido breve al abrir la app.</string>
+    <string name="kids_create">Crear perfil infantil</string>
+    <string name="kids_default_name">Peques</string>
     <string name="kids_exit_pin">Escribe el PIN para salir del perfil infantil</string>
+    <string name="kids_hello">¡Hola, %1$s! ¿Qué vemos hoy?</string>
+    <string name="kids_hello_sub">Caricaturas, películas y series para ti</string>
     <string name="kids_limit">Tiempo diario de video</string>
     <string name="kids_limit_none">Sin límite</string>
     <string name="kids_profile">Perfil infantil</string>
-    <string name="kids_profile_sub">Solo carpetas para niños, colores alegres y PIN para cambiar de perfil</string>
+    <string name="kids_profile_sub">Sin PIN: oculta lo de adultos y lo violento (terror, crimen, guerra…) y cambia a la interfaz para niños</string>
     <string name="kids_time_up">Se acabó el tiempo de hoy</string>
     <string name="kids_time_up_sub">Pide a un adulto el PIN para seguir viendo.</string>
     <string name="language_auto">Automático</string>
@@ -180,6 +184,7 @@
     <string name="parental_new_pin_sub">Elige un PIN de 4 dígitos para este perfil.</string>
     <string name="parental_pin_on_enter">Pedir PIN al entrar a este perfil</string>
     <string name="parental_pin_on_enter_sub">Nadie más podrá abrir este perfil sin el PIN.</string>
+    <string name="parental_pin_optional">El PIN es opcional: sirve para bloquear carpetas a mano o para que los niños no cambien de perfil.</string>
     <string name="parental_profile">Perfil: %1$s</string>
     <string name="parental_relock">Volver a bloquear</string>
     <string name="parental_remove">Quitar control parental</string>

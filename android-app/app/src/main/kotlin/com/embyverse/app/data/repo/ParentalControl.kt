@@ -28,8 +28,9 @@ class ParentalControl(private val prefs: PreferencesRepository, db: EmbyDatabase
         when {
             id in open -> emptySet()
             // Perfil infantil: se oculta todo lo que no sea para niños (si la lista tiene carpetas infantiles).
+            // Perfil infantil: si la lista trae carpetas para niños, solo esas; si no, todo menos adultos y violencia.
             lock.kids && cats.any(::isKids) -> cats.filterNot(::isKids).toSet() + lock.blocked
-            lock.kids -> lock.blocked + cats.filter(::isAdult)
+            lock.kids -> lock.blocked + cats.filter { isAdult(it) || isViolent(it) }
             lock.blocked.isEmpty() && !lock.blockAdult -> emptySet()
             else -> lock.blocked + (if (lock.blockAdult) cats.filter(::isAdult) else emptyList())
         }
@@ -61,6 +62,8 @@ class ParentalControl(private val prefs: PreferencesRepository, db: EmbyDatabase
         private val ADULT = Regex("(adult|adulto|xxx|\\+\\s?18|18\\s?\\+|porn|erotic|erótic|hentai|\\bsexy?\\b|for adults)", RegexOption.IGNORE_CASE)
         fun isAdult(category: String) = ADULT.containsMatchIn(category)
         private val KIDS = Regex("(kids|infantil|niñ[oa]s|ninos|children|cartoon|caricatura|dibujos|animad|disney|nick|junior|baby|pequeñ|familia|family)", RegexOption.IGNORE_CASE)
-        fun isKids(category: String) = KIDS.containsMatchIn(category) && !isAdult(category)
+        fun isKids(category: String) = KIDS.containsMatchIn(category) && !isAdult(category) && !isViolent(category)
+        private val VIOLENT = Regex("(terror|horror|miedo|gore|slasher|zombi|crimen|crime|criminal|narco|mafia|guerra|\\bwar\\b|b[eé]lic|thriller|suspenso|violen|asesin|policiac|policíac|acci[oó]n\\s*\\+?\\s*18|ufc|mma|lucha libre extrema)", RegexOption.IGNORE_CASE)
+        fun isViolent(category: String) = VIOLENT.containsMatchIn(category)
     }
 }

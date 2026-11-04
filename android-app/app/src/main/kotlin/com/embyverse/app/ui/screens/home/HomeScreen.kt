@@ -93,6 +93,10 @@ fun HomeScreen(nav: Navigator) {
     // Si la pantalla de inicio se mantiene estable 3 s, la configuración remota se marca como sana.
     LaunchedEffect(s.config.version, s.loading) { if (!s.loading) { delay(3_000); vm.markHealthy() } }
 
+    val cKids = com.embyverse.app.ui.LocalAppContainer.current
+    val kidsFlow = androidx.compose.runtime.remember { cKids.parental.activeLock }
+    val kidsLock by kidsFlow.collectAsStateWithLifecycle(initialValue = null)
+    val kidsMode = kidsLock?.second?.kids == true
     if (s.loading) { LoadingBox(); return }
 
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -117,6 +121,7 @@ fun HomeScreen(nav: Navigator) {
     androidx.compose.runtime.CompositionLocalProvider(com.embyverse.app.ui.components.LocalCardFocus provides sink) {
     LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(t.sectionGap)) {
         item(key = "header") { HomeHeader(s, nav) }
+        if (kidsMode) item(key = "kids_hello") { KidsHello(s.profileName, nav) }
         com.embyverse.app.ui.components.FeaturedEvent.from(s.config.texts, System.currentTimeMillis())?.let { ev ->
             item(key = "featured_event") { com.embyverse.app.ui.components.FeaturedEventCard(ev) { nav.play(it) } }
         }
@@ -603,6 +608,47 @@ private fun androidx.compose.foundation.lazy.LazyListScope.becauseRows(s: HomeUi
                 SectionHeader(stringResource(R.string.because_you_watched, title), null, null)
                 CardRow(cards, CardAspect.POSTER, com.embyverse.core.config.CardSize.M) { nav.openItem(it.ref, seriesId = it.seriesId) }
             }
+        }
+    }
+}
+
+
+/** Bienvenida del perfil infantil: saludo grande, personajes que rebotan y accesos de colores. */
+@Composable
+private fun KidsHello(name: String?, nav: Navigator) {
+    val t = LocalEmby.current
+    val bounce by com.embyverse.app.ui.components.rememberPingPong(periodMs = 900, stepMs = 40)
+    Column(Modifier.fillMaxWidth().padding(horizontal = t.screenPadding).testTag("kids_hello")) {
+        Box(Modifier.fillMaxWidth().height(if (t.device.isTv) 170.dp else 140.dp)
+            .background(Brush.linearGradient(listOf(Color(0xFFFF5FA2), Color(0xFFFFC93C), Color(0xFF3DDCFF))), RoundedCornerShape(32.dp))) {
+            Row(Modifier.align(Alignment.CenterEnd).padding(end = 20.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("🦄", "🐻", "🚀").forEachIndexed { i, e ->
+                    Text(e, fontSize = androidx.compose.ui.unit.TextUnit(if (t.device.isTv) 52f else 38f, androidx.compose.ui.unit.TextUnitType.Sp),
+                        modifier = Modifier.graphicsLayer { translationY = -18f * (if (i % 2 == 0) bounce else 1f - bounce) })
+                }
+            }
+            Column(Modifier.align(Alignment.CenterStart).padding(start = 24.dp, end = 180.dp)) {
+                Text(stringResource(R.string.kids_hello, name ?: ""), style = MaterialTheme.typography.headlineSmall, color = Color.White,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Black, maxLines = 2)
+                Text(stringResource(R.string.kids_hello_sub), style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.92f), maxLines = 1)
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        // Accesos grandes y redondos (tipo plataforma infantil).
+        Row(horizontalArrangement = Arrangement.spacedBy(t.cardGap)) {
+            listOf(Triple("🎬", R.string.nav_movies, Routes.MOVIES), Triple("📺", R.string.nav_series, Routes.SERIES), Triple("🎈", R.string.nav_live, Routes.LIVE))
+                .forEachIndexed { i, (emoji, label, route) ->
+                    val colors = listOf(Color(0xFFFF7043), Color(0xFF7C4DFF), Color(0xFF00BFA5))
+                    FocusableSurface(onClick = { nav.goTop(route) }, focusScale = 1.1f, shape = RoundedCornerShape(28.dp),
+                        modifier = Modifier.weight(1f).height(if (t.device.isTv) 110.dp else 86.dp).testTag("kids_$route")) { focused ->
+                        Row(Modifier.fillMaxSize().background(colors[i]).border(if (focused) 4.dp else 0.dp, Color.White, RoundedCornerShape(28.dp)).padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                            Text(emoji, fontSize = androidx.compose.ui.unit.TextUnit(if (t.device.isTv) 36f else 28f, androidx.compose.ui.unit.TextUnitType.Sp))
+                            Spacer(Modifier.width(10.dp))
+                            Text(stringResource(label), style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold, maxLines = 1)
+                        }
+                    }
+                }
         }
     }
 }

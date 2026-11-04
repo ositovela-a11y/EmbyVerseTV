@@ -413,9 +413,11 @@ class ProfilesViewModel(private val c: AppContainer) : ViewModel() {
     val profiles = c.library.profiles.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val active = c.prefs.activeProfileId.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 1L)
     fun select(id: Long) = viewModelScope.launch { c.prefs.setActiveProfile(id) }
-    fun create(name: String) = viewModelScope.launch {
+    fun create(name: String, kids: Boolean = false) = viewModelScope.launch {
         val colors = listOf(0xFF7BE52F, 0xFF22D3EE, 0xFF1E6BFF, 0xFFA855F7, 0xFFF59E0B, 0xFFF43F5E)
         val id = c.library.createProfile(name, colors[profiles.value.size % colors.size].toInt())
+        // Perfil infantil: sin PIN; bloquea lo de adultos y lo violento y usa la interfaz para niños.
+        if (kids) c.prefs.updateLock(id) { it.copy(kids = true, avatar = "🦄") }
         c.prefs.setActiveProfile(id)
     }
     fun rename(p: ProfileEntity, name: String) = viewModelScope.launch { c.library.renameProfile(p, name) }
@@ -431,6 +433,7 @@ fun ProfilesScreen(nav: Navigator) {
     val t = LocalEmby.current
     var editing by remember { mutableStateOf<ProfileEntity?>(null) }
     var creating by remember { mutableStateOf(false) }
+    var creatingKids by remember { mutableStateOf(false) }
     var askPin by remember { mutableStateOf<ProfileEntity?>(null) }
     val c = com.embyverse.app.ui.LocalAppContainer.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -463,11 +466,17 @@ fun ProfilesScreen(nav: Navigator) {
                     }
                 }
             }
-            item { EmbyButton(stringResource(R.string.profile_create), { creating = true }, secondary = true) }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    EmbyButton(stringResource(R.string.profile_create), { creating = true }, secondary = true)
+                    EmbyButton(stringResource(R.string.kids_create), { creatingKids = true }, modifier = Modifier.testTag("create_kids"))
+                }
+            }
             item { EmbyButton(stringResource(R.string.history_clear), { vm.clearHistory() }, secondary = true) }
         }
     }
     if (creating) NameDialog(stringResource(R.string.profile_create), "", onDismiss = { creating = false }) { vm.create(it); creating = false }
+    if (creatingKids) NameDialog(stringResource(R.string.kids_create), stringResource(R.string.kids_default_name), onDismiss = { creatingKids = false }) { vm.create(it, kids = true); creatingKids = false }
     editing?.let { p ->
         val lockFlow = remember(p.id) { c.prefs.lock(p.id) }
         val lock by lockFlow.collectAsStateWithLifecycle(initialValue = com.embyverse.app.data.prefs.ProfileLock())

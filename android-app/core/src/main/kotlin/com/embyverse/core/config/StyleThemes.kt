@@ -142,3 +142,22 @@ val STYLE_THEMES: List<StyleTheme> = listOf(
         )
     },
 )
+
+
+/**
+ * Estilo del PERFIL INFANTIL (no aparece en la lista de temas): colores de caricatura, esquinas muy
+ * redondas, letra un poco más grande, foco que «salta», dock flotante y mosaicos de colores.
+ */
+val KIDS_THEME = StyleTheme("style_kids", "Peques", "Colores alegres, mosaicos grandes y burbujas") { s ->
+    s.copy(
+        palette = s.palette.copy(primary = c(0xFFFFC93C), secondary = c(0xFFFF5FA2), accent = c(0xFF3DDCFF),
+            background = c(0xFF1D3FB8), surface = c(0xFF2C57D9), surfaceVariant = c(0xFF3D6BF0),
+            onBackground = c(0xFFFFFFFF), onSurface = c(0xFFFFFFFF), textSecondary = c(0xFFD9E4FF),
+            onPrimary = c(0xFF2A1A00), buttonBackground = c(0xFFFFC93C), buttonText = c(0xFF2A1A00), focusRing = c(0xFFFFF176)),
+        backgroundStyle = BackgroundStyle.GRADIENT, gradientStart = c(0xFF2A8CFF), gradientEnd = c(0xFF6A2BD9),
+        cardRadius = 26, buttonRadius = 26, bannerRadius = 32, glowEnabled = true, buttonStyle = ButtonStyle.FILLED,
+        heroStyle = HeroStyle.CENTERED, cardStyle = CardStyle.TITLES, focusStyle = FocusStyle.LIFT, rowAspect = CardAspect.POSTER,
+        font = FontChoice.POPPINS, fontScale = 1.08f, navShowLabels = true,
+        navVariant = NavVariant.DOCK, homeTemplate = HomeTemplate.COLLECTIONS,
+    )
+}
