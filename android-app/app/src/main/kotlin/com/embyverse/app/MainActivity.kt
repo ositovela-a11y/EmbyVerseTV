@@ -92,6 +92,17 @@ class MainActivity : AppCompatActivity() {
     private var openedFromReminder = false
 
     private fun handlePlayIntent(intent: android.content.Intent?) {
+        // Tarjeta de la pantalla de inicio de la TV: embyverse://play?kind=…&sid=…&id=…
+        intent?.data?.takeIf { it.scheme == "embyverse" && it.host == "play" }?.let { u ->
+            val kind = runCatching { com.embyverse.core.model.ContentKind.valueOf(u.getQueryParameter("kind").orEmpty()) }.getOrNull()
+            val sid = u.getQueryParameter("sid"); val id = u.getQueryParameter("id")
+            intent.data = null
+            if (kind != null && sid != null && id != null) {
+                openedFromReminder = true
+                com.embyverse.app.player.PlayerActivity.start(this, com.embyverse.app.data.repo.ItemRef(kind, sid, id))
+            }
+            return
+        }
         val sid = intent?.getStringExtra(com.embyverse.app.data.repo.Reminders.EXTRA_SOURCE) ?: return
         val cid = intent.getStringExtra(com.embyverse.app.data.repo.Reminders.EXTRA_CHANNEL) ?: return
         intent.removeExtra(com.embyverse.app.data.repo.Reminders.EXTRA_SOURCE)
@@ -166,7 +177,21 @@ class MainActivity : AppCompatActivity() {
                         if (splashDone) com.embyverse.app.ui.components.BrandLogo(config.brand.logoVariant, config.brand.logoUrl,
                             Modifier.align(androidx.compose.ui.Alignment.Center).fillMaxSize(0.5f)
                                 .graphicsLayer { alpha = 0.045f })
+                        // Cliente suspendido desde el panel (no pagó): app bloqueada y sin cuentas.
+                        val srcList by container.sources.sources.collectAsStateWithLifecycle(initialValue = null)
+                        var suspended by remember { mutableStateOf(com.embyverse.app.data.repo.AccountBlock.storedHash(this@MainActivity) != null) }
+                        androidx.compose.runtime.LaunchedEffect(config, srcList) {
+                            val stored = com.embyverse.app.data.repo.AccountBlock.storedHash(this@MainActivity)
+                            val blocked = com.embyverse.app.data.repo.AccountBlock.blockedHashes(config)
+                            if (stored != null) {
+                                // Ya pagó (lo quitaron de la lista en un diseño publicado): vuelve a pedir su usuario.
+                                if (config.version > 0 && stored !in blocked) { com.embyverse.app.data.repo.AccountBlock.clear(this@MainActivity); suspended = false }
+                            } else srcList?.let { l -> com.embyverse.app.data.repo.AccountBlock.blockedHashOf(config, l.map { it.username ?: Regex("[?&]username=([^&]+)").find(it.location)?.groupValues?.get(1) }) }?.let { h ->
+                                com.embyverse.app.data.repo.AccountBlock.wipe(this@MainActivity, container.database, h); suspended = true
+                            }
+                        }
                         when {
+                            suspended -> com.embyverse.app.ui.components.SuspendedScreen(config)
                             !splashDone -> SplashScreen(config.brand) { splashDone = true }
                             hasSources == null -> LoadingBox()
                             // Varios perfiles: se elige quién ve, así favoritos e historial no se mezclan.

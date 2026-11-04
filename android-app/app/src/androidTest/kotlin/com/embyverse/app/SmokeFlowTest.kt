@@ -357,6 +357,13 @@ class SmokeFlowTest {
                 log("Favoritos: reordenar funciona")
             } else log("Favoritos: menos de 2, no se prueba reordenar")
         }
+        // Suspensión remota: la huella coincide con la del panel y el modo «URL, usuario y contraseña».
+        assertTrue("huella igual a la del panel", com.embyverse.app.data.repo.AccountBlock.hash(" Cliente123 ") == "b2aa0796fed64955")
+        val blockedCfg = cfg0.copy(texts = cfg0.texts + ("blocked.users" to "aaaaaaaaaaaaaaaa,b2aa0796fed64955"))
+        assertTrue("cliente suspendido detectado", com.embyverse.app.data.repo.AccountBlock.isBlocked(blockedCfg, listOf("cliente123")))
+        assertTrue("otro cliente no", !com.embyverse.app.data.repo.AccountBlock.isBlocked(blockedCfg, listOf("otro")))
+        assertTrue("sin URL fija", com.embyverse.app.data.repo.ProviderHost.of(cfg0.copy(texts = cfg0.texts + ("provider.askHost" to "1"))) == null)
+        assertTrue("letra de calidad", com.embyverse.app.player.CastSupport.mime("http://x/a.m3u8") == "application/x-mpegURL")
         // Fondos animados: rotación y fechas especiales.
         val rot = com.embyverse.app.ui.components.Season.resolve(mapOf("season" to "rotar", "season.every" to "1"))
         assertTrue("rotar elige un fondo general", rot != null && rot.general)

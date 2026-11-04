@@ -71,6 +71,10 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     val optionsVisible = MutableStateFlow(false)
     /** En ventana «imagen en imagen»: se ocultan todos los controles. */
     val inPip = MutableStateFlow(false)
+    /** Nombre del Chromecast al que se está enviando (null = se ve en el equipo). */
+    val castingTo = MutableStateFlow<String?>(null)
+    /** «Saltar intro» visible: OK del control lo activa directamente. */
+    @Volatile var skipIntroAction: (() -> Unit)? = null
     /** Canal actual en favoritos (botón ★ del reproductor). */
     val favorite = MutableStateFlow(false)
     /** Programa siguiente (mini guía del reproductor). */

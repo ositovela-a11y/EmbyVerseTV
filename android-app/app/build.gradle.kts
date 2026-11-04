@@ -35,8 +35,8 @@ android {
         applicationId = if (vendor != null) "com.embyverse.app.v.$vendor" else "com.embyverse.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 18
-        versionName = "1.10.0"
+        versionCode = 19
+        versionName = "1.11.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testProguardFiles("test-proguard-rules.pro")
         buildConfigField("String", "CONFIG_BASE_URL", "\"${configBaseUrl.replace("\"", "")}\"")
@@ -148,6 +148,10 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.work.runtime)
+    // Pantalla de inicio de Google TV (Continuar viendo) y Chromecast (enviar a la TV desde el celular).
+    implementation("androidx.tvprovider:tvprovider:1.0.0")
+    implementation("androidx.mediarouter:mediarouter:1.7.0")
+    implementation("com.google.android.gms:play-services-cast-framework:21.5.0")
     // Instala los perfiles de arranque que traen Compose y Media3: primeras pantallas y listas más fluidas.
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
 

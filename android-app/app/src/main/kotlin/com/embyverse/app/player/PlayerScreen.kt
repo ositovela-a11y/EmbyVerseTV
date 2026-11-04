@@ -66,7 +66,7 @@ import com.embyverse.core.model.ContentKind
 
 @OptIn(UnstableApi::class)
 @Composable
-fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? = null) {
+fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? = null, castEnabled: Boolean = false) {
     val t = LocalEmby.current
     val player by vm.player.collectAsStateWithLifecycle()
     val np by vm.nowPlaying.collectAsStateWithLifecycle()
@@ -86,6 +86,7 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
     val subStyle by vm.subtitleStyle.collectAsStateWithLifecycle()
     val nextProg by vm.nextProgram.collectAsStateWithLifecycle()
     val kidsTimeUp by vm.kidsTimeUp.collectAsStateWithLifecycle()
+    val castingTo by vm.castingTo.collectAsStateWithLifecycle()
     // Calidad real del video que se está viendo (ExoPlayer ya elige la mejor según la red).
     var videoHeight by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
     LaunchedEffect(player) {
@@ -135,6 +136,13 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
 
         // Cabecera: título, canal / episodio y programa actual.
         if (pip) return@Box
+        castingTo?.let { name ->
+            Column(Modifier.align(Alignment.Center).background(Color.Black.copy(alpha = 0.8f), RoundedCornerShape(16.dp)).padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(stringResource(R.string.cast_playing_on, name), style = MaterialTheme.typography.titleMedium, color = Color.White)
+                Text(stringResource(R.string.cast_hint), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+            }
+        }
         // Cambio de canal al instante: número tecleado o canal al que se va con ▲▼.
         if (digits.isNotEmpty() || zapTarget != null) {
             Row(Modifier.align(Alignment.TopCenter).padding(top = 28.dp).background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(14.dp))
@@ -168,6 +176,12 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
                             .padding(horizontal = 6.dp, vertical = 2.dp).testTag("quality_badge"))
                 }
                 com.embyverse.app.ui.components.Clock(Modifier.padding(horizontal = 8.dp), color = Color.White)
+                if (castEnabled) AndroidView(factory = { ctx ->
+                    // Tema oscuro: el ícono de transmitir sale blanco sobre el video.
+                    runCatching { androidx.mediarouter.app.MediaRouteButton(android.view.ContextThemeWrapper(ctx, androidx.appcompat.R.style.Theme_AppCompat)).also {
+                        com.google.android.gms.cast.framework.CastButtonFactory.setUpMediaRouteButton(ctx.applicationContext, it)
+                    } }.getOrElse { android.view.View(ctx) }
+                }, modifier = Modifier.size(48.dp).testTag("cast"))
                 if (onPip != null) IconButton(onClick = onPip) {
                     Icon(Icons.Rounded.PictureInPictureAlt, stringResource(R.string.player_pip), tint = Color.White)
                 }
@@ -245,8 +259,15 @@ private fun EpisodeExtras(vm: PlayerViewModel, player: androidx.media3.exoplayer
     val remaining = if (dur > 0) (dur - pos) / 1000 else Long.MAX_VALUE
     Column(modifier.padding(32.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (isEpisode && !introSkipped && pos in 8_000L..300_000L && dur > 600_000L) {
-            EmbyButton(stringResource(R.string.player_skip_intro), { player?.seekTo(pos + 85_000); introSkipped = true }, secondary = true,
-                modifier = Modifier.testTag("skip_intro"))
+            // El botón toma el foco solo al aparecer: con OK se salta (antes costaba llegar a él con el control).
+            val skipFocus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
+            LaunchedEffect(Unit) { kotlinx.coroutines.delay(150); runCatching { skipFocus.requestFocus() } }
+            androidx.compose.runtime.DisposableEffect(Unit) {
+                vm.skipIntroAction = { player?.seekTo((player.currentPosition) + 85_000); introSkipped = true }
+                onDispose { vm.skipIntroAction = null }
+            }
+            EmbyButton(stringResource(R.string.player_skip_intro), { player?.seekTo(pos + 85_000); introSkipped = true },
+                icon = Icons.Rounded.SkipNext, modifier = Modifier.focusRequester(skipFocus).testTag("skip_intro"))
         }
         val n = upNext
         if (n != null && !cancelled && vm.autoplayNext && remaining <= 20) {
