@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": 5,
-  "publishedAt": "2026-11-04T01:23:46Z",
+  "version": 6,
+  "publishedAt": "2026-11-04T16:51:36Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "EmbyVerse",
@@ -247,5 +247,14 @@
     "season": "galaxia",
     "support.whatsapp": "4442011541",
     "season.every": "24"
-  }
+  },
+  "messages": [
+    {
+      "id": "msg-2crxhe",
+      "title": "Aviso",
+      "body": "Aprovecha las promociones que tenemos para ti por temporada de fin de año, 😎",
+      "startsAt": "2026-11-04T16:50:00.000Z",
+      "endsAt": "2026-11-05T16:50:00.000Z"
+    }
+  ]
 }
