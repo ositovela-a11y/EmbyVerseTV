@@ -360,6 +360,22 @@ fun PlaybackSettingsScreen(nav: Navigator) {
             item { SwitchRow(stringResource(R.string.playback_autoplay_next), null, p.autoplayNextEpisode) { v -> vm.update { it.copy(autoplayNextEpisode = v) } } }
             item { SwitchRow(stringResource(R.string.playback_reconnect), stringResource(R.string.playback_reconnect_sub), p.autoReconnect) { v -> vm.update { it.copy(autoReconnect = v) } } }
             item { SwitchRow(stringResource(R.string.playback_subtitles), null, p.subtitlesEnabled) { v -> vm.update { it.copy(subtitlesEnabled = v) } } }
+            item { Text(stringResource(R.string.subs_style), style = MaterialTheme.typography.titleMedium, color = t.onBackground) }
+            item {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val sizes = listOf(R.string.subs_s, R.string.subs_m, R.string.subs_l, R.string.subs_xl)
+                    items(sizes.size) { i -> CategoryChip(stringResource(sizes[i]), p.subtitleSize == i) { vm.update { it.copy(subtitleSize = i) } } }
+                }
+            }
+            item {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val bgs = listOf(R.string.subs_bg_none, R.string.subs_bg_semi, R.string.subs_bg_solid)
+                    items(bgs.size) { i -> CategoryChip(stringResource(bgs[i]), p.subtitleBackground == i) { vm.update { it.copy(subtitleBackground = i) } } }
+                }
+            }
+            item { SwitchRow(stringResource(R.string.subs_yellow), null, p.subtitleYellow) { v -> vm.update { it.copy(subtitleYellow = v) } } }
+            item { SwitchRow(stringResource(R.string.night_mode), stringResource(R.string.night_mode_sub), p.nightMode) { v -> vm.update { it.copy(nightMode = v) } } }
+            if (!t.device.isTv) item { SwitchRow(stringResource(R.string.data_saver), stringResource(R.string.data_saver_sub), p.dataSaver) { v -> vm.update { it.copy(dataSaver = v) } } }
             item { SwitchRow(stringResource(R.string.intro_sound), stringResource(R.string.intro_sound_sub), p.introSound) { v -> vm.update { it.copy(introSound = v) } } }
             if (t.device.isTv) item { SwitchRow(stringResource(R.string.nav_sounds), stringResource(R.string.nav_sounds_sub), p.navSounds) { v -> vm.update { it.copy(navSounds = v) } } }
             item { SwitchRow(stringResource(R.string.start_last_channel), stringResource(R.string.start_last_channel_sub), p.startOnLastChannel) { v -> vm.update { it.copy(startOnLastChannel = v) } } }

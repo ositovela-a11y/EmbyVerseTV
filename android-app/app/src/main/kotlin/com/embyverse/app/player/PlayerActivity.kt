@@ -74,10 +74,34 @@ class PlayerActivity : AppCompatActivity() {
             CompositionLocalProvider(LocalAppContainer provides container) {
                 val config by container.config.config.collectAsStateWithLifecycle()
                 EmbyTheme(ConfigResolver.theme(config, UserAppearance.ORIGINAL)) {
-                    com.embyverse.app.ui.FastScrolling { PlayerScreen(vm, onClose = { finish() }, onPip = if (pipSupported()) ({ enterPip() }) else null) }
+                    com.embyverse.app.ui.FastScrolling { PlayerScreen(vm, onClose = { finish() }, onPip = if (pipSupported()) ({ enterPip() }) else null, castEnabled = castOk) }
                 }
             }
         }
+    }
+
+    // ---- Chromecast (solo celulares con Google Play Services) ----
+    private val castListener by lazy {
+        CastSupport.listener(onStart = { session ->
+            val np = vm.nowPlaying.value ?: return@listener
+            val pos = vm.player.value?.currentPosition ?: 0L
+            CastSupport.load(session, np.url, np.title, np.subtitle, np.imageUrl, vm.isLive, pos)
+            vm.player.value?.pause()
+            vm.castingTo.value = session.castDevice?.friendlyName ?: "Chromecast"
+        }, onEnd = { vm.castingTo.value = null; vm.player.value?.play() })
+    }
+    private val castOk by lazy { CastSupport.available(this) }
+
+    override fun onResume() {
+        super.onResume()
+        if (castOk) runCatching { com.google.android.gms.cast.framework.CastContext.getSharedInstance(this).sessionManager
+            .addSessionManagerListener(castListener, com.google.android.gms.cast.framework.CastSession::class.java) }
+    }
+
+    override fun onPause() {
+        if (castOk) runCatching { com.google.android.gms.cast.framework.CastContext.getSharedInstance(this).sessionManager
+            .removeSessionManagerListener(castListener, com.google.android.gms.cast.framework.CastSession::class.java) }
+        super.onPause()
     }
 
     override fun onStart() { super.onStart(); vm.attach(this) }
@@ -139,8 +163,11 @@ class PlayerActivity : AppCompatActivity() {
         val idle = !list && !opts && !ctl
         when (code) {
             KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SETTINGS, KeyEvent.KEYCODE_CAPTIONS -> { vm.showOptions(!opts); return true }
-            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER ->
-                if (idle && vm.isLive) { vm.showOptions(true); return true }
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER, KeyEvent.KEYCODE_MEDIA_SKIP_FORWARD -> {
+                val skip = vm.skipIntroAction
+                if (!ctl && !opts && skip != null) { skip(); return true }
+                if (code != KeyEvent.KEYCODE_MEDIA_SKIP_FORWARD && idle && vm.isLive) { vm.showOptions(true); return true }
+            }
         }
         if (!vm.isLive) return false
         // Teclear el número del canal (0-9 del control o teclado numérico).
@@ -151,6 +178,7 @@ class PlayerActivity : AppCompatActivity() {
         }
         if (digit >= 0 && !list && !opts) { vm.typeDigit(digit); return true }
         when (code) {
+            KeyEvent.KEYCODE_LAST_CHANNEL -> vm.previousChannel()
             KeyEvent.KEYCODE_CHANNEL_UP -> vm.zap(+1)
             KeyEvent.KEYCODE_CHANNEL_DOWN -> vm.zap(-1)
             KeyEvent.KEYCODE_GUIDE -> vm.toggleChannelList()

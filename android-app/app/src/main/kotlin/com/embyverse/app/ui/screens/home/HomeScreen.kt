@@ -34,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -51,6 +52,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -97,6 +99,22 @@ fun HomeScreen(nav: Navigator) {
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     // Al volver al banner con el control, el inicio sube hasta arriba: el banner se ve completo (antes quedaba cortado).
     val toTop: () -> Unit = { scope.launch { if (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0) listState.animateScrollToItem(0) } }
+    // Fondo que cambia con la tarjeta enfocada (tipo Netflix / Apple TV): solo en TV, donde hay foco.
+    var focusedArt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    val sink: ((com.embyverse.app.data.repo.MediaCard) -> Unit)? = if (t.device.isTv) { card ->
+        if (card.ref.kind != ContentKind.LIVE) (card.backdropUrl ?: card.imageUrl)?.let { focusedArt = it }
+    } else null
+    Box(Modifier.fillMaxSize()) {
+    if (focusedArt != null) {
+        androidx.compose.animation.Crossfade(focusedArt, animationSpec = androidx.compose.animation.core.tween(700), label = "art") { url ->
+            Box(Modifier.fillMaxSize().testTag("home_backdrop")) {
+                MediaImage(url, ContentKind.MOVIE, Modifier.fillMaxSize().graphicsLayer { alpha = 0.38f })
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(t.background.copy(alpha = 0.35f), t.background.copy(alpha = 0.75f), t.background))))
+                Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(t.background.copy(alpha = 0.85f), Color.Transparent))))
+            }
+        }
+    }
+    androidx.compose.runtime.CompositionLocalProvider(com.embyverse.app.ui.components.LocalCardFocus provides sink) {
     LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(t.sectionGap)) {
         item(key = "header") { HomeHeader(s, nav) }
         com.embyverse.app.ui.components.FeaturedEvent.from(s.config.texts, System.currentTimeMillis())?.let { ev ->
@@ -173,6 +191,8 @@ fun HomeScreen(nav: Navigator) {
                 }
             }
         }
+    }
+    }
     }
 }
 

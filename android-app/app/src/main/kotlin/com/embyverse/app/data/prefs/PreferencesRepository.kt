@@ -38,6 +38,15 @@ data class PlaybackPrefs(
     val screensaver: Boolean = true,
     /** Al abrir la app, entrar directo al último canal que se vio (como una TV normal). */
     val startOnLastChannel: Boolean = false,
+    /** Subtítulos: tamaño 0 (chico) – 3 (muy grande), color y fondo. */
+    val subtitleSize: Int = 1,
+    val subtitleYellow: Boolean = false,
+    /** 0 = sin fondo (con contorno), 1 = semitransparente, 2 = negro. */
+    val subtitleBackground: Int = 1,
+    /** Modo noche: comprime el audio (baja lo fuerte, sube los diálogos). */
+    val nightMode: Boolean = false,
+    /** Con datos móviles: limitar a calidad baja (si el video trae varias calidades). */
+    val dataSaver: Boolean = false,
 )
 
 /**
@@ -52,6 +61,8 @@ data class ProfileLock(
     val avatar: String? = null,
     /** Perfil infantil: solo carpetas para niños, colores alegres y PIN para salir. */
     val kids: Boolean = false,
+    /** Perfil infantil: minutos de video al día (0 = sin límite). */
+    val kidsDailyMinutes: Int = 0,
 )
 
 /** Preferencias locales del dispositivo. Nada de esto se envía a ningún servidor. */
@@ -102,6 +113,11 @@ class PreferencesRepository(private val context: Context) {
     private val NAV_SOUNDS = booleanPreferencesKey("app.navSounds")
     private val SCREENSAVER = booleanPreferencesKey("app.screensaver")
     private val LAST_CHANNEL = booleanPreferencesKey("app.startOnLastChannel")
+    private val SUB_SIZE = intPreferencesKey("play.subSize")
+    private val SUB_YELLOW = booleanPreferencesKey("play.subYellow")
+    private val SUB_BG = intPreferencesKey("play.subBg")
+    private val NIGHT = booleanPreferencesKey("play.night")
+    private val DATA_SAVER = booleanPreferencesKey("play.dataSaver")
 
     val playback: Flow<PlaybackPrefs> = ds.data.map { p ->
         PlaybackPrefs(
@@ -117,6 +133,11 @@ class PreferencesRepository(private val context: Context) {
             navSounds = p[NAV_SOUNDS] ?: true,
             screensaver = p[SCREENSAVER] ?: true,
             startOnLastChannel = p[LAST_CHANNEL] ?: false,
+            subtitleSize = p[SUB_SIZE] ?: 1,
+            subtitleYellow = p[SUB_YELLOW] ?: false,
+            subtitleBackground = p[SUB_BG] ?: 1,
+            nightMode = p[NIGHT] ?: false,
+            dataSaver = p[DATA_SAVER] ?: false,
         )
     }.distinctUntilChanged()
 
@@ -135,6 +156,8 @@ class PreferencesRepository(private val context: Context) {
             p[NAV_SOUNDS] = n.navSounds
             p[SCREENSAVER] = n.screensaver
             p[LAST_CHANNEL] = n.startOnLastChannel
+            p[SUB_SIZE] = n.subtitleSize; p[SUB_YELLOW] = n.subtitleYellow; p[SUB_BG] = n.subtitleBackground
+            p[NIGHT] = n.nightMode; p[DATA_SAVER] = n.dataSaver
         }
     }
 
@@ -146,6 +169,7 @@ class PreferencesRepository(private val context: Context) {
             blockAdult = p[booleanPreferencesKey(k(profile, "blockAdult"))] ?: false,
             avatar = p[stringPreferencesKey(k(profile, "avatar"))],
             kids = p[booleanPreferencesKey(k(profile, "kids"))] ?: false,
+            kidsDailyMinutes = p[intPreferencesKey(k(profile, "kidsMin"))] ?: 0,
         )
     }.distinctUntilChanged()
 
@@ -159,8 +183,14 @@ class PreferencesRepository(private val context: Context) {
             set(booleanPreferencesKey(k(profile, "blockAdult")), n.blockAdult.takeIf { it })
             set(stringPreferencesKey(k(profile, "avatar")), n.avatar)
             set(booleanPreferencesKey(k(profile, "kids")), n.kids.takeIf { it })
+            set(intPreferencesKey(k(profile, "kidsMin")), n.kidsDailyMinutes.takeIf { it > 0 })
         }
     }
+
+    /** Minutos de video vistos HOY por el perfil (para el límite del perfil infantil). */
+    private fun usageKey(profile: Long) = intPreferencesKey(k(profile, "used." + java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).format(java.util.Date())))
+    suspend fun minutesUsedToday(profile: Long): Int = ds.data.first()[usageKey(profile)] ?: 0
+    suspend fun addMinuteUsed(profile: Long) { ds.edit { it[usageKey(profile)] = (it[usageKey(profile)] ?: 0) + 1 } }
 
     private val SEEN_NOTICES = stringSetPreferencesKey("app.seenNotices")
     val seenNotices: Flow<Set<String>> = ds.data.map { it[SEEN_NOTICES].orEmpty() }.distinctUntilChanged()

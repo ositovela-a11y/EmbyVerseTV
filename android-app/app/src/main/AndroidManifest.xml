@@ -15,6 +15,7 @@
     <!-- Actualizar la app desde la propia app (el usuario confirma cada instalación). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
 
     <queries>
         <intent><action android:name="android.speech.action.RECOGNIZE_SPEECH" /></intent>
@@ -51,6 +52,12 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
+            <!-- Tarjetas de EmbyVerse en la pantalla de inicio de la TV (Continuar viendo / favoritos). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="embyverse" android:host="play" />
+            </intent-filter>
         </activity>
 
         <activity
@@ -61,6 +68,9 @@
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|keyboard|navigation|uiMode"
             android:launchMode="singleTop"
             android:theme="@style/Theme.EmbyVerse.Player" />
+
+        <meta-data android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
+            android:value="com.embyverse.app.player.CastOptionsProvider" />
 
         <!-- Cambio de idioma por aplicación en Android < 13 (AppCompat guarda la elección). -->
         <service

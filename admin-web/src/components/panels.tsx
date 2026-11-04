@@ -30,11 +30,15 @@ export function IdentityPanel({ ed, canEdit, assets, publicBase, onUpload }: Pan
         <TextField label="Nombre comercial" value={c.brand.appName} max={40} disabled={!canEdit} onChange={(v) => ed.update((d) => { d.brand.appName = v; }, 'appName')} />
         <TextField label="Lema" value={c.brand.tagline ?? ''} max={80} disabled={!canEdit} onChange={(v) => ed.update((d) => { d.brand.tagline = v || null; }, 'tagline')} />
       </Group>
-      <Group title="Servidor del proveedor" hint="Ya queda puesto en la app: el cliente solo escribe usuario y contraseña. Si lo cambias, las apps instaladas se pasan solas al nuevo servidor y actualizan sus listas (sin APK nueva).">
-        <TextField label="Servidor (host)" value={c.texts['provider.host'] ?? ''} max={200} placeholder="https://krnosmx.com:443" disabled={!canEdit}
-          onChange={(v) => ed.update((d) => { const x = v.trim(); if (x) d.texts['provider.host'] = x; else delete d.texts['provider.host']; }, 'host')} />
+      <Group title="Servidor del proveedor" hint="Elige cómo entran los clientes de esta app (la tuya o la de cada vendedor). Si cambias el servidor, las apps instaladas se pasan solas al nuevo y actualizan sus listas (sin APK nueva).">
+        <Segmented label="Cómo entra el cliente" value={c.texts['provider.askHost'] === '1' ? 'ask' : 'fixed'}
+          options={[{ value: 'fixed', label: 'Solo usuario y contraseña (URL incluida)' }, { value: 'ask', label: 'URL, usuario y contraseña' }]} disabled={!canEdit}
+          onChange={(v) => ed.update((d) => { if (v === 'ask') d.texts['provider.askHost'] = '1'; else delete d.texts['provider.askHost']; }, 'askHost')} />
+        {c.texts['provider.askHost'] === '1' && <p className="hint">La app no trae servidor: tu vendedor puede usar el suyo y su cliente escribe URL, usuario y contraseña.</p>}
+        {c.texts['provider.askHost'] !== '1' && <TextField label="Servidor (host)" value={c.texts['provider.host'] ?? ''} max={200} placeholder="https://krnosmx.com:443" disabled={!canEdit}
+          onChange={(v) => ed.update((d) => { const x = v.trim(); if (x) d.texts['provider.host'] = x; else delete d.texts['provider.host']; }, 'host')} />}
         {c.texts['provider.host'] && !/^https?:\/\/[^\s/]+/i.test(c.texts['provider.host']) && <Notice kind="error">Debe empezar por http:// o https://</Notice>}
-        {!c.texts['provider.host'] && <p className="hint">Vacío = el de la APK (https://krnosmx.com:443).</p>}
+        {c.texts['provider.askHost'] !== '1' && !c.texts['provider.host'] && <p className="hint">Vacío = el de la APK (https://krnosmx.com:443).</p>}
       </Group>
       <Group title="Guía de canales (EPG)" hint="La app ya usa la guía de tu proveedor. Aquí puedes AÑADIR guías XMLTV extra (hasta 3, una por línea): se emparejan por id y, si no coincide, por el NOMBRE del canal. Así los canales que llegan sin guía muestran su programación. Se aplica en la siguiente actualización de listas de cada cliente.">
         <TextField label="URL de guías XMLTV extra (.xml o .xml.gz)" value={c.texts['provider.epgUrl'] ?? ''} max={500} multiline placeholder="https://…/guia.xml.gz" disabled={!canEdit}
@@ -513,6 +517,7 @@ export function PremiumPanel({ ed, canEdit }: PanelProps) {
         <TextField label="Canales (palabras del nombre, separadas por comas)" value={t['home.channels'] ?? ''} max={400} placeholder="espn, tudn, fox sports, azteca 7" disabled={!canEdit} onChange={(v) => set('home.channels', v)} />
         <p className="hint">Se muestran en el orden que escribas; vacío = sin fila.</p>
       </Group>
+      <BlockedClients ed={ed} canEdit={canEdit} />
       <Group title="Ayuda por WhatsApp" hint="Botón «Ayuda» en Ajustes: abre WhatsApp con un reporte (versión, dispositivo, red, cuenta) para que puedas atender rápido. Nunca envía la contraseña.">
         <TextField label="Número con lada (solo dígitos)" value={wa} max={20} placeholder="5215512345678" disabled={!canEdit} onChange={(v) => set('support.whatsapp', v.replace(/[^0-9]/g, ''), 'wa')} />
         {wa && wa.length < 10 && <Notice kind="error">Escribe el número completo con lada de país (p. ej. 52 + 10 dígitos).</Notice>}
@@ -521,3 +526,55 @@ export function PremiumPanel({ ed, canEdit }: PanelProps) {
   );
 }
 
+
+
+async function evHash(user: string): Promise<string> {
+  const data = new TextEncoder().encode('ev:' + user.trim().toLowerCase());
+  const d = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(d)).map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+}
+
+/**
+ * Clientes suspendidos: se escribe el usuario de la cuenta (el del proveedor). En el diseño publicado solo
+ * viaja una huella; el nombre se recuerda solo en este navegador para que sepas a quién bloqueaste.
+ */
+function BlockedClients({ ed, canEdit }: { ed: PanelProps['ed']; canEdit: boolean }) {
+  const [user, setUser] = useState('');
+  const labelsKey = 'ev.studio.blocked';
+  const labels: Record<string, string> = (() => { try { return JSON.parse(localStorage.getItem(labelsKey) ?? '{}'); } catch { return {}; } })();
+  const saveLabels = (l: Record<string, string>) => { try { localStorage.setItem(labelsKey, JSON.stringify(l)); } catch { /* sin almacenamiento */ } };
+  // Se reparte en varias claves (blocked.users, blocked.users.1…): cada texto admite 500 caracteres (~29 clientes).
+  const keys = Object.keys(ed.config.texts).filter((k) => k === 'blocked.users' || k.startsWith('blocked.users.'));
+  const list = keys.flatMap((k) => (ed.config.texts[k] ?? '').split(',')).map((x) => x.trim()).filter(Boolean);
+  const setList = (l: string[]) => ed.update((d) => {
+    Object.keys(d.texts).filter((k) => k === 'blocked.users' || k.startsWith('blocked.users.')).forEach((k) => delete d.texts[k]);
+    for (let i = 0; i * 29 < l.length; i++) d.texts[i === 0 ? 'blocked.users' : `blocked.users.${i}`] = l.slice(i * 29, i * 29 + 29).join(',');
+  }, 'blocked');
+  const add = async () => {
+    const u = user.trim(); if (!u) return;
+    const h = await evHash(u);
+    if (!list.includes(h)) setList([...list, h]);
+    saveLabels({ ...labels, [h]: u }); setUser('');
+  };
+  return (
+    <Group title="Clientes suspendidos (no pagaron)" hint="Escribe el usuario de la cuenta del cliente. Al publicar, su app se bloquea, se borran sus cuentas y datos del equipo y se le ofrece desinstalarla (Android siempre pide que el cliente confirme la desinstalación). Si lo quitas de la lista y publicas, podrá volver a entrar con su usuario y contraseña.">
+      <div className="row">
+        <TextField label="Usuario del cliente" value={user} max={80} placeholder="cliente123" disabled={!canEdit} onChange={setUser} />
+        <button className="btn" disabled={!canEdit || !user.trim()} onClick={() => void add()}>Suspender</button>
+      </div>
+      {list.length === 0 && <p className="hint">No hay clientes suspendidos.</p>}
+      <ul className="list">
+        {list.map((h) => (
+          <li key={h}>
+            <span>{labels[h] ?? `Cliente (${h.slice(0, 6)}…)`}</span>
+            {canEdit && <button className="btn-ghost" onClick={() => setList(list.filter((x) => x !== h))}>Reactivar</button>}
+          </li>
+        ))}
+      </ul>
+      <TextField label="Mensaje que verá el cliente suspendido (opcional)" value={ed.config.texts['blocked.message'] ?? ''} max={300} multiline disabled={!canEdit}
+        placeholder="Tu servicio está suspendido. Comunícate con tu proveedor para reactivarlo."
+        onChange={(v) => ed.update((d) => { if (v.trim()) d.texts['blocked.message'] = v; else delete d.texts['blocked.message']; }, 'blocked.msg')} />
+      <p className="hint">Monitoreo de quién está conectado en tiempo real: esto necesita un servidor propio (GitHub solo publica archivos). Mientras tanto, el panel de tu proveedor (Xtream) muestra las conexiones activas de cada usuario.</p>
+    </Group>
+  );
+}

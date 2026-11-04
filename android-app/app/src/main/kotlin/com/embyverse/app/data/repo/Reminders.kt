@@ -78,6 +78,27 @@ object Reminders {
         return true
     }
 
+    fun programKey(sourceId: String, channelId: String, startMs: Long) = "$sourceId|$channelId|p$startMs"
+
+    /** Recordatorio de un programa futuro de la guía. Devuelve true si quedó programado, false si se quitó, null si ya empezó. */
+    fun toggleProgram(context: Context, title: String, sourceId: String, channelId: String, startMs: Long): Boolean? {
+        val k = programKey(sourceId, channelId, startMs)
+        val wm = WorkManager.getInstance(context)
+        val sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (k in _keys.value) {
+            wm.cancelUniqueWork("rem|$k"); sp.edit().remove(k).apply(); _keys.value = _keys.value - k
+            return false
+        }
+        val now = System.currentTimeMillis()
+        if (startMs <= now) return null
+        val delay = (startMs - BEFORE_MIN * 60_000L - now).coerceAtLeast(3_000L)
+        wm.enqueueUniqueWork("rem|$k", ExistingWorkPolicy.REPLACE, OneTimeWorkRequestBuilder<ReminderWorker>()
+            .setInitialDelay(delay, TimeUnit.MILLISECONDS)
+            .setInputData(workDataOf("title" to title, "sid" to sourceId, "cid" to channelId, "key" to k)).build())
+        sp.edit().putLong(k, startMs).apply(); _keys.value = _keys.value + k
+        return true
+    }
+
     internal fun notify(context: Context, d: Due) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.getSystemService(NotificationManager::class.java)?.createNotificationChannel(

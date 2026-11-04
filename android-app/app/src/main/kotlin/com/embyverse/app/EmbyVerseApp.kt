@@ -45,6 +45,8 @@ class EmbyVerseApp : Application(), SingletonImageLoader.Factory {
         // (lo nuevo del proveedor aparece solo, sin pulsar «Actualizar»). Lo ya cargado sigue visible.
         ProcessLifecycleOwner.get().lifecycle.addObserver(LifecycleEventObserver { _, e ->
             // Al volver a la app: diseño del panel y versión nueva de la app (sin reinstalar ni Downloader).
+            // Al salir de la app: «Continuar viendo» y favoritos en la pantalla de inicio de la TV.
+            if (e == Lifecycle.Event.ON_STOP) appScope.launch { com.embyverse.app.data.repo.TvHome.sync(this@EmbyVerseApp, container) }
             if (e == Lifecycle.Event.ON_START) appScope.launch {
                 runCatching { container.config.refresh() }
                 container.updater.check()

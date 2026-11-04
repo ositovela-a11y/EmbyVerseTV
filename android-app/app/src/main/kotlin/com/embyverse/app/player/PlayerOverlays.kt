@@ -118,6 +118,15 @@ internal fun PlayerOptions(vm: PlayerViewModel) {
         if (vm.isLive) {
             val m = claim()
             item { OptionRow(stringResource(R.string.player_channels), selected = false, icon = true, modifier = m) { vm.openChannelList() } }
+            if (vm.hasPrevious) item { OptionRow(stringResource(R.string.player_previous_channel), selected = false, icon = true) { vm.showOptions(false); vm.previousChannel() } }
+        }
+        item {
+            val fav by vm.favorite.collectAsStateWithLifecycle()
+            OptionRow(stringResource(if (fav) R.string.player_fav_remove else R.string.player_fav_add), fav, modifier = Modifier.testTag("player_fav")) { vm.toggleFavorite() }
+        }
+        item {
+            val night by vm.nightMode.collectAsStateWithLifecycle()
+            OptionRow(stringResource(R.string.player_night), night, modifier = Modifier.testTag("player_night")) { vm.setNightMode(!night) }
         }
         item { SectionTitle(stringResource(R.string.options_audio)) }
         if (audio.isEmpty()) item { Hint(stringResource(R.string.options_audio_default)) }

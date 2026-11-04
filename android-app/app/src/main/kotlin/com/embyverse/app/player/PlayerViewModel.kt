@@ -71,6 +71,23 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     val optionsVisible = MutableStateFlow(false)
     /** En ventana «imagen en imagen»: se ocultan todos los controles. */
     val inPip = MutableStateFlow(false)
+    /** Nombre del Chromecast al que se está enviando (null = se ve en el equipo). */
+    val castingTo = MutableStateFlow<String?>(null)
+    /** «Saltar intro» visible: OK del control lo activa directamente. */
+    @Volatile var skipIntroAction: (() -> Unit)? = null
+    /** Canal actual en favoritos (botón ★ del reproductor). */
+    val favorite = MutableStateFlow(false)
+    /** Programa siguiente (mini guía del reproductor). */
+    val nextProgram = MutableStateFlow<EpgEntity?>(null)
+    /** Modo noche activado (compresión de audio). */
+    val nightMode = MutableStateFlow(false)
+    /** Estilo de subtítulos elegido en Ajustes. */
+    val subtitleStyle = MutableStateFlow(PlaybackPrefs())
+    /** Perfil infantil: se acabó el tiempo de hoy (pide PIN para seguir). */
+    val kidsTimeUp = MutableStateFlow(false)
+    /** Canal anterior (tecla «último canal»). */
+    private var previousLive: ItemRef? = null
+    private var night: android.media.audiofx.DynamicsProcessing? = null
     val audioTracks = MutableStateFlow<List<TrackOption>>(emptyList())
     val textTracks = MutableStateFlow<List<TrackOption>>(emptyList())
     val textEnabled = MutableStateFlow(false)
@@ -106,6 +123,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     init {
         viewModelScope.launch {
             prefs = c.prefs.playback.first()
+            subtitleStyle.value = prefs; nightMode.value = prefs.nightMode
             if (isLive) {
                 val cat = context?.takeIf { it != "restart" }
                 listCategory.value = cat
@@ -132,7 +150,12 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
                     .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !prefs.subtitlesEnabled)
                     .build()
             }
+            // Ahorro de datos: con red medida (datos móviles) se limita la calidad si el video trae varias.
+            if (prefs.dataSaver && runCatching { ctx.getSystemService(ConnectivityManager::class.java).isActiveNetworkMetered }.getOrDefault(false)) {
+                p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().setMaxVideoSize(854, 480).setMaxVideoBitrate(1_500_000).build()
+            }
             player.value = p
+            applyNight()
             nowPlaying.value?.let { prepare(it, resumeFrom) }
         }
         registerNetwork(ctx.applicationContext)
@@ -146,6 +169,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         player.value?.let { p ->
             if (!isLive) resumeFrom = p.currentPosition
             p.removeListener(listener)
+            runCatching { night?.release() }; night = null
             p.release()
         }
         player.value = null
@@ -158,8 +182,10 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         error.value = null; buffering.value = true; nextEpisode.value = null
         val np = resolve(target)
         if (np == null) { error.value = PlayerUiError.Message(R.string.player_error_not_found); buffering.value = false; return }
+        if (ref.kind == ContentKind.LIVE && np.ref.kind == ContentKind.LIVE && np.ref != ref) previousLive = ref
         ref = np.ref
         nowPlaying.value = np
+        favorite.value = c.library.isFavorite(np.ref).first()
         computeUpNext(np)
         retries = 0; altIndex = -1; forcedMime = null; originalUrl = null
         resumeFrom = when {
@@ -363,15 +389,21 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     private suspend fun updateProgram() {
         val ch = c.database.channels().get(ref.sourceId, ref.id) ?: return
         currentProgram.value = ch.epgChannelId?.let { c.epg.nowPlaying(ref.sourceId, listOf(it)).firstOrNull() }
+        nextProgram.value = ch.epgChannelId?.let { id ->
+            val now = System.currentTimeMillis() / 1000
+            c.database.epg().range(ref.sourceId, listOf(id), now, now + 8 * 3600).filter { it.start > now }.minByOrNull { it.start }
+        }
     }
 
     // ---------------------------------------------------------------- progreso
     private fun startProgressTicker() {
         progressJob?.cancel()
         progressJob = viewModelScope.launch {
+            var ticks = 0
             while (isActive) {
                 delay(10_000)
                 if (isLive) updateProgram() else saveProgress()
+                if (++ticks % 6 == 0 && player.value?.isPlaying == true) countKidsMinute()
             }
         }
     }
@@ -385,6 +417,59 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     }
 
     val autoplayNext get() = prefs.autoplayNextEpisode
+
+    // ---------------------------------------------------------------- funciones premium
+    /** Tecla «último canal»: vuelve al canal anterior (y el actual queda como anterior). */
+    fun previousChannel() {
+        val prev = previousLive ?: return
+        viewModelScope.launch { load(prev); zapBanner.value = true; delay(3_000); zapBanner.value = false }
+    }
+    val hasPrevious get() = previousLive != null
+
+    fun toggleFavorite() {
+        val np = nowPlaying.value ?: return
+        viewModelScope.launch { c.library.toggleFavorite(np.ref, np.title, np.imageUrl); favorite.value = c.library.isFavorite(np.ref).first() }
+    }
+
+    fun setNightMode(on: Boolean) {
+        nightMode.value = on
+        viewModelScope.launch { c.prefs.updatePlayback { it.copy(nightMode = on) } }
+        applyNight()
+    }
+
+    /** Modo noche con DynamicsProcessing (Android 9+): sube el volumen general y limita los picos. */
+    private fun applyNight() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.P) return
+        val p = player.value ?: return
+        runCatching { night?.release() }; night = null
+        if (!nightMode.value) return
+        runCatching {
+            val cfg = android.media.audiofx.DynamicsProcessing.Config.Builder(
+                android.media.audiofx.DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION, 2, false, 0, false, 0, false, 0, true).build()
+            val dp = android.media.audiofx.DynamicsProcessing(0, p.audioSessionId, cfg)
+            dp.setInputGainAllChannelsTo(9f)
+            dp.setLimiterAllChannelsTo(android.media.audiofx.DynamicsProcessing.Limiter(true, true, 0, 2f, 120f, 8f, -18f, 0f))
+            dp.enabled = true
+            night = dp
+        }
+    }
+
+    /** Perfil infantil con límite diario: cuenta los minutos vistos y bloquea al llegar al límite. */
+    private suspend fun countKidsMinute() {
+        val (id, lock) = c.parental.activeLock.first()
+        if (!lock.kids || lock.kidsDailyMinutes <= 0) return
+        c.prefs.addMinuteUsed(id)
+        if (kidsUnlocked) return
+        if (c.prefs.minutesUsedToday(id) >= lock.kidsDailyMinutes) { player.value?.pause(); kidsTimeUp.value = true }
+    }
+
+    suspend fun kidsPinOk(pin: String): Boolean {
+        val (id, _) = c.parental.activeLock.first()
+        val ok = c.parental.checkPin(id, pin)
+        if (ok) { kidsTimeUp.value = false; kidsUnlocked = true; player.value?.play() }
+        return ok
+    }
+    private var kidsUnlocked = false
 
     private suspend fun computeUpNext(np: NowPlaying) {
         upNextCancelled.value = false

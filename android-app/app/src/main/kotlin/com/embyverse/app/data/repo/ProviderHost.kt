@@ -18,7 +18,8 @@ import com.embyverse.core.xtream.XtreamClient
 object ProviderHost {
     const val TEXT_KEY = "provider.host"
 
-    fun of(cfg: RemoteConfig): String? =
+    /** «provider.askHost» = "1": la app NO trae el servidor; el cliente escribe URL, usuario y contraseña. */
+    fun of(cfg: RemoteConfig): String? = if (cfg.texts["provider.askHost"]?.trim() == "1") null else
         (cfg.texts[TEXT_KEY]?.trim()?.takeIf { it.isNotEmpty() } ?: BuildConfig.DEFAULT_HOST.trim().takeIf { it.isNotEmpty() })
             ?.let { XtreamClient.normalizeBaseUrl(it) }?.takeIf { UrlSafety.isHttpUrl(it) }
 

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -65,7 +66,7 @@ import com.embyverse.core.model.ContentKind
 
 @OptIn(UnstableApi::class)
 @Composable
-fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? = null) {
+fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? = null, castEnabled: Boolean = false) {
     val t = LocalEmby.current
     val player by vm.player.collectAsStateWithLifecycle()
     val np by vm.nowPlaying.collectAsStateWithLifecycle()
@@ -82,6 +83,10 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
     val pip by vm.inPip.collectAsStateWithLifecycle()
     val zapTarget by vm.zapTarget.collectAsStateWithLifecycle()
     val digits by vm.digits.collectAsStateWithLifecycle()
+    val subStyle by vm.subtitleStyle.collectAsStateWithLifecycle()
+    val nextProg by vm.nextProgram.collectAsStateWithLifecycle()
+    val kidsTimeUp by vm.kidsTimeUp.collectAsStateWithLifecycle()
+    val castingTo by vm.castingTo.collectAsStateWithLifecycle()
     // Calidad real del video que se está viendo (ExoPlayer ya elige la mejor según la red).
     var videoHeight by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
     LaunchedEffect(player) {
@@ -112,7 +117,18 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
                     setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { v -> vm.controlsVisible.value = v == View.VISIBLE })
                 }
             },
-            update = { view -> view.player = player; view.useController = !pip; if (listVisible || optionsVisible || pip) view.hideController() },
+            update = { view ->
+                // Subtítulos a gusto del cliente (Ajustes › Reproducción): tamaño, color y fondo.
+                view.subtitleView?.let { sv ->
+                    val fg = if (subStyle.subtitleYellow) android.graphics.Color.YELLOW else android.graphics.Color.WHITE
+                    val bg = when (subStyle.subtitleBackground) { 2 -> android.graphics.Color.BLACK; 1 -> android.graphics.Color.argb(150, 0, 0, 0); else -> android.graphics.Color.TRANSPARENT }
+                    sv.setStyle(androidx.media3.ui.CaptionStyleCompat(fg, bg, android.graphics.Color.TRANSPARENT,
+                        if (subStyle.subtitleBackground == 0) androidx.media3.ui.CaptionStyleCompat.EDGE_TYPE_OUTLINE else androidx.media3.ui.CaptionStyleCompat.EDGE_TYPE_NONE,
+                        android.graphics.Color.BLACK, null))
+                    sv.setFractionalTextSize(androidx.media3.ui.SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * listOf(0.8f, 1f, 1.3f, 1.65f)[subStyle.subtitleSize.coerceIn(0, 3)])
+                    sv.setApplyEmbeddedStyles(false)
+                }
+                view.player = player; view.useController = !pip; if (listVisible || optionsVisible || pip) view.hideController() },
             onRelease = { view -> view.player = null },
         )
 
@@ -120,6 +136,13 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
 
         // Cabecera: título, canal / episodio y programa actual.
         if (pip) return@Box
+        castingTo?.let { name ->
+            Column(Modifier.align(Alignment.Center).background(Color.Black.copy(alpha = 0.8f), RoundedCornerShape(16.dp)).padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(stringResource(R.string.cast_playing_on, name), style = MaterialTheme.typography.titleMedium, color = Color.White)
+                Text(stringResource(R.string.cast_hint), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+            }
+        }
         // Cambio de canal al instante: número tecleado o canal al que se va con ▲▼.
         if (digits.isNotEmpty() || zapTarget != null) {
             Row(Modifier.align(Alignment.TopCenter).padding(top = 28.dp).background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(14.dp))
@@ -153,6 +176,12 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
                             .padding(horizontal = 6.dp, vertical = 2.dp).testTag("quality_badge"))
                 }
                 com.embyverse.app.ui.components.Clock(Modifier.padding(horizontal = 8.dp), color = Color.White)
+                if (castEnabled) AndroidView(factory = { ctx ->
+                    // Tema oscuro: el ícono de transmitir sale blanco sobre el video.
+                    runCatching { androidx.mediarouter.app.MediaRouteButton(android.view.ContextThemeWrapper(ctx, androidx.appcompat.R.style.Theme_AppCompat)).also {
+                        com.google.android.gms.cast.framework.CastButtonFactory.setUpMediaRouteButton(ctx.applicationContext, it)
+                    } }.getOrElse { android.view.View(ctx) }
+                }, modifier = Modifier.size(48.dp).testTag("cast"))
                 if (onPip != null) IconButton(onClick = onPip) {
                     Icon(Icons.Rounded.PictureInPictureAlt, stringResource(R.string.player_pip), tint = Color.White)
                 }
@@ -163,6 +192,11 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
                     Icon(Icons.AutoMirrored.Rounded.List, stringResource(R.string.player_channels), tint = Color.White)
                 }
             }
+        }
+
+        // Mini guía: qué pasa ahora (con avance) y qué sigue en este canal.
+        if (vm.isLive && (controls || zap) && program != null && !listVisible && !optionsVisible) {
+            MiniGuide(program!!, nextProg, Modifier.align(Alignment.BottomStart).padding(start = 24.dp, bottom = if (controls) 96.dp else 28.dp))
         }
 
         // Error comprensible con reintento.
@@ -200,6 +234,9 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
             PlayerOptions(vm)
         }
     }
+    if (kidsTimeUp) com.embyverse.app.ui.components.PinDialog(stringResource(R.string.kids_time_up), stringResource(R.string.kids_time_up_sub), onDismiss = onClose) { pin ->
+        vm.kidsPinOk(pin)
+    }
     LaunchedEffect(np?.ref) { if (!vm.isLive) vm.controlsVisible.value = false }
 }
 
@@ -222,8 +259,15 @@ private fun EpisodeExtras(vm: PlayerViewModel, player: androidx.media3.exoplayer
     val remaining = if (dur > 0) (dur - pos) / 1000 else Long.MAX_VALUE
     Column(modifier.padding(32.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (isEpisode && !introSkipped && pos in 8_000L..300_000L && dur > 600_000L) {
-            EmbyButton(stringResource(R.string.player_skip_intro), { player?.seekTo(pos + 85_000); introSkipped = true }, secondary = true,
-                modifier = Modifier.testTag("skip_intro"))
+            // El botón toma el foco solo al aparecer: con OK se salta (antes costaba llegar a él con el control).
+            val skipFocus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
+            LaunchedEffect(Unit) { kotlinx.coroutines.delay(150); runCatching { skipFocus.requestFocus() } }
+            androidx.compose.runtime.DisposableEffect(Unit) {
+                vm.skipIntroAction = { player?.seekTo((player.currentPosition) + 85_000); introSkipped = true }
+                onDispose { vm.skipIntroAction = null }
+            }
+            EmbyButton(stringResource(R.string.player_skip_intro), { player?.seekTo(pos + 85_000); introSkipped = true },
+                icon = Icons.Rounded.SkipNext, modifier = Modifier.focusRequester(skipFocus).testTag("skip_intro"))
         }
         val n = upNext
         if (n != null && !cancelled && vm.autoplayNext && remaining <= 20) {
@@ -250,4 +294,32 @@ internal fun qualityLabel(height: Int): String? = when {
     height >= 700 -> "HD"
     height > 0 -> "SD"
     else -> null
+}
+
+@Composable
+private fun MiniGuide(now: com.embyverse.app.data.db.EpgEntity, next: com.embyverse.app.data.db.EpgEntity?, modifier: Modifier) {
+    val t = LocalEmby.current
+    val fmt = androidx.compose.runtime.remember { java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT) }
+    var nowSec by androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(System.currentTimeMillis() / 1000) }
+    LaunchedEffect(now) { while (true) { nowSec = System.currentTimeMillis() / 1000; kotlinx.coroutines.delay(30_000) } }
+    val frac = if (now.end > now.start) ((nowSec - now.start).toFloat() / (now.end - now.start)).coerceIn(0f, 1f) else 0f
+    Column(modifier.widthIn(max = 520.dp).background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(12.dp)).padding(14.dp).testTag("mini_guide")) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.guide_now), style = MaterialTheme.typography.labelMedium, color = t.primary)
+            Spacer(Modifier.width(8.dp))
+            Text(now.title, style = MaterialTheme.typography.titleMedium, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            Spacer(Modifier.width(8.dp))
+            Text("${fmt.format(java.util.Date(now.start * 1000))} – ${fmt.format(java.util.Date(now.end * 1000))}", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
+        }
+        Box(Modifier.padding(vertical = 8.dp).fillMaxWidth().then(Modifier.height(4.dp)).background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(2.dp))) {
+            Box(Modifier.fillMaxHeight().fillMaxWidth(frac).background(t.primary, RoundedCornerShape(2.dp)))
+        }
+        next?.let { n ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.guide_next), style = MaterialTheme.typography.labelMedium, color = t.textSecondary)
+                Spacer(Modifier.width(8.dp))
+                Text("${fmt.format(java.util.Date(n.start * 1000))}  ${n.title}", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
 }
