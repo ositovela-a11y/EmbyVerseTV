@@ -86,11 +86,13 @@ fun ParentalScreen(nav: Navigator) {
                     }
                 }
             }
+            // Perfil infantil: se activa SIN PIN (bloquea solo lo de adultos y lo violento).
+            item { SwitchRow(stringResource(R.string.kids_profile), stringResource(R.string.kids_profile_sub), lock.kids) { v -> update { it.copy(kids = v) } } }
             if (lock.pin == null) {
+                item { Text(stringResource(R.string.parental_pin_optional), style = MaterialTheme.typography.bodySmall, color = t.textSecondary) }
                 item { EmbyButton(stringResource(R.string.parental_create_pin), { dialog = "create" }, modifier = Modifier.testTag("parental_create")) }
                 return@SettingsList
             }
-            item { SwitchRow(stringResource(R.string.kids_profile), stringResource(R.string.kids_profile_sub), lock.kids) { v -> update { it.copy(kids = v, pinOnEnter = if (v) it.pinOnEnter else it.pinOnEnter) } } }
             if (lock.kids) {
                 item { Text(stringResource(R.string.kids_limit), style = MaterialTheme.typography.titleMedium, color = t.onBackground) }
                 item {

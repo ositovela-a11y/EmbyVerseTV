@@ -100,11 +100,69 @@ fun Modifier.kenBurns(): Modifier {
  *  - «auto»: en fechas especiales pone el de la fecha (Navidad, Halloween, Muertos, Patrias…) y el resto
  *    del tiempo rota entre los generales.
  */
-enum class Season(val key: String, val general: Boolean) {
-    CINE("cine", true), PALOMITAS("palomitas", true), GALAXIA("galaxia", true), ESTRELLAS("estrellas", true),
-    DEPORTES("deportes", true), MUSICA("musica", true), PRIMAVERA("primavera", true), VERANO("verano", true), BURBUJAS("burbujas", true),
-    NAVIDAD("navidad", false), ANO_NUEVO("anonuevo", false), SAN_VALENTIN("sanvalentin", false), PATRIAS("patrias", false),
-    HALLOWEEN("halloween", false), MUERTOS("muertos", false), MUNDIAL("mundial", false);
+enum class Motion { FALL, RISE, TWINKLE }
+
+enum class Season(val key: String, val general: Boolean, val motion: Motion, val confetti: Boolean, val glyphs: List<String>) {
+    CINE("cine", true, Motion.FALL, false, listOf("🎬", "🎞", "⭐", "🎥")),
+    PALOMITAS("palomitas", true, Motion.FALL, false, listOf("🍿", "🥤", "🎟")),
+    ESTRENO("estreno", true, Motion.TWINKLE, false, listOf("✨", "⭐", "🎬")),
+    TERROR("terror", true, Motion.FALL, false, listOf("👻", "🕷", "🕸", "🦇")),
+    SUPERHEROES("superheroes", true, Motion.FALL, false, listOf("💥", "⚡", "🦸", "⭐")),
+    ANIME("anime", true, Motion.FALL, false, listOf("🌸", "✨", "⭐", "🍥")),
+    GALAXIA("galaxia", true, Motion.TWINKLE, false, listOf("✦", "✧", "🪐", "☄")),
+    ESTRELLAS("estrellas", true, Motion.TWINKLE, false, listOf("✦", "✧", "⋆")),
+    ESPACIO("espacio", true, Motion.FALL, false, listOf("🚀", "🛸", "🌙", "🪐")),
+    LUCIERNAGAS("luciernagas", true, Motion.TWINKLE, false, listOf("•", "∙", "•")),
+    NOCHE("noche", true, Motion.TWINKLE, false, listOf("🌙", "⭐", "✧")),
+    DEPORTES("deportes", true, Motion.FALL, false, listOf("⚽", "🏀", "🏈", "⚾", "🎾")),
+    FUTBOL("futbol", true, Motion.FALL, false, listOf("⚽", "🥅", "🏆")),
+    BASQUET("basquet", true, Motion.FALL, false, listOf("🏀", "⛹")),
+    AMERICANO("americano", true, Motion.FALL, false, listOf("🏈", "🏟")),
+    BEISBOL("beisbol", true, Motion.FALL, false, listOf("⚾", "🧢")),
+    BOX("box", true, Motion.FALL, false, listOf("🥊", "🏆", "⭐")),
+    CARRERAS("carreras", true, Motion.FALL, false, listOf("🏎", "🏁", "🏆")),
+    MUSICA("musica", true, Motion.RISE, false, listOf("🎵", "🎶", "🎧")),
+    CONCIERTO("concierto", true, Motion.TWINKLE, true, listOf("🎸", "🎤", "✨")),
+    VIDEOJUEGOS("videojuegos", true, Motion.FALL, false, listOf("🎮", "👾", "🕹", "⭐")),
+    PRIMAVERA("primavera", true, Motion.FALL, false, listOf("🌸", "🦋", "🌼")),
+    VERANO("verano", true, Motion.FALL, false, listOf("🌴", "☀", "🏖", "🍉")),
+    OTONO("otono", true, Motion.FALL, false, listOf("🍂", "🍁", "🍃")),
+    INVIERNO("invierno", true, Motion.FALL, false, listOf("❄", "☃", "❅")),
+    LLUVIA("lluvia", true, Motion.FALL, false, listOf("💧", "☔", "☁")),
+    PLAYA("playa", true, Motion.FALL, false, listOf("🐚", "🌊", "🏖", "⛱")),
+    OCEANO("oceano", true, Motion.RISE, false, listOf("🐠", "🐟", "🐙", "🫧")),
+    SELVA("selva", true, Motion.FALL, false, listOf("🌿", "🦜", "🐒", "🍃")),
+    FLORES("flores", true, Motion.FALL, false, listOf("🌷", "🌻", "🌹", "🌼")),
+    MARIPOSAS("mariposas", true, Motion.RISE, false, listOf("🦋", "🌸")),
+    BURBUJAS("burbujas", true, Motion.RISE, false, listOf("○", "◦", "○")),
+    GLOBOS("globos", true, Motion.RISE, false, listOf("🎈", "🎈", "✨")),
+    CONFETI("confeti", true, Motion.FALL, true, listOf("🎉", "🎊", "✨")),
+    CORAZONES("corazones", true, Motion.RISE, false, listOf("❤", "💕", "💖")),
+    DULCES("dulces", true, Motion.FALL, false, listOf("🍭", "🍬", "🍫", "🧁")),
+    COMIDA("comida", true, Motion.FALL, false, listOf("🍕", "🍔", "🌮", "🍟")),
+    CAFE("cafe", true, Motion.RISE, false, listOf("☕", "🥐", "🍩")),
+    DINOSAURIOS("dinosaurios", true, Motion.FALL, false, listOf("🦕", "🦖", "🌋")),
+    UNICORNIOS("unicornios", true, Motion.RISE, false, listOf("🦄", "🌈", "✨")),
+    ARCOIRIS("arcoiris", true, Motion.RISE, false, listOf("🌈", "☁", "⭐")),
+    MASCOTAS("mascotas", true, Motion.FALL, false, listOf("🐶", "🐱", "🐾")),
+    NAVIDAD("navidad", false, Motion.FALL, false, listOf("❄", "❅", "•")),
+    NAVIDAD2("navidad2", false, Motion.FALL, false, listOf("🎄", "🎁", "⭐", "🔔")),
+    POSADAS("posadas", false, Motion.FALL, false, listOf("🪅", "⭐", "🍬")),
+    ANO_NUEVO("anonuevo", false, Motion.RISE, true, listOf("🎆", "🎇", "✨", "🥂")),
+    REYES("reyes", false, Motion.FALL, false, listOf("👑", "⭐", "🎁", "🐫")),
+    SAN_VALENTIN("sanvalentin", false, Motion.RISE, false, listOf("❤", "💕", "💖")),
+    PASCUA("pascua", false, Motion.FALL, false, listOf("🐣", "🥚", "🐰", "🌷")),
+    DIA_NINO("dianino", false, Motion.RISE, false, listOf("🎈", "🧸", "🪁", "⭐")),
+    MADRES("madres", false, Motion.FALL, false, listOf("💐", "❤", "🌹")),
+    PADRE("padre", false, Motion.FALL, false, listOf("👔", "🏆", "⭐")),
+    PATRIAS("patrias", false, Motion.FALL, true, listOf("🎉", "🎊", "⭐")),
+    HALLOWEEN("halloween", false, Motion.FALL, false, listOf("🦇", "🎃", "🕸")),
+    MUERTOS("muertos", false, Motion.FALL, false, listOf("🌼", "💀", "🕯")),
+    BUEN_FIN("buenfin", false, Motion.FALL, false, listOf("🛍", "💸", "🏷")),
+    MUNDIAL("mundial", false, Motion.FALL, true, listOf("⚽", "🏆", "🎉")),
+    CUMPLE("cumple", false, Motion.RISE, true, listOf("🎂", "🎈", "🎉")),
+    GRADUACION("graduacion", false, Motion.FALL, true, listOf("🎓", "⭐", "🎉")),
+    KIDS("kids", false, Motion.RISE, false, listOf("🎈", "⭐", "🌈", "🧸"));
 
     companion object {
         fun of(v: String?) = entries.firstOrNull { it.key == v?.trim()?.lowercase() }
@@ -114,8 +172,13 @@ enum class Season(val key: String, val general: Boolean) {
             val m = cal.get(java.util.Calendar.MONTH) + 1; val d = cal.get(java.util.Calendar.DAY_OF_MONTH)
             return when {
                 m == 12 && d == 31 || m == 1 && d <= 2 -> ANO_NUEVO
+                m == 1 && d in 5..6 -> REYES
+                m == 12 && d in 16..24 -> POSADAS
+                m == 12 && d in 25..30 -> NAVIDAD2
                 m == 12 -> NAVIDAD
                 m == 2 && d in 10..14 -> SAN_VALENTIN
+                m == 4 && d == 30 -> DIA_NINO
+                m == 5 && d == 10 -> MADRES
                 m == 9 && d in 10..16 -> PATRIAS
                 m == 10 && d >= 24 -> HALLOWEEN
                 m == 11 && d <= 2 -> MUERTOS
@@ -129,7 +192,7 @@ enum class Season(val key: String, val general: Boolean) {
             val general = entries.filter { it.general }
             val rotating = general[((now / (every * 3_600_000L)) % general.size).toInt()]
             return when (v) {
-                "" , "ninguna", "none" -> null
+                "", "ninguna", "none" -> null
                 "rotar" -> rotating
                 "auto" -> holiday(java.util.Calendar.getInstance().apply { timeInMillis = now }) ?: rotating
                 else -> of(v)
@@ -155,28 +218,10 @@ fun SeasonOverlay(season: Season, modifier: Modifier = Modifier) {
     val seeds = remember(season) { List(n) { Triple(Random.nextFloat(), Random.nextFloat(), 0.6f + Random.nextFloat() * 0.8f) } }
     var now by remember { mutableLongStateOf(0L) }
     LaunchedEffect(season) { val s = System.currentTimeMillis(); while (true) { now = System.currentTimeMillis() - s; delay(50) } }
-    // Cómo se mueven: caen, suben (burbujas, globos, corazones) o titilan en su lugar (estrellas).
-    val rises = season in setOf(Season.BURBUJAS, Season.SAN_VALENTIN, Season.MUSICA, Season.ANO_NUEVO)
-    val twinkle = season in setOf(Season.GALAXIA, Season.ESTRELLAS)
-    val confetti = season in setOf(Season.MUNDIAL, Season.PATRIAS, Season.ANO_NUEVO)
-    val glyphs = when (season) {
-        Season.NAVIDAD -> listOf("❄", "❅", "•")
-        Season.HALLOWEEN -> listOf("🦇", "🎃", "🕸")
-        Season.MUERTOS -> listOf("🌼", "💀", "🕯")
-        Season.MUNDIAL -> listOf("⚽", "🏆", "🎉")
-        Season.CINE -> listOf("🎬", "🎞", "⭐", "🎥")
-        Season.PALOMITAS -> listOf("🍿", "🥤", "🎟")
-        Season.GALAXIA -> listOf("✦", "✧", "🪐", "☄")
-        Season.ESTRELLAS -> listOf("✦", "✧", "⋆")
-        Season.DEPORTES -> listOf("⚽", "🏀", "🏈", "⚾", "🎾")
-        Season.MUSICA -> listOf("🎵", "🎶", "🎧")
-        Season.PRIMAVERA -> listOf("🌸", "🦋", "🌼")
-        Season.VERANO -> listOf("🌴", "☀", "🏖", "🍉")
-        Season.BURBUJAS -> listOf("○", "◦", "○")
-        Season.ANO_NUEVO -> listOf("🎆", "🎇", "✨", "🥂")
-        Season.SAN_VALENTIN -> listOf("❤", "💕", "💖")
-        Season.PATRIAS -> listOf("🎉", "🎊", "⭐")
-    }
+    val rises = season.motion == Motion.RISE
+    val twinkle = season.motion == Motion.TWINKLE
+    val confetti = season.confetti
+    val glyphs = season.glyphs
     val confettiColors = if (season == Season.PATRIAS) listOf(Color(0xFF006847), Color.White, Color(0xFFCE1126))
         else listOf(Color(0xFFFFC107), Color(0xFF29B6F6), Color(0xFFEF5350), Color(0xFF66BB6A), Color(0xFFAB47BC))
     val paint = remember { android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG) }
@@ -200,7 +245,7 @@ fun SeasonOverlay(season: Season, modifier: Modifier = Modifier) {
             when {
                 confetti && i % 2 == 0 -> drawRect(confettiColors[i % confettiColors.size].copy(alpha = 0.55f),
                     Offset(x * size.width, y * size.height), androidx.compose.ui.geometry.Size(px * 0.45f, px * 0.75f * (0.4f + 0.6f * kotlin.math.abs(sin(secs * 3 * speed + i)))))
-                (season == Season.NAVIDAD || season == Season.ESTRELLAS) && i % 3 == 2 ->
+                (season == Season.NAVIDAD || season == Season.ESTRELLAS || season == Season.LUCIERNAGAS) && i % 3 == 2 ->
                     drawCircle(Color.White.copy(alpha = 0.55f * alpha), px * 0.25f, Offset(x * size.width, y * size.height))
                 else -> {
                     paint.textSize = px * (if (season == Season.NAVIDAD || twinkle || season == Season.BURBUJAS) 1.1f else 1.4f)

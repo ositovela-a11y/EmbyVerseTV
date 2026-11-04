@@ -328,13 +328,15 @@ class SmokeFlowTest {
             val p1 = c.prefs.activeProfile()
             val kid = c.library.createProfile("Peques", 0xFFF59E0B.toInt())
             try {
-                c.prefs.updateLock(kid) { it.copy(pin = "4321", kids = true) }
+                c.prefs.updateLock(kid) { it.copy(kids = true) } // sin PIN
                 c.prefs.setActiveProfile(kid)
                 val cats = c.database.categories().observeAllNames().first()
                 val hidden = c.parental.hidden.first()
                 val kidsCats = cats.filter { com.embyverse.app.data.repo.ParentalControl.isKids(it) }
                 if (kidsCats.isNotEmpty()) assertTrue("infantil: solo carpetas de niños", cats.filter { it !in hidden }.all { it in kidsCats })
                 assertTrue("infantil: sin adultos", cats.filter { it !in hidden }.none { com.embyverse.app.data.repo.ParentalControl.isAdult(it) })
+                assertTrue("infantil: sin violencia", cats.filter { it !in hidden }.none { com.embyverse.app.data.repo.ParentalControl.isViolent(it) })
+                assertTrue("terror se detecta como violento", com.embyverse.app.data.repo.ParentalControl.isViolent("PELICULAS | TERROR"))
                 log("Perfil infantil: ${cats.size - hidden.size} de ${cats.size} carpetas visibles (${kidsCats.size} infantiles)")
             } finally {
                 c.prefs.setActiveProfile(p1)
@@ -367,7 +369,7 @@ class SmokeFlowTest {
         // Fondos animados: rotación y fechas especiales.
         val rot = com.embyverse.app.ui.components.Season.resolve(mapOf("season" to "rotar", "season.every" to "1"))
         assertTrue("rotar elige un fondo general", rot != null && rot.general)
-        val xmas = java.util.Calendar.getInstance().apply { set(2026, 11, 20) }
+        val xmas = java.util.Calendar.getInstance().apply { set(2026, 11, 5) }
         assertTrue("auto en diciembre = Navidad", com.embyverse.app.ui.components.Season.holiday(xmas) == com.embyverse.app.ui.components.Season.NAVIDAD)
         // TV en vivo: abre con carpetas y sin cierres.
         ActivityScenario.launch(MainActivity::class.java).use {

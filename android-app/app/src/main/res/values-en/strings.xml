@@ -119,11 +119,15 @@
     <string name="home_no_sources_title">No content yet</string>
     <string name="intro_sound">Intro sound</string>
     <string name="intro_sound_sub">Short sound when the app opens.</string>
+    <string name="kids_create">Create kids profile</string>
+    <string name="kids_default_name">Kids</string>
     <string name="kids_exit_pin">Enter the PIN to leave the kids profile</string>
+    <string name="kids_hello">Hi %1$s! What shall we watch?</string>
+    <string name="kids_hello_sub">Cartoons, movies and shows for you</string>
     <string name="kids_limit">Daily watch time</string>
     <string name="kids_limit_none">No limit</string>
     <string name="kids_profile">Kids profile</string>
-    <string name="kids_profile_sub">Only kids folders, bright colors and a PIN to switch profile</string>
+    <string name="kids_profile_sub">No PIN: hides adult and violent content and switches to the kids interface</string>
     <string name="kids_time_up">Time is up for today</string>
     <string name="kids_time_up_sub">Ask an adult for the PIN to keep watching.</string>
     <string name="language_auto">Automatic</string>
@@ -179,6 +183,7 @@
     <string name="parental_new_pin_sub">Choose a 4-digit PIN for this profile.</string>
     <string name="parental_pin_on_enter">Ask for PIN to open this profile</string>
     <string name="parental_pin_on_enter_sub">Nobody else can open this profile without the PIN.</string>
+    <string name="parental_pin_optional">The PIN is optional: it locks folders manually or keeps kids from switching profile.</string>
     <string name="parental_profile">Profile: %1$s</string>
     <string name="parental_relock">Lock again</string>
     <string name="parental_remove">Turn off parental controls</string>

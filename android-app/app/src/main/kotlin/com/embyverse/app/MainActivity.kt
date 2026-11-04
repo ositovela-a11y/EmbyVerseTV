@@ -161,7 +161,7 @@ class MainActivity : AppCompatActivity() {
                 val theme = remember(config, appearance, kids) {
                     ConfigResolver.theme(config, appearance).let { base ->
                         // Perfil infantil: estilo alegre (naranja, tarjetas grandes) sin importar el tema elegido.
-                        if (kids) com.embyverse.core.config.STYLE_THEMES.firstOrNull { it.id == "style_naranja" }?.transform?.invoke(base) ?: base else base
+                        if (kids) com.embyverse.core.config.KIDS_THEME.transform(base) else base
                     }
                 }
                 val hasSourcesFlow = remember { container.sources.sources.map { it.isNotEmpty() } }
@@ -217,7 +217,8 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                     // Fondo de temporada activado desde el panel (Navidad, Halloween, Día de Muertos, Mundial).
-                    if (splashDone) com.embyverse.app.ui.components.SeasonLayer(config.texts)
+                    // Perfil infantil: siempre globos, estrellas y arcoíris; el resto, lo que diga el panel.
+                    if (splashDone) com.embyverse.app.ui.components.SeasonLayer(if (kids) config.texts + ("season" to "kids") else config.texts)
                     // Protector de pantalla propio tras 5 min sin usar el control (en los menús).
                     val pb by container.prefs.playback.collectAsStateWithLifecycle(initialValue = null)
                     val tick by idleTick.collectAsStateWithLifecycle()
