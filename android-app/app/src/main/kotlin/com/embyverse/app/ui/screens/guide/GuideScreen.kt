@@ -44,6 +44,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewModelScope
 import com.embyverse.app.R
 import com.embyverse.app.data.db.ChannelEntity
@@ -160,11 +161,21 @@ fun GuideScreen(nav: Navigator) {
                         }
                     }
                 }
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val reminders by com.embyverse.app.data.repo.Reminders.keys.collectAsStateWithLifecycle()
+                LaunchedEffect(Unit) { com.embyverse.app.data.repo.Reminders.load(context) }
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
                     items(s.rows, key = { "${it.channel.sourceId}|${it.channel.providerId}" }, contentType = { 0 }) { row ->
                         GuideRowView(row, s.from, s.to, channelW, timelineW, dpPerSec,
                             onFocus = { p -> vm.focused.value = row.channel to p },
-                            onPlay = { nav.play(ItemRef(ContentKind.LIVE, row.channel.sourceId, row.channel.providerId), s.category) })
+                            onPlay = { nav.play(ItemRef(ContentKind.LIVE, row.channel.sourceId, row.channel.providerId), s.category) },
+                            reminders = reminders,
+                            onRemind = { p ->
+                                // Programa futuro: OK = «avísame 10 min antes» (OK otra vez lo quita).
+                                val r = com.embyverse.app.data.repo.Reminders.toggleProgram(context, "${row.channel.name}: ${p.title}", row.channel.sourceId, row.channel.providerId, p.start * 1000)
+                                if (r != null) android.widget.Toast.makeText(context,
+                                    if (r) context.getString(R.string.reminder_program_set, p.title) else context.getString(R.string.reminder_removed), android.widget.Toast.LENGTH_SHORT).show()
+                            })
                     }
                 }
             }
@@ -177,7 +188,8 @@ fun GuideScreen(nav: Navigator) {
 
 @Composable
 private fun GuideRowView(row: GuideRow, from: Long, to: Long, channelW: androidx.compose.ui.unit.Dp, timelineW: androidx.compose.ui.unit.Dp,
-                         dpPerSec: androidx.compose.ui.unit.Dp, onFocus: (EpgEntity?) -> Unit, onPlay: () -> Unit) {
+                         dpPerSec: androidx.compose.ui.unit.Dp, onFocus: (EpgEntity?) -> Unit, onPlay: () -> Unit,
+                         reminders: Set<String> = emptySet(), onRemind: (EpgEntity) -> Unit = {}) {
     val t = LocalEmby.current
     val ch = row.channel
     val nowSec = System.currentTimeMillis() / 1000
@@ -196,9 +208,10 @@ private fun GuideRowView(row: GuideRow, from: Long, to: Long, channelW: androidx
                 val start = maxOf(p.start, from); val end = minOf(p.end, to)
                 if (end <= start) return@forEach
                 val live = p.start <= nowSec && p.end > nowSec
-                GuideCell(p.title, p, live,
+                val reminded = com.embyverse.app.data.repo.Reminders.programKey(ch.sourceId, ch.providerId, p.start * 1000) in reminders
+                GuideCell(if (reminded) "🔔 ${p.title}" else p.title, p, live,
                     Modifier.offset(x = dpPerSec * (start - from).toFloat()).width(dpPerSec * (end - start).toFloat()).fillMaxHeight(),
-                    onFocus = { onFocus(p) }, onClick = { if (live || p.start <= nowSec) onPlay() else onFocus(p) })
+                    onFocus = { onFocus(p) }, onClick = { if (live || p.start <= nowSec) onPlay() else onRemind(p) })
             }
         }
     }

@@ -91,6 +91,18 @@ fun ParentalScreen(nav: Navigator) {
                 return@SettingsList
             }
             item { SwitchRow(stringResource(R.string.kids_profile), stringResource(R.string.kids_profile_sub), lock.kids) { v -> update { it.copy(kids = v, pinOnEnter = if (v) it.pinOnEnter else it.pinOnEnter) } } }
+            if (lock.kids) {
+                item { Text(stringResource(R.string.kids_limit), style = MaterialTheme.typography.titleMedium, color = t.onBackground) }
+                item {
+                    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                        val opts = listOf(0, 30, 60, 90, 120, 180)
+                        items(opts.size) { i -> val m = opts[i]
+                            com.embyverse.app.ui.components.CategoryChip(if (m == 0) stringResource(R.string.kids_limit_none) else if (m < 60) "$m min" else "${m / 60} h${if (m % 60 > 0) " ${m % 60}" else ""}",
+                                lock.kidsDailyMinutes == m) { update { it.copy(kidsDailyMinutes = m) } }
+                        }
+                    }
+                }
+            }
             item { SwitchRow(stringResource(R.string.parental_adult), stringResource(R.string.parental_adult_sub), lock.blockAdult) { v -> update { it.copy(blockAdult = v) } } }
             item { SwitchRow(stringResource(R.string.parental_pin_on_enter), stringResource(R.string.parental_pin_on_enter_sub), lock.pinOnEnter) { v -> update { it.copy(pinOnEnter = v) } } }
             item {

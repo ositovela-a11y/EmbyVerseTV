@@ -151,6 +151,7 @@ class PlayerActivity : AppCompatActivity() {
         }
         if (digit >= 0 && !list && !opts) { vm.typeDigit(digit); return true }
         when (code) {
+            KeyEvent.KEYCODE_LAST_CHANNEL -> vm.previousChannel()
             KeyEvent.KEYCODE_CHANNEL_UP -> vm.zap(+1)
             KeyEvent.KEYCODE_CHANNEL_DOWN -> vm.zap(-1)
             KeyEvent.KEYCODE_GUIDE -> vm.toggleChannelList()

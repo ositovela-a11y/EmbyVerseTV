@@ -51,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.platform.testTag
@@ -198,13 +199,19 @@ fun MediaImage(url: String?, kind: ContentKind, modifier: Modifier = Modifier, c
 }
 
 /** Tarjeta de contenido (póster, apaisada o cuadrada) con título, subtítulo y progreso opcional. */
+/** Avisa qué tarjeta tiene el foco (el inicio cambia el fondo con su imagen). */
+val LocalCardFocus = androidx.compose.runtime.staticCompositionLocalOf<((MediaCard) -> Unit)?> { null }
+
 @Composable
 fun MediaCardView(card: MediaCard, aspect: CardAspect, size: CardSize, onClick: () -> Unit, modifier: Modifier = Modifier, showText: Boolean = true) {
     val t = LocalEmby.current
+    val focusSink = LocalCardFocus.current
     val w = cardWidth(aspect, size, t.device.isTv)
     val live = card.ref.kind == ContentKind.LIVE
     Column(modifier.width(w)) {
-        FocusableSurface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(aspect.ratio).testTag("card:${card.ref.kind}:${card.ref.id}"), focusScale = 1.07f) { focused ->
+        FocusableSurface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(aspect.ratio)
+            .then(if (focusSink != null) Modifier.onFocusChanged { if (it.hasFocus) focusSink(card) } else Modifier)
+            .testTag("card:${card.ref.kind}:${card.ref.id}"), focusScale = 1.07f) { focused ->
             Box(Modifier.fillMaxSize().border(1.dp, if (focused) Color.Transparent else Color.White.copy(alpha = 0.07f), RoundedCornerShape(t.cardRadius))) {
                 MediaImage(if (aspect == CardAspect.LANDSCAPE && !live) card.backdropUrl ?: card.imageUrl else card.imageUrl, card.ref.kind, Modifier.fillMaxSize().then(if (live) Modifier.padding(horizontal = 18.dp, vertical = 12.dp) else Modifier),
                     if (live) ContentScale.Fit else ContentScale.Crop, fallbackText = card.title)
