@@ -563,6 +563,7 @@ fun AboutScreen(nav: Navigator) {
             }
             item { InfoLine(stringResource(R.string.about_design_version), if (cfg.version == 0) stringResource(R.string.about_design_bundled) else "v${cfg.version}") }
             item { InfoLine(stringResource(R.string.about_design_status), statusText(status)) }
+            item { Text(com.embyverse.app.data.net.ImageStats.summary(), style = MaterialTheme.typography.bodySmall, color = t.textSecondary, modifier = Modifier.testTag("image_stats")) }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     EmbyButton(stringResource(R.string.about_check_design), { vm.check() }, secondary = true)
@@ -642,6 +643,7 @@ private suspend fun openWhatsAppHelp(context: android.content.Context, c: com.em
         appendLine("Red: $net")
         sources.forEach { s -> appendLine("Cuenta: ${s.username ?: s.name} · última actualización: ${s.lastSyncAt?.let { java.text.DateFormat.getDateTimeInstance().format(java.util.Date(it)) } ?: "nunca"}") }
         appendLine("Canales cargados: $channels")
+        appendLine(com.embyverse.app.data.net.ImageStats.summary())
         exp?.let { appendLine("Vence: ${java.text.DateFormat.getDateInstance().format(java.util.Date(it * 1000))}") }
     }
     val uri = android.net.Uri.parse("https://wa.me/$number?text=" + android.net.Uri.encode(report))

@@ -11,6 +11,7 @@ const port = +(process.argv[2] ?? 8800);
 const N_LIVE = +(process.env.LIVE ?? 15000), N_VOD = +(process.env.VOD ?? 60000), N_SERIES = +(process.env.SERIES ?? 15000);
 const MEDIA = join(dirname(fileURLToPath(import.meta.url)), 'media');
 const USER = 'user', PASS = 'pass';
+const POSTER = (() => { try { return readFileSync(new URL('./poster.jpg', import.meta.url)); } catch { return null; } })();
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
 
 const now = Math.floor(Date.now() / 1000);
@@ -28,7 +29,7 @@ const live = Array.from({ length: N_LIVE }, (_, i) => ({
 }));
 const vod = Array.from({ length: N_VOD }, (_, i) => ({
   num: i + 1, name: i % 777 === 5 ? '' : `Película ${i + 1}${i % 11 === 0 ? ' (2024)' : ''}${i % 5000 === 1 ? ' ' + 'muy larga '.repeat(30) : ''}`,
-  stream_type: 'movie', stream_id: i % 2000 === 1999 ? i : i + 1, stream_icon: `http://HOST/img/m${i}.png`,
+  stream_type: 'movie', stream_id: i % 2000 === 1999 ? i : i + 1, stream_icon: i % 7 === 3 ? `http://HOST/img-ua/m${i}.jpg` : i % 7 === 5 ? `http://HOST/img-slow/m${i}.jpg` : `http://HOST/img/m${i}.png`,
   rating: weird(i), rating_5based: i % 5, added: String(now - i * 30), category_id: i % 89 === 0 ? '12345' : pick(vodCats, i),
   container_extension: ['mp4', 'mkv', 'mp4', 'avi', null][i % 5], plot: i % 4 ? `Sinopsis ${i}` : null, genre: i % 2 ? 'Acción, Drama' : '',
   year: i % 3 ? String(1990 + (i % 35)) : '',
@@ -120,6 +121,13 @@ createServer((req, res) => {
     for (const s of series.slice(0, 3000)) for (let e = 1; e <= 5; e++) lines.push(`#EXTINF:-1 group-title="Series",${s.name} S01 E0${e}`, `${host}/series/${USER}/${PASS}/${s.series_id * 100 + e}.mp4`);
     return res.end(lines.join('\n'));
   }
+  // Imágenes realistas: póster JPEG de verdad, uno que exige agente de navegador (como algunos CDN) y uno lento.
+  if (u.pathname.startsWith('/img-ua/')) {
+    if (!/Mozilla/.test(req.headers['user-agent'] ?? '')) { res.writeHead(403); return res.end(); }
+    res.writeHead(200, { 'content-type': 'image/jpeg' }); return res.end(POSTER ?? PNG);
+  }
+  if (u.pathname.startsWith('/img-slow/')) { setTimeout(() => { res.writeHead(200, { 'content-type': 'image/jpeg' }); res.end(POSTER ?? PNG); }, 900); return; }
+  if (u.pathname.startsWith('/img/m')) { res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'max-age=3600' }); return res.end(POSTER ?? PNG); }
   if (u.pathname.startsWith('/img/')) { res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'max-age=3600' }); return res.end(PNG); }
   const m = /^\/(live|movie|series)\/([^/]+)\/([^/]+)\/([^/.]+)\.(\w+)$/.exec(u.pathname);
   if (m) {

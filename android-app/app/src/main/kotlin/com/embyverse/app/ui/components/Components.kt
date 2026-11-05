@@ -185,7 +185,10 @@ fun fallbackBrush(seed: String, surface: Color): Brush {
 @Composable
 fun MediaImage(url: String?, kind: ContentKind, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop, fallbackText: String? = null) {
     val t = LocalEmby.current
-    var failed by remember(url) { mutableStateOf(url.isNullOrBlank()) }
+    // Si falla, se prueba otra dirección (tamaño original, http/https) antes de mostrar el respaldo.
+    val candidates = remember(url) { com.embyverse.app.data.net.imageCandidates(url) }
+    var attempt by remember(url) { mutableStateOf(0) }
+    var failed by remember(url) { mutableStateOf(candidates.isEmpty()) }
     Box(modifier.background(if (kind == ContentKind.LIVE) Brush.linearGradient(listOf(t.surfaceVariant, t.surface)) else fallbackBrush(fallbackText ?: url ?: "", t.surface))) {
         if (failed) {
             if (fallbackText != null && kind != ContentKind.LIVE) Text(fallbackText, style = MaterialTheme.typography.titleSmall, color = Color.White.copy(alpha = 0.9f),
@@ -193,7 +196,8 @@ fun MediaImage(url: String?, kind: ContentKind, modifier: Modifier = Modifier, c
             else Icon(if (kind == ContentKind.LIVE) Icons.Rounded.LiveTv else Icons.Rounded.Movie, null, tint = t.textSecondary.copy(alpha = 0.55f),
                 modifier = Modifier.align(Alignment.Center).size(30.dp))
         } else {
-            AsyncImage(model = url, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = contentScale, onError = { failed = true })
+            AsyncImage(model = candidates[attempt], contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = contentScale,
+                onError = { if (attempt + 1 < candidates.size) attempt++ else failed = true })
         }
     }
 }
