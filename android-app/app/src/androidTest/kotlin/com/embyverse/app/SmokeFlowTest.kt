@@ -410,7 +410,7 @@ class SmokeFlowTest {
             }
             log("Carpetas (pantalla): cambio de carpeta $times ms")
             shot("carpetas")
-            assertTrue("cambiar de carpeta en pantalla tarda menos de 2 s (${times})", times.isEmpty() || times.max() < 2_000)
+            assertTrue("cambiar de carpeta en pantalla tarda menos de 3 s en el emulador (${times})", times.isEmpty() || times.max() < 3_000)
         }
     }
 

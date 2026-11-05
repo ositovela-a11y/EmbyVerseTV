@@ -43,7 +43,7 @@ object ImageStats : coil3.EventListener() {
         val host = (request.data as? String)?.let { runCatching { java.net.URI(it.substringBefore('#')).host }.getOrNull() } ?: "?"
         val t = result.throwable
         val why = (t.message ?: t.javaClass.simpleName).take(80)
-        if (errors.size < 12 || host in errors) errors[host] = "${t.javaClass.simpleName}: $why"
+        if (errors.size < 12 || errors.containsKey(host)) errors[host] = "${t.javaClass.simpleName}: $why"
     }
 
     fun reset() { ok = 0; failed = 0; errors.clear() }
