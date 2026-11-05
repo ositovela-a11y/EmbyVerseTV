@@ -99,7 +99,8 @@ class CatalogRepository(private val db: EmbyDatabase, private val hidden: Flow<S
         val rows = db.movies().allCards(25_000).filter { it.category !in h }
         val groups = rows.groupBy { sagaKey(it.title) }.filterKeys { it.length >= 4 }
             .mapValues { (_, l) -> l.distinctBy { M3uCatalogBuilder.normalize(it.title) } }
-            .filter { (k, l) -> l.size >= 2 && l.any { M3uCatalogBuilder.normalize(it.title) != k } }
+            // Una saga real tiene de 2 a 12 películas (más de eso suele ser un nombre genérico, p. ej. «Película 1…300»).
+            .filter { (k, l) -> l.size in 2..12 && l.any { M3uCatalogBuilder.normalize(it.title) != k } }
         val out = groups.entries.sortedByDescending { it.value.size }.take(limit).map { (k, l) ->
             val first = l.sortedBy { it.year ?: 9999 }.first()
             Saga(k, first.title.substringBefore(':').replace(Regex("\\s*\\(?(19|20)\\d{2}\\)?"), "").replace(Regex("\\s+(\\d{1,2}|II|III|IV)\\s*$"), "").trim(),
