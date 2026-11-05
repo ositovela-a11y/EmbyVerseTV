@@ -63,6 +63,8 @@ data class Movie(
     val headers: StreamHeaders = StreamHeaders(),
     /** Tráiler (URL de YouTube) si el proveedor lo informa. */
     val trailer: String? = null,
+    /** Clasificación por edad (México: AA, A, B, B15, C, D). */
+    val ageRating: String? = null,
 )
 
 data class Episode(

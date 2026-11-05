@@ -47,6 +47,10 @@ data class PlaybackPrefs(
     val nightMode: Boolean = false,
     /** Con datos móviles: limitar a calidad baja (si el video trae varias calidades). */
     val dataSaver: Boolean = false,
+    /** Formato de pantalla: 0 ajustar, 1 llenar, 2 zoom, 3 16:9, 4 4:3. */
+    val aspectMode: Int = 0,
+    /** Modo para equipos lentos: sin animaciones ni fondos animados y menos imágenes en memoria. */
+    val liteMode: Boolean = false,
 )
 
 /**
@@ -118,6 +122,8 @@ class PreferencesRepository(private val context: Context) {
     private val SUB_BG = intPreferencesKey("play.subBg")
     private val NIGHT = booleanPreferencesKey("play.night")
     private val DATA_SAVER = booleanPreferencesKey("play.dataSaver")
+    private val ASPECT = intPreferencesKey("play.aspect")
+    private val LITE = booleanPreferencesKey("app.lite")
 
     val playback: Flow<PlaybackPrefs> = ds.data.map { p ->
         PlaybackPrefs(
@@ -138,6 +144,8 @@ class PreferencesRepository(private val context: Context) {
             subtitleBackground = p[SUB_BG] ?: 1,
             nightMode = p[NIGHT] ?: false,
             dataSaver = p[DATA_SAVER] ?: false,
+            aspectMode = p[ASPECT] ?: 0,
+            liteMode = p[LITE] ?: LiteDefault.value,
         )
     }.distinctUntilChanged()
 
@@ -158,6 +166,7 @@ class PreferencesRepository(private val context: Context) {
             p[LAST_CHANNEL] = n.startOnLastChannel
             p[SUB_SIZE] = n.subtitleSize; p[SUB_YELLOW] = n.subtitleYellow; p[SUB_BG] = n.subtitleBackground
             p[NIGHT] = n.nightMode; p[DATA_SAVER] = n.dataSaver
+            p[ASPECT] = n.aspectMode; p[LITE] = n.liteMode
         }
     }
 
@@ -187,10 +196,27 @@ class PreferencesRepository(private val context: Context) {
         }
     }
 
+    /** Idioma preferido del perfil: audio («es», «en», «» = original) y subtítulos («es», «en», «» = apagados). */
+    fun profileLanguages(profile: Long): Flow<Pair<String, String>> = ds.data.map { p ->
+        (p[stringPreferencesKey(k(profile, "audioLang"))] ?: "es") to (p[stringPreferencesKey(k(profile, "subLang"))] ?: "")
+    }.distinctUntilChanged()
+    suspend fun setProfileLanguages(profile: Long, audio: String, subs: String) {
+        ds.edit { it[stringPreferencesKey(k(profile, "audioLang"))] = audio; it[stringPreferencesKey(k(profile, "subLang"))] = subs }
+    }
+
     /** Minutos de video vistos HOY por el perfil (para el límite del perfil infantil). */
     private fun usageKey(profile: Long) = intPreferencesKey(k(profile, "used." + java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).format(java.util.Date())))
     suspend fun minutesUsedToday(profile: Long): Int = ds.data.first()[usageKey(profile)] ?: 0
     suspend fun addMinuteUsed(profile: Long) { ds.edit { it[usageKey(profile)] = (it[usageKey(profile)] ?: 0) + 1 } }
+
+    private val RECENT_SEARCHES = stringPreferencesKey("app.recentSearches")
+    /** Búsquedas recientes (las últimas 8). */
+    val recentSearches: Flow<List<String>> = ds.data.map { p -> p[RECENT_SEARCHES].orEmpty().split('\n').filter { it.isNotBlank() } }.distinctUntilChanged()
+    suspend fun addRecentSearch(q: String) {
+        val v = q.trim(); if (v.length < 2) return
+        ds.edit { p -> p[RECENT_SEARCHES] = (listOf(v) + p[RECENT_SEARCHES].orEmpty().split('\n').filter { it.isNotBlank() && !it.equals(v, true) }).take(8).joinToString("\n") }
+    }
+    suspend fun clearRecentSearches() { ds.edit { it.remove(RECENT_SEARCHES) } }
 
     private val SEEN_NOTICES = stringSetPreferencesKey("app.seenNotices")
     val seenNotices: Flow<Set<String>> = ds.data.map { it[SEEN_NOTICES].orEmpty() }.distinctUntilChanged()
@@ -212,3 +238,7 @@ class PreferencesRepository(private val context: Context) {
         ds.edit { p -> p.asMap().keys.filter { it.name.startsWith("p$profile.") }.forEach { p.remove(it as Preferences.Key<Any>) } }
     }
 }
+
+
+/** Valor inicial del modo para equipos lentos (se detecta con la memoria del equipo al arrancar). */
+object LiteDefault { @Volatile var value = false }

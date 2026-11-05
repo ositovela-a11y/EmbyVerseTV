@@ -125,6 +125,11 @@ internal fun PlayerOptions(vm: PlayerViewModel) {
             OptionRow(stringResource(if (fav) R.string.player_fav_remove else R.string.player_fav_add), fav, modifier = Modifier.testTag("player_fav")) { vm.toggleFavorite() }
         }
         item {
+            val a by vm.aspect.collectAsStateWithLifecycle()
+            val labels = listOf(R.string.aspect_fit, R.string.aspect_fill, R.string.aspect_zoom, R.string.aspect_169, R.string.aspect_43)
+            OptionRow(stringResource(R.string.aspect_title) + ": " + stringResource(labels[a.coerceIn(0, 4)]), false, icon = true, modifier = Modifier.testTag("player_aspect")) { vm.cycleAspect() }
+        }
+        item {
             val night by vm.nightMode.collectAsStateWithLifecycle()
             OptionRow(stringResource(R.string.player_night), night, modifier = Modifier.testTag("player_night")) { vm.setNightMode(!night) }
         }

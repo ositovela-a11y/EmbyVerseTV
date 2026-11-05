@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -87,6 +88,7 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
     val nextProg by vm.nextProgram.collectAsStateWithLifecycle()
     val kidsTimeUp by vm.kidsTimeUp.collectAsStateWithLifecycle()
     val castingTo by vm.castingTo.collectAsStateWithLifecycle()
+    val aspectMode by vm.aspect.collectAsStateWithLifecycle()
     // Calidad real del video que se está viendo (ExoPlayer ya elige la mejor según la red).
     var videoHeight by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
     LaunchedEffect(player) {
@@ -103,8 +105,10 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
     KeepScreenOnWhilePlaying(player)
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
+        // Formato de pantalla: ajustar / llenar / zoom / 16:9 / 4:3 (para canales con bordes negros o estirados).
         AndroidView(
-            modifier = Modifier.fillMaxSize(),
+            modifier = (when (aspectMode) { 3 -> Modifier.fillMaxHeight().aspectRatio(16f / 9f, matchHeightConstraintsFirst = true)
+                4 -> Modifier.fillMaxHeight().aspectRatio(4f / 3f, matchHeightConstraintsFirst = true); else -> Modifier.fillMaxSize() }).align(Alignment.Center),
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     useController = true
@@ -118,6 +122,8 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
                 }
             },
             update = { view ->
+                view.resizeMode = when (aspectMode) { 1, 3, 4 -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
+                    2 -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM; else -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT }
                 // Subtítulos a gusto del cliente (Ajustes › Reproducción): tamaño, color y fondo.
                 view.subtitleView?.let { sv ->
                     val fg = if (subStyle.subtitleYellow) android.graphics.Color.YELLOW else android.graphics.Color.WHITE

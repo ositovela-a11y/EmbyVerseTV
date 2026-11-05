@@ -1,6 +1,9 @@
 package com.embyverse.app.ui.screens.search
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -54,9 +57,10 @@ import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
-class SearchViewModel(c: AppContainer) : ViewModel() {
+class SearchViewModel(private val c: AppContainer) : ViewModel() {
     val query = MutableStateFlow("")
-    val results = query.debounce(300).mapLatest { q -> if (q.isBlank()) null else c.catalog.search(q) }
+    val recent = c.prefs.recentSearches.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val results = query.debounce(300).mapLatest { q -> if (q.isBlank()) null else c.catalog.search(q).also { r -> if (!r.isEmpty) c.prefs.addRecentSearch(q) } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null as SearchResults?)
 }
 
@@ -64,6 +68,7 @@ class SearchViewModel(c: AppContainer) : ViewModel() {
 fun SearchScreen(nav: Navigator) {
     val vm = appViewModel { SearchViewModel(it) }
     val results by vm.results.collectAsStateWithLifecycle()
+    val recent by vm.recent.collectAsStateWithLifecycle()
     var text by rememberSaveable { mutableStateOf("") }
     val t = LocalEmby.current
     val focus = remember { FocusRequester() }
@@ -101,6 +106,15 @@ fun SearchScreen(nav: Navigator) {
             Spacer(Modifier.height(12.dp))
         }
         val r = results
+        // Búsquedas recientes (con la caja vacía).
+        if (text.isBlank() && recent.isNotEmpty()) item {
+            Column(Modifier.padding(horizontal = t.screenPadding)) {
+                Text(stringResource(R.string.search_recent), style = MaterialTheme.typography.titleSmall, color = t.textSecondary)
+                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+                    items(recent.size) { i -> com.embyverse.app.ui.components.CategoryChip(recent[i], false) { text = recent[i]; vm.query.value = recent[i] } }
+                }
+            }
+        }
         if (r != null && r.isEmpty) item { MessageState(Icons.Rounded.SearchOff, stringResource(R.string.search_no_results), null) }
         if (r != null && r.channels.isNotEmpty()) item {
             Column { SectionHeader(stringResource(R.string.nav_live), null, null); CardRow(r.channels.map { it.toCard() }, CardAspect.LANDSCAPE, CardSize.S) { nav.openItem(it.ref) } }

@@ -69,6 +69,12 @@
             android:launchMode="singleTop"
             android:theme="@style/Theme.EmbyVerse.Player" />
 
+        <!-- Widget del celular: «Continuar viendo». -->
+        <receiver android:name=".ContinueWidget" android:exported="false" android:label="@string/widget_continue">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_continue_info" />
+        </receiver>
+
         <meta-data android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
             android:value="com.embyverse.app.player.CastOptionsProvider" />
 

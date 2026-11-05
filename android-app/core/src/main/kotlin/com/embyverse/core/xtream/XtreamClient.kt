@@ -377,7 +377,23 @@ class XtreamClient(
             posterUrl = movie.posterUrl ?: info.str("movie_image")?.takeIf { UrlSafety.isHttpUrl(it) },
             year = movie.year ?: (info.str("releasedate") ?: info.str("release_date"))?.take(4)?.toIntOrNull(),
             trailer = trailerUrl(info.str("youtube_trailer") ?: info.str("trailer")),
+            ageRating = mexicanAge(info.str("mpaa_rating") ?: info.str("mpaa") ?: info.str("certification") ?: info.str("age") ?: info.str("rating_mpaa")),
         )
+    }
+
+    /** Convierte la clasificación que mande el proveedor (MPAA, TV, edad, o ya mexicana) a la escala de México. */
+    fun mexicanAge(raw: String?): String? {
+        val v = raw?.trim()?.uppercase()?.replace(" ", "")?.takeIf { it.isNotEmpty() && it != "0" && it != "N/A" && it != "NR" } ?: return null
+        return when {
+            v in setOf("AA", "A", "B", "B15", "C", "D") -> v
+            v == "G" || v == "TV-Y" || v == "TV-G" || v == "TVY" || v == "TVG" -> "AA"
+            v == "TV-Y7" || v == "PG" || v == "TVPG" || v == "TV-PG" -> "A"
+            v == "PG-13" || v == "PG13" -> "B"
+            v == "TV-14" || v == "TV14" -> "B15"
+            v == "R" || v == "TV-MA" || v == "TVMA" -> "C"
+            v == "NC-17" || v == "NC17" || v == "X" -> "D"
+            else -> v.filter(Char::isDigit).toIntOrNull()?.let { a -> when { a <= 6 -> "AA"; a <= 11 -> "A"; a <= 14 -> "B"; a <= 17 -> "B15"; a <= 18 -> "C"; else -> "D" } }
+        }
     }
 
     /** El proveedor suele dar solo el identificador de YouTube; se convierte en enlace. */

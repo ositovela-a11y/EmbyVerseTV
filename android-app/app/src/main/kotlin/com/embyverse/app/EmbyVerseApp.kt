@@ -19,11 +19,18 @@ import java.util.concurrent.TimeUnit
 class EmbyVerseApp : Application(), SingletonImageLoader.Factory {
     lateinit var container: AppContainer
         private set
-    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    internal val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
         CrashReport.install(this)
+        com.embyverse.app.data.repo.ChannelHealth.init(this)
+        // Equipos lentos (Fire Stick / TV Box con poca memoria): modo ligero activado de inicio.
+        runCatching {
+            val am = getSystemService(android.app.ActivityManager::class.java)
+            val mi = android.app.ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
+            com.embyverse.app.data.prefs.LiteDefault.value = am.isLowRamDevice || am.memoryClass <= 128 || mi.totalMem < 1_700L * 1024 * 1024
+        }
         container = AppContainer(this)
         container.config.onAppStart()
         SyncWorker.schedule(this)
@@ -46,7 +53,10 @@ class EmbyVerseApp : Application(), SingletonImageLoader.Factory {
         ProcessLifecycleOwner.get().lifecycle.addObserver(LifecycleEventObserver { _, e ->
             // Al volver a la app: diseño del panel y versión nueva de la app (sin reinstalar ni Downloader).
             // Al salir de la app: «Continuar viendo» y favoritos en la pantalla de inicio de la TV.
-            if (e == Lifecycle.Event.ON_STOP) appScope.launch { com.embyverse.app.data.repo.TvHome.sync(this@EmbyVerseApp, container) }
+            if (e == Lifecycle.Event.ON_STOP) appScope.launch {
+                com.embyverse.app.data.repo.TvHome.sync(this@EmbyVerseApp, container)
+                ContinueWidget.update(this@EmbyVerseApp)
+            }
             if (e == Lifecycle.Event.ON_START) appScope.launch {
                 runCatching { container.config.refresh() }
                 container.updater.check()

@@ -40,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.rounded.EventBusy
 import androidx.compose.ui.Modifier
+import com.embyverse.app.data.repo.toCard
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.CalendarViewWeek
@@ -105,7 +106,7 @@ fun HomeScreen(nav: Navigator) {
     val toTop: () -> Unit = { scope.launch { if (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0) listState.animateScrollToItem(0) } }
     // Fondo que cambia con la tarjeta enfocada (tipo Netflix / Apple TV): solo en TV, donde hay foco.
     var focusedArt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
-    val sink: ((com.embyverse.app.data.repo.MediaCard) -> Unit)? = if (t.device.isTv) { card ->
+    val sink: ((com.embyverse.app.data.repo.MediaCard) -> Unit)? = if (t.device.isTv && !com.embyverse.app.ui.components.LocalLite.current) { card ->
         if (card.ref.kind != ContentKind.LIVE) (card.backdropUrl ?: card.imageUrl)?.let { focusedArt = it }
     } else null
     Box(Modifier.fillMaxSize()) {
@@ -122,6 +123,11 @@ fun HomeScreen(nav: Navigator) {
     LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(t.sectionGap)) {
         item(key = "header") { HomeHeader(s, nav) }
         if (kidsMode) item(key = "kids_hello") { KidsHello(s.profileName, nav) }
+        // Mensajes del administrador vigentes: siempre visibles arriba mientras duren (además del aviso al abrir).
+        val nowSec = System.currentTimeMillis() / 1000
+        s.config.messages.filter { it.isActive(nowSec) }.take(2).forEach { m ->
+            item(key = "msg|${m.id}") { MessageStrip(m.title, m.body) }
+        }
         com.embyverse.app.ui.components.FeaturedEvent.from(s.config.texts, System.currentTimeMillis())?.let { ev ->
             item(key = "featured_event") { com.embyverse.app.ui.components.FeaturedEventCard(ev) { nav.play(it) } }
         }
@@ -192,7 +198,7 @@ fun HomeScreen(nav: Navigator) {
                             }
                         }
                     }
-                    if (type == SectionType.RECOMMENDED) becauseRows(s, nav)
+                    if (type == SectionType.RECOMMENDED) { becauseRows(s, nav); item(key = "week_new") { WeekNewRow(nav) }; item(key = "sagas") { SagasRow(nav) } }
                 }
             }
         }
@@ -649,6 +655,82 @@ private fun KidsHello(name: String?, nav: Navigator) {
                         }
                     }
                 }
+        }
+    }
+}
+
+
+/** Franja de mensaje del administrador (tocar = ver completo). */
+@Composable
+private fun MessageStrip(title: String, body: String) {
+    val t = LocalEmby.current
+    var open by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    FocusableSurface(onClick = { open = true }, focusScale = 1.02f, modifier = Modifier.fillMaxWidth().padding(horizontal = t.screenPadding).testTag("message_strip"),
+        shape = RoundedCornerShape(t.cardRadius)) { focused ->
+        Row(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(t.primary.copy(alpha = if (focused) 0.45f else 0.28f), t.surface))).padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text("📢", fontSize = androidx.compose.ui.unit.TextUnit(22f, androidx.compose.ui.unit.TextUnitType.Sp))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleSmall, color = t.onBackground, maxLines = 1, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                Text(body, style = MaterialTheme.typography.bodySmall, color = t.textSecondary, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            }
+        }
+    }
+    if (open) androidx.compose.material3.AlertDialog(onDismissRequest = { open = false }, title = { Text(title) }, text = { Text(body) },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = { open = false }) { Text(stringResource(R.string.action_ok)) } })
+}
+
+
+/** «Agregado esta semana»: películas que el proveedor sumó en los últimos 7 días. */
+@Composable
+private fun WeekNewRow(nav: Navigator) {
+    val c = com.embyverse.app.ui.LocalAppContainer.current
+    val flow = androidx.compose.runtime.remember {
+        val since = System.currentTimeMillis() / 1000 - 7 * 86_400
+        kotlinx.coroutines.flow.combine(c.database.movies().observeAddedSince(since, 40), c.parental.hidden) { l, h ->
+            l.filter { it.category !in h }.map { it.toCard() } }
+    }
+    val cards by flow.collectAsStateWithLifecycle(initialValue = emptyList())
+    if (cards.size < 4) return
+    Column(Modifier.testTag("week_new")) {
+        SectionHeader(stringResource(R.string.week_new), null, null)
+        CardRow(cards, CardAspect.POSTER, com.embyverse.core.config.CardSize.M) { nav.openItem(it.ref, seriesId = it.seriesId) }
+    }
+}
+
+/** Sagas automáticas (Harry Potter, Rápidos y furiosos, Toy Story…): una tarjeta por saga. */
+@Composable
+private fun SagasRow(nav: Navigator) {
+    val c = com.embyverse.app.ui.LocalAppContainer.current
+    val t = LocalEmby.current
+    val sagas by androidx.compose.runtime.produceState(initialValue = emptyList<com.embyverse.app.data.repo.CatalogRepository.Saga>()) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { runCatching { c.catalog.sagas() }.getOrDefault(emptyList()) }
+    }
+    if (sagas.isEmpty()) return
+    val w = if (t.device.isTv) 150.dp else 112.dp
+    Column(Modifier.testTag("sagas")) {
+        SectionHeader(stringResource(R.string.sagas), null, null)
+        LazyRow(contentPadding = PaddingValues(horizontal = t.screenPadding, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(t.cardGap)) {
+            items(sagas.size, key = { "saga|${sagas[it].key}" }) { i ->
+                val sg = sagas[i]
+                FocusableSurface(onClick = { nav.go(Routes.saga(sg.key)) }, focusScale = 1.07f, modifier = Modifier.width(w)) { focused ->
+                    Column {
+                        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f)) {
+                            // Efecto de pila: dos tarjetas detrás.
+                            Box(Modifier.fillMaxSize().padding(start = 8.dp, top = 0.dp, end = 0.dp, bottom = 8.dp).background(t.surfaceVariant, RoundedCornerShape(t.cardRadius)))
+                            Box(Modifier.fillMaxSize().padding(start = 4.dp, end = 4.dp, bottom = 4.dp).background(t.surface, RoundedCornerShape(t.cardRadius)))
+                            Box(Modifier.fillMaxSize().padding(end = 8.dp, top = 8.dp).background(t.surface, RoundedCornerShape(t.cardRadius))) {
+                                MediaImage(sg.imageUrl, ContentKind.MOVIE, Modifier.fillMaxSize(), fallbackText = sg.name)
+                                Text("${sg.count}", style = MaterialTheme.typography.labelLarge, color = t.buttonText, fontWeight = androidx.compose.ui.text.font.FontWeight.Black,
+                                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).background(t.primary, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 2.dp))
+                            }
+                        }
+                        Text(sg.name, style = MaterialTheme.typography.labelLarge, color = if (focused) t.primary else t.onBackground, maxLines = 2,
+                            modifier = Modifier.padding(top = 6.dp))
+                    }
+                }
+            }
         }
     }
 }

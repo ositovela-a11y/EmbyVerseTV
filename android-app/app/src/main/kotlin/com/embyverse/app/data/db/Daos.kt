@@ -59,6 +59,14 @@ interface ChannelDao {
     @Query("SELECT * FROM channels WHERE searchKey LIKE '%' || :q || '%' ORDER BY position LIMIT :limit")
     suspend fun search(q: String, limit: Int): List<ChannelEntity>
 
+    /** Búsqueda sin espacios: «spiderman» encuentra «spider man». */
+    @Query("SELECT * FROM channels WHERE REPLACE(searchKey, ' ', '') LIKE '%' || :q || '%' ORDER BY position LIMIT :limit")
+    suspend fun searchCompact(q: String, limit: Int): List<ChannelEntity>
+
+    /** Candidatos para corregir faltas de ortografía (mismas 2 primeras letras de alguna palabra). */
+    @Query("SELECT * FROM channels WHERE searchKey LIKE :p || '%' OR searchKey LIKE '% ' || :p || '%' LIMIT :limit")
+    suspend fun searchPrefix(p: String, limit: Int): List<ChannelEntity>
+
     @Query("SELECT * FROM channels WHERE sourceId = :sourceId AND providerId = :id")
     suspend fun get(sourceId: String, id: String): ChannelEntity?
 
@@ -122,6 +130,23 @@ interface MovieDao {
     @Query("SELECT * FROM movies WHERE searchKey LIKE '%' || :q || '%' ORDER BY position LIMIT :limit")
     suspend fun search(q: String, limit: Int): List<MovieEntity>
 
+    /** Búsqueda sin espacios: «spiderman» encuentra «spider man». */
+    @Query("SELECT * FROM movies WHERE REPLACE(searchKey, ' ', '') LIKE '%' || :q || '%' ORDER BY position LIMIT :limit")
+    suspend fun searchCompact(q: String, limit: Int): List<MovieEntity>
+
+    /** Candidatos para corregir faltas de ortografía (mismas 2 primeras letras de alguna palabra). */
+    @Query("SELECT * FROM movies WHERE searchKey LIKE :p || '%' OR searchKey LIKE '% ' || :p || '%' LIMIT :limit")
+    suspend fun searchPrefix(p: String, limit: Int): List<MovieEntity>
+
+    @Query("SELECT * FROM movies WHERE genres LIKE '%' || :g || '%' ORDER BY rating DESC LIMIT :limit")
+    suspend fun searchGenre(g: String, limit: Int): List<MovieEntity>
+
+    @Query("SELECT COUNT(*) FROM movies WHERE addedAt > :since")
+    suspend fun countAddedSince(since: Long): Int
+
+    @Query("SELECT * FROM movies WHERE addedAt > :since ORDER BY addedAt DESC LIMIT :limit")
+    fun observeAddedSince(since: Long, limit: Int): kotlinx.coroutines.flow.Flow<List<MovieEntity>>
+
     @Query("SELECT * FROM movies WHERE sourceId = :sourceId AND providerId = :id")
     suspend fun get(sourceId: String, id: String): MovieEntity?
 
@@ -130,6 +155,10 @@ interface MovieDao {
 
     @Query("SELECT * FROM movies ORDER BY rating IS NULL, rating DESC LIMIT :limit")
     suspend fun candidates(limit: Int): List<MovieEntity>
+
+    /** Títulos ligeros para armar las sagas. */
+    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category FROM movies LIMIT :limit")
+    suspend fun allCards(limit: Int): List<CardRow>
 }
 
 @Dao
@@ -168,6 +197,23 @@ interface SeriesDao {
 
     @Query("SELECT * FROM series WHERE searchKey LIKE '%' || :q || '%' ORDER BY position LIMIT :limit")
     suspend fun search(q: String, limit: Int): List<SeriesEntity>
+
+    /** Búsqueda sin espacios: «spiderman» encuentra «spider man». */
+    @Query("SELECT * FROM series WHERE REPLACE(searchKey, ' ', '') LIKE '%' || :q || '%' ORDER BY position LIMIT :limit")
+    suspend fun searchCompact(q: String, limit: Int): List<SeriesEntity>
+
+    /** Candidatos para corregir faltas de ortografía (mismas 2 primeras letras de alguna palabra). */
+    @Query("SELECT * FROM series WHERE searchKey LIKE :p || '%' OR searchKey LIKE '% ' || :p || '%' LIMIT :limit")
+    suspend fun searchPrefix(p: String, limit: Int): List<SeriesEntity>
+
+    @Query("SELECT * FROM series WHERE genres LIKE '%' || :g || '%' ORDER BY rating DESC LIMIT :limit")
+    suspend fun searchGenre(g: String, limit: Int): List<SeriesEntity>
+
+    @Query("SELECT COUNT(*) FROM series WHERE addedAt > :since")
+    suspend fun countAddedSince(since: Long): Int
+
+    @Query("SELECT * FROM series WHERE addedAt > :since ORDER BY addedAt DESC LIMIT :limit")
+    fun observeAddedSince(since: Long, limit: Int): kotlinx.coroutines.flow.Flow<List<SeriesEntity>>
 
     @Query("SELECT * FROM series WHERE sourceId = :sourceId AND providerId = :id")
     suspend fun get(sourceId: String, id: String): SeriesEntity?

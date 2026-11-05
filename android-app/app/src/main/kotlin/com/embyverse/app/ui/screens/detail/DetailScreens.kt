@@ -128,6 +128,13 @@ fun MovieDetailScreen(nav: Navigator, sid: String, id: String) {
         item {
             DetailHeader(m.backdropUrl, m.posterUrl, ContentKind.MOVIE, nav::back) {
                 Text(m.title, style = MaterialTheme.typography.headlineSmall, color = t.onBackground, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                m.ageRating?.let { age ->
+                    // Clasificación por edad (escala de México) con color según el público.
+                    val col = when (age) { "AA", "A" -> androidx.compose.ui.graphics.Color(0xFF2E7D32); "B" -> androidx.compose.ui.graphics.Color(0xFF1565C0)
+                        "B15" -> androidx.compose.ui.graphics.Color(0xFFEF6C00); else -> androidx.compose.ui.graphics.Color(0xFFC62828) }
+                    Text(age, style = MaterialTheme.typography.labelLarge, color = androidx.compose.ui.graphics.Color.White, fontWeight = androidx.compose.ui.text.font.FontWeight.Black,
+                        modifier = Modifier.padding(bottom = 4.dp).background(col, androidx.compose.foundation.shape.RoundedCornerShape(4.dp)).padding(horizontal = 8.dp, vertical = 2.dp).testTag("age_rating"))
+                }
                 Text(listOfNotNull(m.year?.toString(), formatDuration(m.durationSeconds), m.rating?.let { "★ %.1f".format(it) }, m.category).joinToString("  ·  "),
                     style = MaterialTheme.typography.bodySmall, color = t.textSecondary)
             }

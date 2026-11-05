@@ -59,6 +59,7 @@ import com.embyverse.app.ui.LocalAppContainer
 import com.embyverse.app.ui.theme.LocalEmby
 import com.embyverse.core.model.ContentKind
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlin.math.sin
 import kotlin.random.Random
@@ -81,9 +82,13 @@ fun rememberPingPong(periodMs: Long = 16_000, stepMs: Long = 40): State<Float> {
     return phase
 }
 
+/** Modo para equipos lentos: sin animaciones decorativas. */
+val LocalLite = androidx.compose.runtime.staticCompositionLocalOf { false }
+
 /** Efecto «Ken Burns»: acercamiento y desplazamiento lentos de la imagen de fondo. */
 @Composable
 fun Modifier.kenBurns(): Modifier {
+    if (LocalLite.current) return this
     val p by rememberPingPong()
     return this.graphicsLayer {
         val s = 1.05f + 0.10f * p
@@ -441,4 +446,51 @@ fun SuspendedScreen(cfg: com.embyverse.core.config.RemoteConfig) {
                 modifier = if (wa.isNullOrBlank()) Modifier.focusRequester(focus) else Modifier)
         }
     }
+}
+
+
+/** Prueba de velocidad: descarga de prueba de Cloudflare (~10 s máx.) y veredicto de calidad. */
+@Composable
+fun SpeedTestRow() {
+    val t = LocalEmby.current
+    val c = LocalAppContainer.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var running by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<Pair<Double, Long>?>(null) }
+    var failed by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().background(t.surface, RoundedCornerShape(t.cardRadius)).padding(16.dp).testTag("speed_test")) {
+        Text(stringResource(R.string.speed_title), style = MaterialTheme.typography.titleMedium, color = t.onBackground)
+        Text(stringResource(R.string.speed_sub), style = MaterialTheme.typography.bodySmall, color = t.textSecondary)
+        Spacer(Modifier.height(10.dp))
+        result?.let { (mbps, ping) ->
+            Text(stringResource(R.string.speed_result, "%.1f".format(mbps), ping.toInt()), style = MaterialTheme.typography.headlineSmall, color = t.primary, fontWeight = FontWeight.Bold)
+            Text(stringResource(when { mbps >= 25 -> R.string.speed_4k; mbps >= 12 -> R.string.speed_fhd; mbps >= 6 -> R.string.speed_hd; else -> R.string.speed_sd }),
+                style = MaterialTheme.typography.bodyMedium, color = t.onBackground)
+            Spacer(Modifier.height(8.dp))
+        }
+        if (failed) Text(stringResource(R.string.speed_fail), color = t.error, style = MaterialTheme.typography.bodySmall)
+        EmbyButton(stringResource(if (running) R.string.speed_running else R.string.speed_title), {
+            if (!running) scope.launch {
+                running = true; failed = false
+                val r = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { measureSpeed(c.okHttp) }.getOrNull() }
+                result = r; failed = r == null; running = false
+            }
+        }, secondary = result != null)
+    }
+}
+
+private fun measureSpeed(http: okhttp3.OkHttpClient): Pair<Double, Long> {
+    val client = http.newBuilder().readTimeout(12, java.util.concurrent.TimeUnit.SECONDS).build()
+    val t0 = System.nanoTime()
+    client.newCall(okhttp3.Request.Builder().url("https://speed.cloudflare.com/__down?bytes=1").build()).execute().use { it.body.bytes() }
+    val ping = (System.nanoTime() - t0) / 1_000_000
+    var bytes = 0L
+    val start = System.nanoTime()
+    val deadline = start + 10_000_000_000L
+    client.newCall(okhttp3.Request.Builder().url("https://speed.cloudflare.com/__down?bytes=50000000").build()).execute().use { r ->
+        val input = r.body.byteStream(); val buf = ByteArray(64 * 1024)
+        while (System.nanoTime() < deadline) { val n = input.read(buf); if (n < 0) break; bytes += n }
+    }
+    val secs = (System.nanoTime() - start) / 1e9
+    return (bytes * 8 / 1e6 / secs) to ping
 }

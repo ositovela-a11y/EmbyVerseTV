@@ -642,3 +642,25 @@ fun FavoritesScreen(nav: Navigator) {
         }
     }
 }
+
+
+/** Una saga: sus películas en orden de estreno. */
+@Composable
+fun SagaScreen(nav: Navigator, key: String) {
+    val c = com.embyverse.app.ui.LocalAppContainer.current
+    val t = LocalEmby.current
+    val cards by androidx.compose.runtime.produceState<List<com.embyverse.app.data.repo.MediaCard>?>(initialValue = null, key) {
+        value = runCatching { c.catalog.sagaMovies(key) }.getOrDefault(emptyList())
+    }
+    val title = cards?.firstOrNull()?.title?.substringBefore(':')?.trim() ?: key
+    Column(Modifier.fillMaxSize()) {
+        com.embyverse.app.ui.screens.sources.SubScreenTop(title, nav::back)
+        val list = cards
+        if (list == null) LoadingBox() else LazyVerticalGrid(GridCells.Adaptive(if (t.device.isTv) 130.dp else 100.dp), Modifier.fillMaxSize().testTag("saga_grid"),
+            contentPadding = PaddingValues(t.screenPadding), horizontalArrangement = Arrangement.spacedBy(t.cardGap), verticalArrangement = Arrangement.spacedBy(t.cardGap)) {
+            items(list.size, key = { "${list[it].ref.sourceId}|${list[it].ref.id}" }) { i ->
+                MediaCardView(list[i], CardAspect.POSTER, com.embyverse.core.config.CardSize.M, { nav.openItem(list[i].ref) })
+            }
+        }
+    }
+}

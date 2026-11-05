@@ -12,7 +12,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SourceEntity::class, ChannelEntity::class, MovieEntity::class, SeriesEntity::class, EpisodeEntity::class,
         CategoryEntity::class, ProfileEntity::class, FavoriteEntity::class, ProgressEntity::class, EpgEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class EmbyDatabase : RoomDatabase() {
@@ -30,7 +30,7 @@ abstract class EmbyDatabase : RoomDatabase() {
         fun build(context: Context): EmbyDatabase =
             Room.databaseBuilder(context, EmbyDatabase::class.java, "embyverse.db")
                 // Nunca se usa fallbackToDestructiveMigration para no borrar favoritos ni progreso.
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
 
         /**
@@ -38,6 +38,11 @@ abstract class EmbyDatabase : RoomDatabase() {
          * se quita el índice de búsqueda: las búsquedas usan LIKE '%texto%', que no puede aprovecharlo,
          * y solo frenaba el guardado de las listas.
          */
+        /** v5: clasificación por edad de las películas. */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) { db.execSQL("ALTER TABLE `movies` ADD COLUMN `ageRating` TEXT DEFAULT NULL") }
+        }
+
         /** v4: índice por carpeta + orden: abrir una carpeta ya no recorre toda la lista. */
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {

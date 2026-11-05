@@ -71,6 +71,25 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     val optionsVisible = MutableStateFlow(false)
     /** En ventana «imagen en imagen»: se ocultan todos los controles. */
     val inPip = MutableStateFlow(false)
+    /** Formato de pantalla (0 ajustar, 1 llenar, 2 zoom, 3 16:9, 4 4:3). */
+    val aspect = MutableStateFlow(0)
+    private var langs: Pair<String, String> = "es" to ""
+
+    /** Idioma preferido del perfil: audio (p. ej. latino) y subtítulos, elegidos solos en cada video. */
+    private fun applyLanguages(p: ExoPlayer) = runCatching {
+        val (audio, subs) = langs
+        val b = p.trackSelectionParameters.buildUpon()
+        when (audio) { "es" -> b.setPreferredAudioLanguages("es-419", "es-MX", "es", "spa"); "en" -> b.setPreferredAudioLanguages("en", "eng"); else -> Unit }
+        if (subs.isNotEmpty()) b.setPreferredTextLanguages(*(if (subs == "es") arrayOf("es-419", "es", "spa") else arrayOf("en", "eng")))
+            .setSelectUndeterminedTextLanguage(true)
+        p.trackSelectionParameters = b.build()
+    }
+
+    fun cycleAspect() {
+        val n = (aspect.value + 1) % 5
+        aspect.value = n
+        viewModelScope.launch { c.prefs.updatePlayback { it.copy(aspectMode = n) } }
+    }
     /** Nombre del Chromecast al que se está enviando (null = se ve en el equipo). */
     val castingTo = MutableStateFlow<String?>(null)
     /** «Saltar intro» visible: OK del control lo activa directamente. */
@@ -123,7 +142,9 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     init {
         viewModelScope.launch {
             prefs = c.prefs.playback.first()
-            subtitleStyle.value = prefs; nightMode.value = prefs.nightMode
+            subtitleStyle.value = prefs; nightMode.value = prefs.nightMode; aspect.value = prefs.aspectMode
+            langs = runCatching { c.prefs.profileLanguages(c.prefs.activeProfile()).first() }.getOrDefault("es" to "")
+            player.value?.let { applyLanguages(it) }
             if (isLive) {
                 val cat = context?.takeIf { it != "restart" }
                 listCategory.value = cat
@@ -154,6 +175,8 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
             if (prefs.dataSaver && runCatching { ctx.getSystemService(ConnectivityManager::class.java).isActiveNetworkMetered }.getOrDefault(false)) {
                 p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().setMaxVideoSize(854, 480).setMaxVideoBitrate(1_500_000).build()
             }
+            // Idioma preferido del perfil: audio (p. ej. latino) y subtítulos, elegidos solos en cada video.
+            applyLanguages(p)
             player.value = p
             applyNight()
             nowPlaying.value?.let { prepare(it, resumeFrom) }
@@ -504,12 +527,14 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         override fun onTrackSelectionParametersChanged(parameters: androidx.media3.common.TrackSelectionParameters) { refreshTracks() }
         override fun onPlaybackStateChanged(state: Int) {
             buffering.value = state == Player.STATE_BUFFERING || state == Player.STATE_IDLE && error.value == null
-            if (state == Player.STATE_READY) { retries = 0; error.value = null; PlaybackProbe.readyCount++ }
+            if (state == Player.STATE_READY) { retries = 0; error.value = null; PlaybackProbe.readyCount++
+                if (isLive) com.embyverse.app.data.repo.ChannelHealth.worked(ref.sourceId, ref.id) }
             if (state == Player.STATE_ENDED) { buffering.value = false; onEnded() }
         }
 
         override fun onPlayerError(e: PlaybackException) {
             buffering.value = false
+            if (isLive && e.errorCode != PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) com.embyverse.app.data.repo.ChannelHealth.failed(ref.sourceId, ref.id)
             val p = player.value
             if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW && p != null) {
                 p.seekToDefaultPosition(); p.prepare(); return

@@ -70,6 +70,8 @@ class LiveViewModel(private val c: AppContainer, initialCategory: String?) : Vie
             LiveFilter.FAVORITES -> { val order = favs.withIndex().associate { it.value to it.index }; filtered.filter { (it.sourceId to it.providerId) in order }.sortedBy { order[it.sourceId to it.providerId] } }
             LiveFilter.HISTORY -> { val order = hist.withIndex().associate { it.value to it.index }; filtered.filter { (it.sourceId to it.providerId) in order }.sortedBy { order[it.sourceId to it.providerId] } }
         }
+        // Canales que fallan seguido en este equipo: al final de la lista (no se ocultan).
+        if (f == LiveFilter.ALL) filtered = filtered.sortedBy { if (com.embyverse.app.data.repo.ChannelHealth.isBad(it.sourceId, it.providerId)) 1 else 0 }
         Triple(cats, filtered, favs.toSet()) to (f to q)
     }.mapLatest { (data, fq) ->
         val (cats, list, favs) = data

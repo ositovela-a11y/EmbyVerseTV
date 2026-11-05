@@ -360,6 +360,9 @@ fun PlaybackSettingsScreen(nav: Navigator) {
             item { SwitchRow(stringResource(R.string.playback_autoplay_next), null, p.autoplayNextEpisode) { v -> vm.update { it.copy(autoplayNextEpisode = v) } } }
             item { SwitchRow(stringResource(R.string.playback_reconnect), stringResource(R.string.playback_reconnect_sub), p.autoReconnect) { v -> vm.update { it.copy(autoReconnect = v) } } }
             item { SwitchRow(stringResource(R.string.playback_subtitles), null, p.subtitlesEnabled) { v -> vm.update { it.copy(subtitlesEnabled = v) } } }
+            item { ProfileLanguageRows() }
+            item { SwitchRow(stringResource(R.string.lite_mode), stringResource(R.string.lite_mode_sub), p.liteMode) { v -> vm.update { it.copy(liteMode = v) } } }
+            item { com.embyverse.app.ui.components.SpeedTestRow() }
             item { Text(stringResource(R.string.subs_style), style = MaterialTheme.typography.titleMedium, color = t.onBackground) }
             item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -649,4 +652,31 @@ private suspend fun openWhatsAppHelp(context: android.content.Context, c: com.em
     val uri = android.net.Uri.parse("https://wa.me/$number?text=" + android.net.Uri.encode(report))
     runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
         .onFailure { android.widget.Toast.makeText(context, "WhatsApp: +$number", android.widget.Toast.LENGTH_LONG).show() }
+}
+
+
+/** Idioma preferido del PERFIL ACTIVO: audio y subtítulos que la app elige sola en cada video. */
+@Composable
+private fun ProfileLanguageRows() {
+    val c = com.embyverse.app.ui.LocalAppContainer.current
+    val t = LocalEmby.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val idFlow = remember { c.prefs.activeProfileId }
+    val id by idFlow.collectAsStateWithLifecycle(initialValue = null)
+    val pid = id ?: return
+    val langFlow = remember(pid) { c.prefs.profileLanguages(pid) }
+    val lang by langFlow.collectAsStateWithLifecycle(initialValue = "es" to "")
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(stringResource(R.string.lang_title), style = MaterialTheme.typography.titleMedium, color = t.onBackground)
+        Text(stringResource(R.string.lang_audio), style = MaterialTheme.typography.labelLarge, color = t.textSecondary)
+        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val opts = listOf("es" to R.string.lang_es, "en" to R.string.lang_en, "" to R.string.lang_orig)
+            items(opts.size) { i -> CategoryChip(stringResource(opts[i].second), lang.first == opts[i].first) { scope.launch { c.prefs.setProfileLanguages(pid, opts[i].first, lang.second) } } }
+        }
+        Text(stringResource(R.string.lang_subs), style = MaterialTheme.typography.labelLarge, color = t.textSecondary)
+        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val opts = listOf("" to R.string.lang_off, "es" to R.string.lang_es, "en" to R.string.lang_en)
+            items(opts.size) { i -> CategoryChip(stringResource(opts[i].second), lang.second == opts[i].first) { scope.launch { c.prefs.setProfileLanguages(pid, lang.first, opts[i].first) } } }
+        }
+    }
 }

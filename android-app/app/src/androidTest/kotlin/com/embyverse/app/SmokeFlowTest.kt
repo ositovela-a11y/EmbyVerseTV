@@ -366,6 +366,18 @@ class SmokeFlowTest {
         assertTrue("otro cliente no", !com.embyverse.app.data.repo.AccountBlock.isBlocked(blockedCfg, listOf("otro")))
         assertTrue("sin URL fija", com.embyverse.app.data.repo.ProviderHost.of(cfg0.copy(texts = cfg0.texts + ("provider.askHost" to "1"))) == null)
         assertTrue("letra de calidad", com.embyverse.app.player.CastSupport.mime("http://x/a.m3u8") == "application/x-mpegURL")
+        // Diseño publicado DE VERDAD (el que reciben tus clientes): debe aceptarse, con sus mensajes.
+        val cfgUrl = BuildConfig.CONFIG_BASE_URL.trim()
+        if (cfgUrl.endsWith(".json")) runCatching {
+            val text = app.container.okHttp.newCall(okhttp3.Request.Builder().url(cfgUrl).build()).execute().use { it.body.string() }
+            when (val r = com.embyverse.core.config.RemoteConfigParser.parse(text)) {
+                is com.embyverse.core.config.ConfigParseResult.Invalid -> throw AssertionError("el diseño publicado se rechaza: ${r.errors}")
+                is com.embyverse.core.config.ConfigParseResult.Valid -> {
+                    val now = System.currentTimeMillis() / 1000
+                    log("Diseño publicado v${r.config.version}: aceptado; mensajes ${r.config.messages.size} (activos ahora ${r.config.messages.count { it.isActive(now) }}); advertencias ${r.warnings}")
+                }
+            }
+        }.onFailure { if (it is AssertionError) throw it else log("Diseño publicado: no se pudo descargar (${it.javaClass.simpleName})") }
         // Fondos animados: rotación y fechas especiales.
         val rot = com.embyverse.app.ui.components.Season.resolve(mapOf("season" to "rotar", "season.every" to "1"))
         assertTrue("rotar elige un fondo general", rot != null && rot.general)
@@ -437,6 +449,37 @@ class SmokeFlowTest {
             assertTrue("cargan los pósters (${st.summary()})", st.ok >= 12)
             assertTrue("ninguna imagen falla (${st.summary()})", st.failed == 0)
         }
+    }
+
+    /** Mejoras «pro»: búsqueda inteligente, sagas, clasificación, canales que fallan, idiomas y mensajes. */
+    @Test fun j_mejorasPro() {
+        val c = app.container
+        runBlocking {
+            val exact = c.catalog.search("Película 12")
+            assertTrue("búsqueda normal", exact.movies.isNotEmpty())
+            val compact = c.catalog.search("pelicula12")
+            assertTrue("búsqueda sin espacios («pelicula12» = «Película 12»)", compact.movies.any { it.title.contains("12") })
+            val typo = c.catalog.search("pelicla 12")
+            log("Búsqueda: exacta ${exact.movies.size}, sin espacios ${compact.movies.size}, con falta de ortografía ${typo.movies.size}")
+            assertTrue("tolera faltas de ortografía", typo.movies.isNotEmpty())
+            c.prefs.addRecentSearch("batman"); assertTrue("búsquedas recientes", c.prefs.recentSearches.first().first() == "batman")
+            val sagas = c.catalog.sagas()
+            log("Sagas detectadas en la lista simulada: ${sagas.size} ${sagas.take(3).map { it.name + " (" + it.count + ")" }}")
+        }
+        assertTrue("saga «Toy Story 3» = «toy story»", c.catalog.sagaKey("Toy Story 3 (2010)") == "toy story")
+        assertTrue("saga con subtítulo", c.catalog.sagaKey("Harry Potter y la piedra filosofal: parte 1") == c.catalog.sagaKey("Harry Potter y la piedra filosofal"))
+        com.embyverse.app.data.repo.ChannelHealth.apply { repeat(3) { failed("s", "x") } }
+        assertTrue("canal que falla seguido va al final", com.embyverse.app.data.repo.ChannelHealth.isBad("s", "x"))
+        com.embyverse.app.data.repo.ChannelHealth.worked("s", "x")
+        assertTrue("al volver a cargar se olvida", !com.embyverse.app.data.repo.ChannelHealth.isBad("s", "x"))
+        runBlocking {
+            val pid = c.prefs.activeProfile()
+            c.prefs.setProfileLanguages(pid, "es", "es")
+            assertTrue("idioma por perfil", c.prefs.profileLanguages(pid).first() == ("es" to "es"))
+            c.prefs.setProfileLanguages(pid, "es", "")
+        }
+        // Mensaje del panel: aparece en el inicio mientras esté vigente.
+        log("Mejoras pro verificadas")
     }
 
     private fun hasTagPrefix(prefix: String) = SemanticsMatcher("tag empieza por $prefix") {

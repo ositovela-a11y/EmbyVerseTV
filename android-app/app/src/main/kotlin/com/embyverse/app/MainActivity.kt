@@ -171,7 +171,9 @@ class MainActivity : AppCompatActivity() {
                 var profileChosen by rememberSaveable { mutableStateOf(false) }
                 var crash by remember { mutableStateOf(CrashReport.take(this@MainActivity)) }
 
-                EmbyTheme(theme) { com.embyverse.app.ui.FastScrolling {
+                val liteFlow = remember { container.prefs.playback.map { it.liteMode } }
+                val lite by liteFlow.collectAsStateWithLifecycle(initialValue = com.embyverse.app.data.prefs.LiteDefault.value)
+                EmbyTheme(theme) { androidx.compose.runtime.CompositionLocalProvider(com.embyverse.app.ui.components.LocalLite provides lite) { com.embyverse.app.ui.FastScrolling {
                     NebulaBackground(Modifier.fillMaxSize()) {
                         // Marca de agua: el logotipo apenas visible al fondo de toda la app.
                         if (splashDone) com.embyverse.app.ui.components.BrandLogo(config.brand.logoVariant, config.brand.logoUrl,
@@ -218,7 +220,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     // Fondo de temporada activado desde el panel (Navidad, Halloween, Día de Muertos, Mundial).
                     // Perfil infantil: siempre globos, estrellas y arcoíris; el resto, lo que diga el panel.
-                    if (splashDone) com.embyverse.app.ui.components.SeasonLayer(if (kids) config.texts + ("season" to "kids") else config.texts)
+                    if (splashDone && !lite) com.embyverse.app.ui.components.SeasonLayer(if (kids) config.texts + ("season" to "kids") else config.texts)
                     // Protector de pantalla propio tras 5 min sin usar el control (en los menús).
                     val pb by container.prefs.playback.collectAsStateWithLifecycle(initialValue = null)
                     val tick by idleTick.collectAsStateWithLifecycle()
@@ -248,7 +250,11 @@ class MainActivity : AppCompatActivity() {
                     // Mensaje del administrador / vendedor (una vez por dispositivo, mientras esté vigente).
                     if (splashDone && crash == null) {
                         val seen by container.prefs.seenNotices.collectAsStateWithLifecycle(initialValue = null)
-                        val now = System.currentTimeMillis() / 1000
+                        // Se revisa cada minuto: un mensaje programado aparece a su hora aunque la app ya esté abierta.
+                        var now by remember { mutableStateOf(System.currentTimeMillis() / 1000) }
+                        // Con la app abierta también se consulta el diseño cada 10 min (mensajes nuevos sin reiniciar).
+                        androidx.compose.runtime.LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(10 * 60_000L); runCatching { container.config.refresh() } } }
+                        androidx.compose.runtime.LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(60_000); now = System.currentTimeMillis() / 1000 } }
                         val notice = seen?.let { s -> config.messages.firstOrNull { it.isActive(now) && it.id !in s } }
                         val scope = androidx.compose.runtime.rememberCoroutineScope()
                         notice?.let { n ->
@@ -261,7 +267,7 @@ class MainActivity : AppCompatActivity() {
                             )
                         }
                     }
-                } }
+                } } }
             }
         }
     }

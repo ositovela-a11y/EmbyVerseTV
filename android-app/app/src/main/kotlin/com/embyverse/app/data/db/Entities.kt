@@ -77,6 +77,8 @@ data class MovieEntity(
     val detailsLoaded: Boolean = false,
     /** Tráiler (YouTube) que trae la ficha del proveedor, si lo tiene. */
     @ColumnInfo(defaultValue = "NULL") val trailer: String? = null,
+    /** Clasificación por edad (escala de México: AA, A, B, B15, C, D) si el proveedor la informa. */
+    @ColumnInfo(defaultValue = "NULL") val ageRating: String? = null,
 )
 
 @Entity(

@@ -306,7 +306,7 @@ class SourceRepository(
             val d = r.value
             db.movies().upsert(listOf(m.copy(plot = d.plot, genres = d.genres.joinToString("|"), rating = d.rating,
                 durationSeconds = d.durationSeconds, backdropUrl = d.backdropUrl, posterUrl = d.posterUrl, year = d.year,
-                trailer = d.trailer, detailsLoaded = true)))
+                trailer = d.trailer, ageRating = d.ageRating, detailsLoaded = true)))
         }
     }
 

@@ -45,12 +45,86 @@ class CatalogRepository(private val db: EmbyDatabase, private val hidden: Flow<S
     fun episodes(sourceId: String, seriesId: String) = db.episodes().observeForSeries(sourceId, seriesId)
     val channelCount = db.channels().observeCount()
 
+    /**
+     * Búsqueda inteligente: sin acentos, sin importar guiones o espacios («spiderman» = «Spider-Man»), palabras en
+     * cualquier orden, por género («terror», «comedia») y, si no hay nada, con faltas de ortografía («batmn»).
+     */
     suspend fun search(query: String, limit: Int = 60): SearchResults {
         val q = M3uCatalogBuilder.normalize(query)
         if (q.length < 2) return SearchResults()
         val h = hidden.first()
-        return SearchResults(db.channels().search(q, limit).filter { it.category !in h }, db.movies().search(q, limit).filter { it.category !in h },
-            db.series().search(q, limit).filter { it.category !in h })
+        val words = q.split(' ').filter { it.length >= 2 }
+        val longest = words.maxByOrNull { it.length } ?: q
+        val compact = q.replace(" ", "")
+        fun matches(key: String, genres: String = ""): Boolean {
+            val k = key.replace(" ", "")
+            return k.contains(compact) || words.all { key.contains(it) } || (genres.isNotEmpty() && M3uCatalogBuilder.normalize(genres).contains(q))
+        }
+        fun rank(key: String): Int = when { key == q -> 0; key.startsWith(q) -> 1; key.contains(" $q") -> 2; else -> 3 }
+        val ch = (db.channels().search(longest, 300) + db.channels().searchCompact(compact, 120))
+            .distinctBy { it.sourceId + it.providerId }.filter { it.category !in h && matches(it.searchKey) }.sortedBy { rank(it.searchKey) }.take(limit)
+        var mv = (db.movies().search(longest, 400) + db.movies().searchCompact(compact, 150) + db.movies().searchGenre(query.trim(), 80))
+            .distinctBy { it.sourceId + it.providerId }.filter { it.category !in h && matches(it.searchKey, it.genres) }.sortedBy { rank(it.searchKey) }.take(limit)
+        var se = (db.series().search(longest, 400) + db.series().searchCompact(compact, 150) + db.series().searchGenre(query.trim(), 80))
+            .distinctBy { it.sourceId + it.providerId }.filter { it.category !in h && matches(it.searchKey, it.genres) }.sortedBy { rank(it.searchKey) }.take(limit)
+        // Sin resultados: se toleran 1–2 letras de diferencia por palabra.
+        if (ch.isEmpty() && mv.isEmpty() && se.isEmpty() && longest.length >= 4) {
+            val p = longest.take(2)
+            fun fuzzy(key: String) = words.all { w -> key.split(' ').any { kw -> kw.length >= 2 && editDistance(kw, w) <= (if (w.length >= 7) 2 else 1) } }
+            mv = db.movies().searchPrefix(p, 3000).filter { it.category !in h && fuzzy(it.searchKey) }.take(limit)
+            se = db.series().searchPrefix(p, 2000).filter { it.category !in h && fuzzy(it.searchKey) }.take(limit)
+        }
+        return SearchResults(ch, mv, se)
+    }
+
+    // ------------------------------------------------------------------ sagas
+    data class Saga(val key: String, val name: String, val imageUrl: String?, val count: Int)
+
+    /** Clave de saga: título sin año, sin subtítulo y sin número de parte («Toy Story 3» → «toy story»). */
+    fun sagaKey(title: String): String {
+        var t = title.substringBefore(':').substringBefore(" - ").substringBefore(" – ")
+        t = M3uCatalogBuilder.normalize(t)
+        t = t.replace(Regex("\\b(19|20)\\d{2}\\b"), " ")
+        t = t.replace(Regex("\\b(parte|part|capitulo|chapter|vol|volumen|episodio)\\s*\\w*\\s*$"), " ")
+        t = t.replace(Regex("\\s+(\\d{1,2}|ii|iii|iv|v|vi|vii|viii|ix|x)\\s*$"), " ")
+        return t.trim().replace(Regex("\\s+"), " ")
+    }
+
+    @Volatile private var sagaCache: Pair<Long, List<Saga>>? = null
+
+    /** Sagas automáticas: 2+ películas distintas con la misma clave (Harry Potter, Rápidos y furiosos…). */
+    suspend fun sagas(limit: Int = 24): List<Saga> {
+        sagaCache?.let { (at, l) -> if (System.currentTimeMillis() - at < 30 * 60_000L) return l }
+        val h = hidden.first()
+        val rows = db.movies().allCards(25_000).filter { it.category !in h }
+        val groups = rows.groupBy { sagaKey(it.title) }.filterKeys { it.length >= 4 }
+            .mapValues { (_, l) -> l.distinctBy { M3uCatalogBuilder.normalize(it.title) } }
+            .filter { (k, l) -> l.size >= 2 && l.any { M3uCatalogBuilder.normalize(it.title) != k } }
+        val out = groups.entries.sortedByDescending { it.value.size }.take(limit).map { (k, l) ->
+            val first = l.sortedBy { it.year ?: 9999 }.first()
+            Saga(k, first.title.substringBefore(':').replace(Regex("\\s*\\(?(19|20)\\d{2}\\)?"), "").replace(Regex("\\s+(\\d{1,2}|II|III|IV)\\s*$"), "").trim(),
+                first.posterUrl ?: first.backdropUrl, l.size)
+        }
+        sagaCache = System.currentTimeMillis() to out
+        return out
+    }
+
+    suspend fun sagaMovies(key: String): List<MediaCard> {
+        val h = hidden.first()
+        val first = key.split(' ').maxByOrNull { it.length } ?: key
+        return db.movies().search(first, 2000).filter { it.category !in h && sagaKey(it.title) == key }
+            .distinctBy { M3uCatalogBuilder.normalize(it.title) }.sortedBy { it.year ?: 9999 }.map { it.toCard() }
+    }
+
+    private fun editDistance(a: String, b: String): Int {
+        if (kotlin.math.abs(a.length - b.length) > 2) return 3
+        var prev = IntArray(b.length + 1) { it }
+        for (i in 1..a.length) {
+            val cur = IntArray(b.length + 1); cur[0] = i
+            for (j in 1..b.length) cur[j] = minOf(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + if (a[i - 1] == b[j - 1]) 0 else 1)
+            prev = cur
+        }
+        return prev[b.length]
     }
 
     suspend fun recommendations(history: List<ProgressEntity>, favorites: List<FavoriteEntity>, limit: Int): List<RecItem> {
