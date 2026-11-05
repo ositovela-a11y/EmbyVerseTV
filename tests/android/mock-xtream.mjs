@@ -97,7 +97,7 @@ createServer((req, res) => {
         const id = +u.searchParams.get('vod_id');
         return json(JSON.stringify(id % 3 === 0 ? { info: [], movie_data: { stream_id: id } } : { info: { plot: `Sinopsis completa ${id}. ` + 'Descripción larga. '.repeat(120), cast: 'Actor, '.repeat(60), genre: 'Acción', duration_secs: 5400, rating: '7.5', backdrop_path: [`${host}/img/b.png`] }, movie_data: { stream_id: id } }));
       }
-      case 'get_series_info': return json(JSON.stringify(seriesInfo(u.searchParams.get('series_id'))));
+      case 'get_series_info': return json(JSON.stringify(seriesInfo(u.searchParams.get('series_id'))).replaceAll('http://HOST', host));
       case 'get_short_epg': return json('{"epg_listings":[]}');
       default: return json('[]');
     }
