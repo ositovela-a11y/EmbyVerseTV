@@ -381,6 +381,39 @@ class SmokeFlowTest {
         }
     }
 
+    /** Velocidad de las carpetas: consulta en la base y cambio de carpeta en pantalla (Películas). */
+    @Test fun h_velocidadCarpetas() {
+        val c = app.container
+        runBlocking {
+            val cats = c.catalog.categories(com.embyverse.core.model.ContentKind.MOVIE).first()
+            val t0 = System.nanoTime(); val all = c.database.movies().observeCardsAll(5000).first(); val tAll = (System.nanoTime() - t0) / 1_000_000
+            val per = cats.take(12).map { cat -> val s0 = System.nanoTime(); c.database.movies().observeCardsIn(cat, 5000).first(); (System.nanoTime() - s0) / 1_000_000 }
+            log("Carpetas (base): «Todas» ${all.size} títulos en $tAll ms; por carpeta $per ms")
+            assertTrue("abrir una carpeta en la base tarda menos de 300 ms (máx ${per.maxOrNull()})", (per.maxOrNull() ?: 0) < 300)
+        }
+        ActivityScenario.launch(MainActivity::class.java).use {
+            waitTag("nav_movies", 30_000)
+            compose.onNodeWithTag("nav_movies", useUnmergedTree = true).performClick()
+            waitCards()
+            val times = mutableListOf<Long>()
+            for (i in 1..4) {
+                val before = compose.onAllNodes(hasTagPrefix("card:"), useUnmergedTree = true).fetchSemanticsNodes().firstOrNull()?.config?.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.TestTag)
+                val folders = compose.onAllNodesWithTag("folder", useUnmergedTree = true)
+                if (folders.fetchSemanticsNodes().size <= i) break
+                val t0 = System.currentTimeMillis()
+                folders[i].performClick()
+                runCatching { compose.waitUntil(10_000) {
+                    val now = compose.onAllNodes(hasTagPrefix("card:"), useUnmergedTree = true).fetchSemanticsNodes().firstOrNull()?.config?.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.TestTag)
+                    now != null && now != before
+                } }
+                times += System.currentTimeMillis() - t0
+            }
+            log("Carpetas (pantalla): cambio de carpeta $times ms")
+            shot("carpetas")
+            assertTrue("cambiar de carpeta en pantalla tarda menos de 2 s (${times})", times.isEmpty() || times.max() < 2_000)
+        }
+    }
+
     private fun hasTagPrefix(prefix: String) = SemanticsMatcher("tag empieza por $prefix") {
         it.config.getOrNull(SemanticsProperties.TestTag)?.startsWith(prefix) == true
     }
