@@ -4,6 +4,7 @@ import android.app.Application
 import coil3.ImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
+import okio.Path.Companion.toOkioPath
 import com.embyverse.app.data.db.EmbyDatabase
 import com.embyverse.app.data.net.Network
 import com.embyverse.app.data.net.OkHttpFetcher
@@ -29,10 +30,27 @@ class AppContainer(val app: Application) {
     val config by lazy { ConfigRepository(app, okHttp) }
     val updater by lazy { com.embyverse.app.data.repo.AppUpdater(app, okHttp) }
 
+    /**
+     * Imágenes: cliente propio (no compite con la descarga de listas y guías), muchas descargas en paralelo
+     * por servidor (antes 5), tiempos cortos, caché en disco grande y pósters al tamaño de la tarjeta.
+     */
+    private val imageHttp by lazy {
+        okHttp.newBuilder()
+            .dispatcher(okhttp3.Dispatcher().apply { maxRequests = 48; maxRequestsPerHost = 16 })
+            .connectTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+    }
+
     val imageLoader by lazy {
         ImageLoader.Builder(app)
-            .components { add(OkHttpNetworkFetcherFactory(callFactory = { okHttp })) }
-            .crossfade(true)
+            .components {
+                add(com.embyverse.app.data.net.TmdbSizeInterceptor())
+                add(OkHttpNetworkFetcherFactory(callFactory = { imageHttp }))
+            }
+            .memoryCache { coil3.memory.MemoryCache.Builder().maxSizePercent(app, 0.25).build() }
+            .diskCache { coil3.disk.DiskCache.Builder().directory(java.io.File(app.cacheDir, "images").toOkioPath()).maxSizeBytes(300L * 1024 * 1024).build() }
+            .crossfade(120)
             .build()
     }
 }
