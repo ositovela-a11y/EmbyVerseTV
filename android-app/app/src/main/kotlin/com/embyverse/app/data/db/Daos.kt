@@ -49,6 +49,13 @@ interface ChannelDao {
     @Query("SELECT * FROM channels WHERE (:category IS NULL OR category = :category) ORDER BY sourceId, position LIMIT :limit")
     fun observe(category: String?, limit: Int): Flow<List<ChannelEntity>>
 
+    // Consultas separadas «todas» / «una carpeta»: con «(:c IS NULL OR category = :c)» SQLite recorre toda la tabla.
+    @Query("SELECT * FROM channels ORDER BY sourceId, position LIMIT :limit")
+    fun observeAll(limit: Int): Flow<List<ChannelEntity>>
+
+    @Query("SELECT * FROM channels WHERE category = :category ORDER BY sourceId, position LIMIT :limit")
+    fun observeIn(category: String, limit: Int): Flow<List<ChannelEntity>>
+
     @Query("SELECT * FROM channels WHERE searchKey LIKE '%' || :q || '%' ORDER BY position LIMIT :limit")
     suspend fun search(q: String, limit: Int): List<ChannelEntity>
 
@@ -93,9 +100,21 @@ interface MovieDao {
     @Query("SELECT * FROM movies WHERE (:category IS NULL OR category = :category) ORDER BY sourceId, position LIMIT :limit")
     fun observe(category: String?, limit: Int): Flow<List<MovieEntity>>
 
+    @Query("SELECT * FROM movies ORDER BY sourceId, position LIMIT :limit")
+    fun observeAll(limit: Int): Flow<List<MovieEntity>>
+
+    @Query("SELECT * FROM movies WHERE category = :category ORDER BY sourceId, position LIMIT :limit")
+    fun observeIn(category: String, limit: Int): Flow<List<MovieEntity>>
+
     /** Solo lo que necesita la cuadrícula (sin sinopsis ni URLs): carga y desplazamiento más rápidos. */
     @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category FROM movies WHERE (:category IS NULL OR category = :category) ORDER BY sourceId, position LIMIT :limit")
     fun observeCards(category: String?, limit: Int): Flow<List<CardRow>>
+
+    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category FROM movies ORDER BY sourceId, position LIMIT :limit")
+    fun observeCardsAll(limit: Int): Flow<List<CardRow>>
+
+    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category FROM movies WHERE category = :category ORDER BY sourceId, position LIMIT :limit")
+    fun observeCardsIn(category: String, limit: Int): Flow<List<CardRow>>
 
     @Query("SELECT * FROM movies ORDER BY addedAt DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<MovieEntity>>
@@ -129,8 +148,20 @@ interface SeriesDao {
     @Query("SELECT * FROM series WHERE (:category IS NULL OR category = :category) ORDER BY sourceId, position LIMIT :limit")
     fun observe(category: String?, limit: Int): Flow<List<SeriesEntity>>
 
+    @Query("SELECT * FROM series ORDER BY sourceId, position LIMIT :limit")
+    fun observeAll(limit: Int): Flow<List<SeriesEntity>>
+
+    @Query("SELECT * FROM series WHERE category = :category ORDER BY sourceId, position LIMIT :limit")
+    fun observeIn(category: String, limit: Int): Flow<List<SeriesEntity>>
+
     @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category FROM series WHERE (:category IS NULL OR category = :category) ORDER BY sourceId, position LIMIT :limit")
     fun observeCards(category: String?, limit: Int): Flow<List<CardRow>>
+
+    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category FROM series ORDER BY sourceId, position LIMIT :limit")
+    fun observeCardsAll(limit: Int): Flow<List<CardRow>>
+
+    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category FROM series WHERE category = :category ORDER BY sourceId, position LIMIT :limit")
+    fun observeCardsIn(category: String, limit: Int): Flow<List<CardRow>>
 
     @Query("SELECT * FROM series ORDER BY addedAt DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<SeriesEntity>>

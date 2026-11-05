@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -107,9 +109,14 @@ class VodViewModel(private val c: AppContainer, private val kind: ContentKind, i
     private val items = category.flatMapLatest { cat ->
         if (cat == CATEGORY_NEW) return@flatMapLatest (if (kind == ContentKind.MOVIE) c.catalog.recentMovies(300).map { l -> l.map { it.searchKey to it.toCard() } }
             else c.catalog.recentSeries(300).map { l -> l.map { it.searchKey to it.toCard() } })
-        (if (kind == ContentKind.MOVIE) c.database.movies().observeCards(cat, 5000) else c.database.series().observeCards(cat, 5000))
+        val dbm = c.database.movies(); val dbs = c.database.series()
+        (if (kind == ContentKind.MOVIE) (if (cat == null) dbm.observeCardsAll(5000) else dbm.observeCardsIn(cat, 5000))
+         else (if (cat == null) dbs.observeCardsAll(5000) else dbs.observeCardsIn(cat, 5000)))
+            // Mientras se actualizan las listas la base cambia muchas veces: se toma solo lo último (sin recalcular cada lote).
+            .conflate()
             .let { f -> kotlinx.coroutines.flow.combine(f, c.parental.hidden) { l, h -> if (h.isEmpty()) l else l.filter { it.category !in h } } }
             .map { l -> l.map { it.searchKey to it.toCard(kind) } }
+            .flowOn(kotlinx.coroutines.Dispatchers.Default)
     }
 
     val state: StateFlow<VodUiState> = combine(c.catalog.categories(kind), category, query.debounce(200), items) { cats, cat, q, list ->

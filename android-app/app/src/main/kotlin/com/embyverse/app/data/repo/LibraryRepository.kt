@@ -32,9 +32,9 @@ class CatalogRepository(private val db: EmbyDatabase, private val hidden: Flow<S
     private fun <T> Flow<List<T>>.visible(category: (T) -> String?): Flow<List<T>> =
         kotlinx.coroutines.flow.combine(this, hidden) { l, h -> if (h.isEmpty()) l else l.filter { category(it) !in h } }
 
-    fun channels(category: String?, limit: Int = 5000) = db.channels().observe(category, limit).visible { it.category }
-    fun movies(category: String?, limit: Int = 5000) = db.movies().observe(category, limit).visible { it.category }
-    fun series(category: String?, limit: Int = 5000) = db.series().observe(category, limit).visible { it.category }
+    fun channels(category: String?, limit: Int = 5000) = (if (category == null) db.channels().observeAll(limit) else db.channels().observeIn(category, limit)).visible { it.category }
+    fun movies(category: String?, limit: Int = 5000) = (if (category == null) db.movies().observeAll(limit) else db.movies().observeIn(category, limit)).visible { it.category }
+    fun series(category: String?, limit: Int = 5000) = (if (category == null) db.series().observeAll(limit) else db.series().observeIn(category, limit)).visible { it.category }
     fun recentMovies(limit: Int) = db.movies().observeRecent(limit).visible { it.category }
     fun recentSeries(limit: Int) = db.series().observeRecent(limit).visible { it.category }
     fun categories(kind: ContentKind) = kotlinx.coroutines.flow.combine(db.categories().observeNames(kind.name), hidden) { l, h -> if (h.isEmpty()) l else l.filter { it !in h } }

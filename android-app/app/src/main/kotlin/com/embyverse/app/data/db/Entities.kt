@@ -28,7 +28,7 @@ data class SourceEntity(
 @Entity(
     tableName = "channels",
     primaryKeys = ["sourceId", "providerId"],
-    indices = [Index("sourceId", "category"), Index("epgChannelId"), Index("sourceId", "position")],
+    indices = [Index("sourceId", "category"), Index("epgChannelId"), Index("sourceId", "position"), Index("category", "sourceId", "position")],
 )
 data class ChannelEntity(
     val sourceId: String,
@@ -51,7 +51,7 @@ data class ChannelEntity(
 @Entity(
     tableName = "movies",
     primaryKeys = ["sourceId", "providerId"],
-    indices = [Index("sourceId", "category"), Index("addedAt"), Index("sourceId", "position")],
+    indices = [Index("sourceId", "category"), Index("addedAt"), Index("sourceId", "position"), Index("category", "sourceId", "position")],
 )
 data class MovieEntity(
     val sourceId: String,
@@ -82,7 +82,7 @@ data class MovieEntity(
 @Entity(
     tableName = "series",
     primaryKeys = ["sourceId", "providerId"],
-    indices = [Index("sourceId", "category"), Index("addedAt"), Index("sourceId", "position")],
+    indices = [Index("sourceId", "category"), Index("addedAt"), Index("sourceId", "position"), Index("category", "sourceId", "position")],
 )
 data class SeriesEntity(
     val sourceId: String,
