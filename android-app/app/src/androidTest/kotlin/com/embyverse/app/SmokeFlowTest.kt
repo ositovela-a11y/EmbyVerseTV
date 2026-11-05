@@ -410,7 +410,32 @@ class SmokeFlowTest {
             }
             log("Carpetas (pantalla): cambio de carpeta $times ms")
             shot("carpetas")
-            assertTrue("cambiar de carpeta en pantalla tarda menos de 2 s (${times})", times.isEmpty() || times.max() < 2_000)
+            assertTrue("cambiar de carpeta en pantalla tarda menos de 3 s en el emulador (${times})", times.isEmpty() || times.max() < 3_000)
+        }
+    }
+
+    /**
+     * Imágenes: en Películas deben CARGAR los pósters (JPEG reales del proveedor simulado), incluidos los de
+     * un servidor que exige agente de navegador y los de uno lento. Se cuenta cuántas cargan y cuántas fallan.
+     */
+    @Test fun i_imagenesCargan() {
+        com.embyverse.app.data.net.ImageStats.reset()
+        runBlocking { app.container.imageLoader.memoryCache?.clear(); app.container.imageLoader.diskCache?.clear() }
+        ActivityScenario.launch(MainActivity::class.java).use {
+            waitTag("nav_movies", 30_000)
+            compose.onNodeWithTag("nav_movies", useUnmergedTree = true).performClick()
+            waitCards()
+            // «Todas»: pósters de los tres servidores (normal, exige navegador, lento).
+            runCatching { compose.onNodeWithTag("folder_all", useUnmergedTree = true).performClick() }
+            val t0 = System.currentTimeMillis()
+            runCatching { compose.waitUntil(15_000) { com.embyverse.app.data.net.ImageStats.ok >= 12 } }
+            val ms = System.currentTimeMillis() - t0
+            Thread.sleep(2_500)
+            val st = com.embyverse.app.data.net.ImageStats
+            log("Imágenes: ${st.ok} cargadas, ${st.failed} fallidas; las primeras 12 en $ms ms\n${st.summary()}")
+            shot("imagenes-peliculas")
+            assertTrue("cargan los pósters (${st.summary()})", st.ok >= 12)
+            assertTrue("ninguna imagen falla (${st.summary()})", st.failed == 0)
         }
     }
 

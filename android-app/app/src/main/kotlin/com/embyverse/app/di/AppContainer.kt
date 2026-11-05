@@ -36,9 +36,10 @@ class AppContainer(val app: Application) {
      */
     private val imageHttp by lazy {
         okHttp.newBuilder()
-            .dispatcher(okhttp3.Dispatcher().apply { maxRequests = 48; maxRequestsPerHost = 16 })
+            .dispatcher(okhttp3.Dispatcher().apply { maxRequests = 40; maxRequestsPerHost = 10 })
             .connectTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(12, java.util.concurrent.TimeUnit.SECONDS)
+            .addInterceptor { ch -> ch.proceed(ch.request().newBuilder().header("User-Agent", com.embyverse.app.data.net.IMAGE_USER_AGENT).build()) }
             .build()
     }
 
@@ -51,6 +52,7 @@ class AppContainer(val app: Application) {
             .memoryCache { coil3.memory.MemoryCache.Builder().maxSizePercent(app, 0.25).build() }
             .diskCache { coil3.disk.DiskCache.Builder().directory(java.io.File(app.cacheDir, "images").toOkioPath()).maxSizeBytes(300L * 1024 * 1024).build() }
             .crossfade(120)
+            .eventListener(com.embyverse.app.data.net.ImageStats)
             .build()
     }
 }
