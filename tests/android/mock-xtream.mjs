@@ -79,6 +79,8 @@ function liveTs(res) {
 let hits = 0;
 createServer((req, res) => {
   hits++;
+  // Para la app de TV (Samsung/LG) probada en navegador: permitir peticiones desde otra dirección.
+  res.setHeader('Access-Control-Allow-Origin', '*');
   const u = new URL(req.url, 'http://x');
   const host = `http://${req.headers.host}`;
   const json = (s) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(s); };

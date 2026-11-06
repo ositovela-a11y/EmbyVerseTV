@@ -1,0 +1,15 @@
+{
+  "id": "com.embyverse.tv",
+  "version": "__VERSION__",
+  "vendor": "EmbyVerse",
+  "type": "web",
+  "main": "index.html",
+  "title": "EmbyVerse",
+  "icon": "icon.png",
+  "largeIcon": "icon-large.png",
+  "bgColor": "#02050C",
+  "iconColor": "#02050C",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "requiredPermissions": ["time.query", "activity.operation"]
+}

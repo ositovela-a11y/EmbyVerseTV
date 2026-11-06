@@ -6,7 +6,7 @@ on:
     paths: ['web-player/**', '.github/workflows/web.yml']
   # Cada vez que se publica una APK nueva, el sitio se actualiza con ella (descarga y update.json).
   workflow_run:
-    workflows: ["APK Android"]
+    workflows: ["APK Android", "App TV (Samsung y LG)"]
     types: [completed]
   workflow_dispatch:
 permissions:
@@ -33,6 +33,13 @@ jobs:
           json.dump({'apps': apps}, open('web-player/update.json', 'w'), indent=1)
           print(json.dumps(apps, indent=1))
           PY
+          # App de TV (Samsung/LG): copia web para que las TVs instaladas se actualicen solas + paquetes para descargar.
+          mkdir -p web-player/tv
+          if gh release download tv-latest -R "$GITHUB_REPOSITORY" -p 'EmbyVerse-TV-web.zip' -D /tmp/tv --clobber; then
+            unzip -qo /tmp/tv/EmbyVerse-TV-web.zip -d web-player/tv
+            gh release download tv-latest -R "$GITHUB_REPOSITORY" -p '*.wgt' -p '*.ipk' -D web-player/tv --clobber || true
+            V=$(grep -o "LOCAL = '[^']*'" web-player/tv/index.html | cut -d"'" -f2); echo "{\"version\": \"$V\"}" > web-player/tv/version.json
+          fi
           # Dominio propio: si existe la variable del repositorio CUSTOM_DOMAIN, se publica el archivo CNAME.
           if [ -n "${{ vars.CUSTOM_DOMAIN }}" ]; then echo "${{ vars.CUSTOM_DOMAIN }}" > web-player/CNAME; fi
       - name: Publicar en gh-pages

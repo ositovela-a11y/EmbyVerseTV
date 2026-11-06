@@ -1,0 +1,19 @@
+{
+  "name": "embyverse-tv",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EmbyVerse para Samsung (Tizen) y LG (webOS): la misma app, versión web para TV.",
+  "scripts": {
+    "build": "node build.mjs",
+    "package": "node build.mjs --package"
+  },
+  "dependencies": {
+    "hls.js": "1.5.17",
+    "mpegts.js": "1.7.3",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.24.0"
+  }
+}

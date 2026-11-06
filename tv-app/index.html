@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, user-scalable=no">
+<title>EmbyVerse</title>
+<!-- Samsung: API del reproductor (AVPlay) y del control. En LG o navegador no existe y se ignora. -->
+<script src="$WEBAPIS/webapis/webapis.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<video id="bgvideo" playsinline></video>
+<object id="avplayer" type="application/avplayer" style="position:fixed;left:0;top:0;width:1920px;height:1080px;z-index:0;display:none"></object>
+<script>
+/* Actualización automática: si en el sitio hay una versión más nueva de la app de TV, se carga esa
+   (sin reinstalar); si no hay internet o falla, se usa la que viene instalada. */
+(function () {
+  var REMOTE = 'https://ositovela-a11y.github.io/EmbyVerseTV/tv/';
+  var LOCAL = '__VERSION__';
+  function cmp(a, b) { a = String(a).split('.'); b = String(b).split('.'); for (var i = 0; i < 3; i++) { var d = (parseInt(a[i], 10) || 0) - (parseInt(b[i], 10) || 0); if (d) return d; } return 0; }
+  function boot(base) {
+    var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = base + 'app.css'; document.head.appendChild(l);
+    var s = document.createElement('script'); s.src = base + 'app.js';
+    s.onerror = function () { if (base) { l.parentNode.removeChild(l); boot(''); } };
+    document.body.appendChild(s);
+  }
+  if (location.protocol === 'http:' && location.hostname === 'localhost') return boot('');
+  try {
+    var x = new XMLHttpRequest(); x.timeout = 3500; x.open('GET', REMOTE + 'version.json?t=' + Date.now());
+    x.onload = function () { try { if (cmp(JSON.parse(x.responseText).version, LOCAL) > 0) return boot(REMOTE); } catch (e) {} boot(''); };
+    x.onerror = x.ontimeout = function () { boot(''); };
+    x.send();
+  } catch (e) { boot(''); }
+})();
+</script>
+</body>
+</html>
