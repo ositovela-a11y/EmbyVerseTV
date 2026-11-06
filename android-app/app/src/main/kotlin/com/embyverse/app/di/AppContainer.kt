@@ -4,6 +4,7 @@ import android.app.Application
 import coil3.ImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
+import coil3.request.allowRgb565
 import okio.Path.Companion.toOkioPath
 import com.embyverse.app.data.db.EmbyDatabase
 import com.embyverse.app.data.net.Network
