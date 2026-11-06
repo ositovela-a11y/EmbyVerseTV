@@ -77,6 +77,8 @@ function liveTs(res) {
 }
 
 let hits = 0;
+const IMG_DELAY = Number(process.env.IMG_DELAY || 0);
+const later = (fn) => (IMG_DELAY > 0 ? setTimeout(fn, IMG_DELAY) : fn());
 createServer((req, res) => {
   hits++;
   // Para la app de TV (Samsung/LG) probada en navegador: permitir peticiones desde otra dirección.
@@ -129,8 +131,9 @@ createServer((req, res) => {
     res.writeHead(200, { 'content-type': 'image/jpeg' }); return res.end(POSTER ?? PNG);
   }
   if (u.pathname.startsWith('/img-slow/')) { setTimeout(() => { res.writeHead(200, { 'content-type': 'image/jpeg' }); res.end(POSTER ?? PNG); }, 900); return; }
-  if (u.pathname.startsWith('/img/m')) { res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'max-age=3600' }); return res.end(POSTER ?? PNG); }
-  if (u.pathname.startsWith('/img/')) { res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'max-age=3600' }); return res.end(PNG); }
+  // Latencia de internet real para las imágenes (IMG_DELAY ms): mide la carga como en un celular.
+  if (u.pathname.startsWith('/img/m')) return later(() => { res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'max-age=3600' }); res.end(POSTER ?? PNG); });
+  if (u.pathname.startsWith('/img/')) return later(() => { res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'max-age=3600' }); res.end(PNG); });
   const m = /^\/(live|movie|series)\/([^/]+)\/([^/]+)\/([^/.]+)\.(\w+)$/.exec(u.pathname);
   if (m) {
     if (m[2] !== USER || m[3] !== PASS) { res.writeHead(403); return res.end(); }

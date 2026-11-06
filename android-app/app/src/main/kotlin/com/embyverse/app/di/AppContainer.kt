@@ -36,9 +36,12 @@ class AppContainer(val app: Application) {
      */
     private val imageHttp by lazy {
         okHttp.newBuilder()
-            .dispatcher(okhttp3.Dispatcher().apply { maxRequests = 40; maxRequestsPerHost = 10 })
-            .connectTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(12, java.util.concurrent.TimeUnit.SECONDS)
+            // Casi todas las carátulas vienen del mismo servidor: 24 a la vez y conexiones propias que se
+            // reutilizan (antes compartía 5 conexiones con las listas y repetía el saludo TLS con cada imagen).
+            .dispatcher(okhttp3.Dispatcher().apply { maxRequests = 64; maxRequestsPerHost = 24 })
+            .connectionPool(okhttp3.ConnectionPool(24, 5, java.util.concurrent.TimeUnit.MINUTES))
+            .connectTimeout(6, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
             .addInterceptor { ch -> ch.proceed(ch.request().newBuilder().header("User-Agent", com.embyverse.app.data.net.IMAGE_USER_AGENT).build()) }
             .build()
     }
@@ -52,6 +55,7 @@ class AppContainer(val app: Application) {
             .memoryCache { coil3.memory.MemoryCache.Builder().maxSizePercent(app, 0.25).build() }
             .diskCache { coil3.disk.DiskCache.Builder().directory(java.io.File(app.cacheDir, "images").toOkioPath()).maxSizeBytes(300L * 1024 * 1024).build() }
             .crossfade(120)
+            .allowRgb565(true) // carátulas sin transparencia: la mitad de memoria y se decodifican más rápido
             .eventListener(com.embyverse.app.data.net.ImageStats)
             .build()
     }

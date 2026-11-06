@@ -442,6 +442,10 @@ class SmokeFlowTest {
             val t0 = System.currentTimeMillis()
             runCatching { compose.waitUntil(15_000) { com.embyverse.app.data.net.ImageStats.ok >= 12 } }
             val ms = System.currentTimeMillis() - t0
+            runCatching { compose.waitUntil(15_000) { com.embyverse.app.data.net.ImageStats.ok >= 24 } }
+            val ms24 = System.currentTimeMillis() - t0
+            log("Pósters con 300 ms de latencia por imagen: 12 en $ms ms, 24 en $ms24 ms")
+            assertTrue("los primeros 24 pósters tardan demasiado ($ms24 ms)", ms24 < 6_000)
             Thread.sleep(2_500)
             val st = com.embyverse.app.data.net.ImageStats
             log("Imágenes: ${st.ok} cargadas, ${st.failed} fallidas; las primeras 12 en $ms ms\n${st.summary()}")

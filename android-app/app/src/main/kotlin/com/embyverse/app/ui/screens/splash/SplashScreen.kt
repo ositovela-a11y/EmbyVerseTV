@@ -110,8 +110,13 @@ fun SplashScreen(brand: Brand, onFinished: () -> Unit) {
             runCatching {
                 val loader = coil3.SingletonImageLoader.get(context)
                 val recent = container.catalog.recentMovies(16).first()
-                recent.flatMap { listOfNotNull(it.backdropUrl, it.posterUrl) }.take(24).forEach { url ->
-                    loader.enqueue(coil3.request.ImageRequest.Builder(context).data(url).build())
+                // Con el tamaño de la tarjeta: sin tamaño se bajaba la imagen ORIGINAL (varios MB cada una)
+                // y además no servía para las tarjetas, que piden otro tamaño. Ocupaba el internet al abrir.
+                recent.take(8).mapNotNull { it.backdropUrl }.forEach { url ->
+                    loader.enqueue(coil3.request.ImageRequest.Builder(context).data(url).size(1280, 720).build())
+                }
+                recent.mapNotNull { it.posterUrl }.take(16).forEach { url ->
+                    loader.enqueue(coil3.request.ImageRequest.Builder(context).data(url).size(342, 513).build())
                 }
                 container.library.historySnapshot(40)
                 container.catalog.categories(com.embyverse.core.model.ContentKind.MOVIE).first()
