@@ -36,6 +36,7 @@ class AppUpdater(private val context: Context, private val http: OkHttpClient) {
         data class Failed(val message: String) : State
     }
 
+    private var lastUrl: String? = null
     private val _state = MutableStateFlow<State>(State.Idle)
     val state: StateFlow<State> = _state
     /** «Después»: no se vuelve a preguntar hasta reiniciar la app. */
@@ -67,7 +68,8 @@ class AppUpdater(private val context: Context, private val http: OkHttpClient) {
             val url = if (path.startsWith("http")) path else "$base/${path.trimStart('/')}"
             val cur = _state.value
             if (code <= BuildConfig.VERSION_CODE) { _state.value = State.Idle; return@withContext }
-            if (cur is State.Ready && cur.versionCode == code && cur.file.exists()) return@withContext
+            if (cur is State.Ready && cur.versionCode == code && valid(cur.file, code)) return@withContext
+            lastUrl = url
             _state.value = State.Available(name, code, url)
             // Con Wi-Fi (o red sin límite) y permiso de instalar: se descarga sola en segundo plano.
             if (canInstall() && unmetered()) fetch(State.Available(name, code, url), silent = true)?.let { _state.value = State.Ready(name, code, it) }
@@ -79,26 +81,56 @@ class AppUpdater(private val context: Context, private val http: OkHttpClient) {
         !cm.isActiveNetworkMetered
     }.getOrDefault(false)
 
-    private fun fetch(a: State.Available, silent: Boolean): File? = runCatching {
-        val dir = File(context.cacheDir, "updates").apply { mkdirs() }
-        val out = File(dir, "app-${a.versionCode}.apk")
-        val tmp = File(dir, "app-${a.versionCode}.part")
-        dir.listFiles()?.filter { it != out }?.forEach { it.delete() }
-        if (out.exists() && out.length() > 0) return@runCatching out
-        http.newCall(Request.Builder().url(a.url).build()).execute().use { r ->
-            if (!r.isSuccessful) error("HTTP ${r.code}")
-            val total = r.body.contentLength().takeIf { it > 0 } ?: -1L
-            r.body.byteStream().use { input -> tmp.outputStream().use { o ->
-                val buf = ByteArray(64 * 1024); var read = 0L
-                while (true) {
-                    val n = input.read(buf); if (n < 0) break
-                    o.write(buf, 0, n); read += n
-                    if (!silent && total > 0) _state.value = State.Downloading(a.versionName, read.toFloat() / total)
-                }
-            } }
-        }
-        tmp.renameTo(out); out
-    }.onFailure { if (!silent) _state.value = State.Failed(it.message ?: "Error de descarga") }.getOrNull()
+    /** Una sola descarga a la vez: la automática (Wi-Fi) y la del botón «Actualizar» no escriben el mismo archivo. */
+    private val fetchLock = Any()
+
+    /**
+     * ¿La APK descargada está completa y es la versión esperada de ESTA app? Si no, Android mostraría
+     * «el paquete no es válido» (descarga cortada, archivo a medias o reemplazado en el sitio mientras bajaba).
+     */
+    private fun valid(file: File, versionCode: Int): Boolean = runCatching {
+        if (!file.exists() || file.length() < 100_000) return false
+        @Suppress("DEPRECATION")
+        val info = context.packageManager.getPackageArchiveInfo(file.absolutePath, 0) ?: return false
+        @Suppress("DEPRECATION")
+        val code = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode.toInt() else info.versionCode
+        info.packageName == context.packageName && code == versionCode
+    }.getOrDefault(false)
+
+    private fun fetch(a: State.Available, silent: Boolean): File? = synchronized(fetchLock) {
+        runCatching {
+            val dir = File(context.cacheDir, "updates").apply { mkdirs() }
+            val out = File(dir, "app-${a.versionCode}.apk")
+            if (valid(out, a.versionCode)) return@runCatching out
+            dir.listFiles()?.forEach { it.delete() } // incluida una copia dañada de esta misma versión
+            var lastError: Throwable? = null
+            repeat(3) { attempt ->
+                val tmp = File(dir, "app-${a.versionCode}.part"); tmp.delete()
+                val ok = runCatching {
+                    // Parámetro para no recibir una copia vieja o a medias de la caché del sitio.
+                    val url = a.url + (if ('?' in a.url) "&" else "?") + "v=${a.versionCode}&t=${System.currentTimeMillis()}"
+                    http.newCall(Request.Builder().url(url).header("Cache-Control", "no-cache").build()).execute().use { r ->
+                        if (!r.isSuccessful) error("HTTP ${r.code}")
+                        val total = r.body.contentLength().takeIf { it > 0 } ?: -1L
+                        var read = 0L
+                        r.body.byteStream().use { input -> tmp.outputStream().use { o ->
+                            val buf = ByteArray(64 * 1024)
+                            while (true) {
+                                val n = input.read(buf); if (n < 0) break
+                                o.write(buf, 0, n); read += n
+                                if (!silent && total > 0) _state.value = State.Downloading(a.versionName, read.toFloat() / total)
+                            }
+                        } }
+                        if (total > 0 && read != total) error("descarga incompleta ($read de $total bytes)")
+                    }
+                    out.delete(); check(tmp.renameTo(out)) { "no se pudo guardar" }
+                    check(valid(out, a.versionCode)) { "la APK descargada está dañada" }
+                }.onFailure { lastError = it; Log.i("AppUpdater", "intento ${attempt + 1}: ${it.message}"); out.delete(); tmp.delete() }.isSuccess
+                if (ok) return@runCatching out
+            }
+            throw lastError ?: IllegalStateException("Error de descarga")
+        }.onFailure { if (!silent) _state.value = State.Failed("No se pudo descargar completa la actualización. Revisa tu internet e intenta de nuevo.") }.getOrNull()
+    }
 
     private fun install(file: File) {
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.updates", file)
@@ -121,7 +153,15 @@ class AppUpdater(private val context: Context, private val http: OkHttpClient) {
         val st = _state.value
         if (!canInstall()) return false
         when (st) {
-            is State.Ready -> { install(st.file); return true }
+            is State.Ready -> {
+                if (withContext(Dispatchers.IO) { valid(st.file, st.versionCode) }) { install(st.file); return true }
+                // La copia guardada se dañó: se borra y se vuelve a descargar.
+                withContext(Dispatchers.IO) { st.file.delete() }
+                val again = State.Available(st.versionName, st.versionCode, lastUrl ?: return true)
+                val file = withContext(Dispatchers.IO) { fetch(again, silent = false) } ?: return true
+                _state.value = State.Ready(st.versionName, st.versionCode, file)
+                install(file)
+            }
             is State.Available -> {
                 val file = withContext(Dispatchers.IO) { fetch(st, silent = false) } ?: return true
                 _state.value = State.Ready(st.versionName, st.versionCode, file)
