@@ -88,8 +88,10 @@ class VideoEngine implements Engine {
   private handlers: [string, any][] = [];
   on(cb: (e: PlayerEvent, d?: string) => void) { this.cb = cb; }
   private clean() {
-    try { this.hls?.destroy(); } catch { /* */ } this.hls = null;
-    try { this.ts?.destroy(); } catch { /* */ } this.ts = null;
+    // Se sueltan primero los eventos y luego se destruye (evita errores de hls.js/mpegts.js al cambiar rápido).
+    const h = this.hls, t = this.ts; this.hls = null; this.ts = null;
+    try { h?.off?.((Hls as any).Events.ERROR); h?.stopLoad?.(); h?.detachMedia?.(); h?.destroy(); } catch { /* */ }
+    try { t?.pause?.(); t?.unload?.(); t?.detachMediaElement?.(); t?.destroy(); } catch { /* */ }
     this.handlers.forEach(([e, h]) => this.v.removeEventListener(e, h)); this.handlers = [];
   }
   private listen(e: string, h: any) { this.v.addEventListener(e, h); this.handlers.push([e, h]); }

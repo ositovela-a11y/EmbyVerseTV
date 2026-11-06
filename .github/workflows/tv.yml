@@ -24,7 +24,7 @@ jobs:
           ls -la dist-pkg
       - name: Prueba en navegador (proveedor simulado)
         run: |
-          npm i --no-save --prefix /tmp/pw playwright@1.48.2 >/dev/null && npx --prefix /tmp/pw playwright install --with-deps chromium >/dev/null
+          npm i --no-save --prefix /tmp/pw playwright@1.48.2 >/dev/null && (cd /tmp/pw && npx playwright install --with-deps chrome >/dev/null)
           (cd tests/android && node mock-xtream.mjs > /tmp/mock.log 2>&1 &)
           cd tv-app && EMBYVERSE_HOST=http://127.0.0.1:8800 EMBYVERSE_CONFIG_URL=http://127.0.0.1:8090/none.json node build.mjs
           (cd dist && python3 -m http.server 8090 >/dev/null 2>&1 &)

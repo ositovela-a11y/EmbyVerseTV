@@ -5,7 +5,8 @@ const out = process.argv[2] || '/tmp/tvshots';
 require('fs').mkdirSync(out, { recursive: true });
 const fail = (m) => { console.error('FALLA: ' + m); process.exitCode = 1; };
 (async () => {
-  const b = await chromium.launch();
+  // Google Chrome (trae los códecs H.264/AAC que tienen las TVs); en local, el Chromium instalado.
+  const b = await chromium.launch(process.env.CI ? { channel: 'chrome' } : {});
   const p = await b.newPage({ viewport: { width: 1920, height: 1080 } });
   const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   const key = async (k, n = 1) => { for (let i = 0; i < n; i++) { await p.keyboard.press(k); await p.waitForTimeout(180); } };
@@ -45,7 +46,7 @@ const fail = (m) => { console.error('FALLA: ' + m); process.exitCode = 1; };
   console.log('Película reproduciendo en segundo', mv.toFixed(1)); if (!(mv > 0)) fail('la película no se reprodujo');
   await shot('10-reproductor-pelicula'); await key('Escape'); await p.waitForTimeout(800);
   // Series
-  await menu(3); await p.waitForSelector('.grid .card', { timeout: 60000 }); await key('ArrowDown'); await key('Enter');
+  await menu(3); await p.waitForSelector('.grid .card', { timeout: 60000 }); await p.waitForTimeout(800); await p.evaluate(() => document.querySelectorAll('.grid .card')[1].click());
   await p.waitForSelector('.episodes .card', { timeout: 30000 }).catch(() => fail('no cargaron los episodios')); await p.waitForTimeout(1500); await shot('11-serie');
   // Búsqueda con falta de ortografía
   await menu(4); await p.fill('input', 'pelicla 12'); await p.waitForTimeout(6000); await shot('12-busqueda');
