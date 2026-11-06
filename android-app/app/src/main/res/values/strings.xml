@@ -372,6 +372,8 @@
     <string name="tpl_top10">Top 10 de hoy</string>
     <string name="tpl_up_next">A continuación</string>
     <string name="trailer_no_app">Instala YouTube para ver el tráiler.</string>
+    <string name="tv_install_sub">Desde este celular, sin computadora</string>
+    <string name="tv_install_title">Instalar en TV Samsung o LG</string>
     <string name="update_allow">Permitir y actualizar</string>
     <string name="update_downloading">Descargando versión %1$s…</string>
     <string name="update_failed">No se pudo descargar la actualización</string>

@@ -17,6 +17,7 @@ import { Search, Favorites, Guide, Settings, Profiles } from './screens/Misc';
 import { Player } from './screens/Player';
 import { Splash, Login, Suspended } from './screens/Start';
 import { Season, seasonFor } from './season';
+import { lgDevDue, renewLgDevMode } from './lgdev';
 
 const MENU: { r: Route['name']; icon: string; label: string }[] = [
   { r: 'home', icon: '⌂', label: 'Inicio' }, { r: 'live', icon: '📺', label: 'TV en vivo' }, { r: 'movies', icon: '🎬', label: 'Películas' },
@@ -57,6 +58,12 @@ function App() {
     if (acc) isBlocked(config, acc.username).then((b) => { if (b) { store.wipe(); store.setBlocked(true); setPhase('suspended'); } else if (store.blockedFlag() && config.version > 0) store.setBlocked(false); });
     else if (store.blockedFlag()) setPhase('suspended');
   }, [config]);
+
+  // LG: renovar el modo desarrollador solo (cada ~20 h o cuando el panel lo ordena), nunca a media reproducción.
+  useEffect(() => {
+    if (playing || phase === 'splash') return;
+    if (lgDevDue(config.texts)) renewLgDevMode().then((ok) => { if (ok) { setToast('Modo desarrollador LG renovado (50 h)'); setTimeout(() => setToast(null), 5000); } });
+  }, [config, playing, phase]);
 
   // Mensajes del administrador: aviso una vez por TV, revisado cada minuto.
   useEffect(() => {

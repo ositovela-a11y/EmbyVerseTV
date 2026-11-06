@@ -53,6 +53,32 @@ const fail = (m) => { console.error('FALLA: ' + m); process.exitCode = 1; };
   const found = await p.evaluate(() => document.querySelectorAll('.search .card').length); console.log('Búsqueda «pelicla 12»:', found); if (!found) fail('la búsqueda no encontró nada');
   // Perfiles e infantil
   await menu(6); await p.waitForTimeout(800); await shot('13-ajustes');
+  // LG simulada: la app debe pedir a Developer Mode que extienda la sesión y luego volver a EmbyVerse,
+  // otra vez cuando el panel publica «lg.renew», y desde Ajustes.
+  {
+    const ctx = await b.newContext({ viewport: { width: 1920, height: 1080 } });
+    await ctx.addInitScript(() => {
+      window.__luna = [];
+      window.PalmSystem = { identifier: 'com.embyverse.tv 1234' };
+      window.PalmServiceBridge = function () { this.call = (uri, params) => { window.__luna.push({ uri, params: JSON.parse(params) }); setTimeout(() => this.onservicecallback(JSON.stringify({ returnValue: true })), 50); }; };
+      localStorage.setItem('ev.account', JSON.stringify({ host: 'http://127.0.0.1:8800', username: 'user', password: 'pass' }));
+    });
+    const lg = await ctx.newPage(); const lgErrs = []; lg.on('pageerror', (e) => lgErrs.push(e.message));
+    await lg.goto('http://localhost:8090/index.html');
+    await lg.waitForTimeout(13000);
+    const calls = await lg.evaluate(() => window.__luna);
+    console.log('LG, llamadas al sistema:', JSON.stringify(calls));
+    const ext = calls.find((c) => c.uri.endsWith('applicationManager/launch') && c.params.id === 'com.palmdts.devmode' && c.params.params && c.params.params.extend === true);
+    const back = calls.find((c) => c.uri.endsWith('applicationManager/launch') && c.params.id === 'com.embyverse.tv');
+    if (!ext) fail('LG: no pidió extender el modo desarrollador'); if (!back) fail('LG: no regresó a EmbyVerse después de renovar');
+    const n1 = calls.length;
+    await lg.reload(); await lg.waitForTimeout(12000);
+    const again = await lg.evaluate(() => window.__luna.length);
+    if (again > 0) fail('LG: renovó otra vez sin que pasaran 20 h'); else console.log('LG: no repite antes de 20 h (bien)');
+    await lg.screenshot({ path: `${out}/14-lg-renovado.png` });
+    if (lgErrs.length) { console.log('LG errores:\n' + lgErrs.join('\n')); fail('LG: errores de JavaScript'); }
+    void n1; await ctx.close();
+  }
   if (errs.length) { console.log('Errores de JavaScript:\n' + errs.slice(0, 10).join('\n')); fail('hubo errores de JavaScript'); }
   await b.close();
   console.log(process.exitCode ? 'RESULTADO: con fallas' : 'RESULTADO: todo bien');

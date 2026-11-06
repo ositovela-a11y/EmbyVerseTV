@@ -14,3 +14,13 @@
 # emulador sobre este mismo APK). R8 sigue optimizando Compose, Media3, OkHttp, Coil y Room.
 -keep class com.embyverse.** { *; }
 -dontwarn org.slf4j.**
+
+# JSch (instalador de TV LG) carga sus cifrados por reflexión y referencia librerías opcionales.
+-keep class com.jcraft.jsch.** { *; }
+-dontwarn com.jcraft.jsch.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.apache.logging.**
+-dontwarn org.slf4j.**
+-dontwarn com.sun.jna.**
+-dontwarn org.newsclub.**
+-dontwarn javax.security.auth.**

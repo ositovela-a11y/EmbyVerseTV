@@ -11,5 +11,9 @@
   "iconColor": "#02050C",
   "resolution": "1920x1080",
   "disableBackHistoryAPI": true,
-  "requiredPermissions": ["time.query", "activity.operation"]
+  "requiredPermissions": [
+    "time.query",
+    "activity.operation",
+    "applications.operation"
+  ]
 }

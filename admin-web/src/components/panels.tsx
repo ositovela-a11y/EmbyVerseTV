@@ -571,6 +571,12 @@ export function PremiumPanel({ ed, canEdit }: PanelProps) {
         <p className="hint">Se muestran en el orden que escribas; vacío = sin fila.</p>
       </Group>
       <BlockedClients ed={ed} canEdit={canEdit} />
+      <Group title="TVs LG: modo desarrollador" hint="LG borra las apps instaladas en modo desarrollador si pasan 50 horas sin renovar. La app EmbyVerse de cada LG lo renueva sola cada 20 horas cuando la abren. Con este botón ordenas una renovación inmediata en todas tus LG.">
+        <div className="row">
+          <button className="btn" disabled={!canEdit} onClick={() => set('lg.renew', String(Date.now()), 'lg.renew')}>Renovar en todas las LG</button>
+        </div>
+        <p className="hint">{t['lg.renew'] ? `Última orden: ${new Date(Number(t['lg.renew'])).toLocaleString('es-MX')}. ` : ''}Se envía al <b>publicar</b>. Las TVs con la app abierta la reciben en menos de 10 minutos y las demás al abrirla (la app no renueva mientras el cliente está viendo un canal o película: espera a que salga). Si una TV pasa más de 50 horas apagada o sin abrir la app, LG borra la app y el cliente debe reinstalarla con el instalador del celular.</p>
+      </Group>
       <Group title="Ayuda por WhatsApp" hint="Botón «Ayuda» en Ajustes: abre WhatsApp con un reporte (versión, dispositivo, red, cuenta) para que puedas atender rápido. Nunca envía la contraseña.">
         <TextField label="Número con lada (solo dígitos)" value={wa} max={20} placeholder="5215512345678" disabled={!canEdit} onChange={(v) => set('support.whatsapp', v.replace(/[^0-9]/g, ''), 'wa')} />
         {wa && wa.length < 10 && <Notice kind="error">Escribe el número completo con lada de país (p. ej. 52 + 10 dígitos).</Notice>}

@@ -371,6 +371,8 @@
     <string name="tpl_top10">Today\'s Top 10</string>
     <string name="tpl_up_next">Up next</string>
     <string name="trailer_no_app">Install YouTube to watch the trailer.</string>
+    <string name="tv_install_sub">From this phone, no computer needed</string>
+    <string name="tv_install_title">Install on Samsung or LG TV</string>
     <string name="update_allow">Allow and update</string>
     <string name="update_downloading">Downloading version %1$s…</string>
     <string name="update_failed">Update download failed</string>

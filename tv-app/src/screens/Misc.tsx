@@ -1,3 +1,4 @@
+import { lgDevSupported, lgDevLast, lgDevError, renewLgDevMode } from '../lgdev';
 import { useEffect, useState } from 'react';
 import { Card, Fx, Img, Row, Spinner, useApp, useLoad } from '../ui';
 import { search, liveIn, client, clearCache } from '../catalog';
@@ -122,6 +123,8 @@ export function Settings() {
           <Toggle label="Protector de pantalla (5 min)" v={p.screensaver} k="screensaver" />
           <Toggle label="Intro con sonido" v={p.intro} k="intro" />
           <Toggle label="Modo para equipos lentos" v={p.lite} k="lite" />
+          {lgDevSupported() && <Fx className="setting" onClick={() => renewLgDevMode().then((ok) => { app.toast(ok ? 'Modo desarrollador renovado por 50 h' : `No se pudo renovar. ${lgDevError()}`); setP(store.prefs()); })}>
+            <span>🛠 Modo desarrollador LG</span><b>{lgDevLast() ? `Renovado ${new Date(lgDevLast()).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} · Renovar` : 'Renovar ahora'}</b></Fx>}
           <Fx className="setting" onClick={measure}><span>📶 Prueba de velocidad</span><b>{speed || 'Medir'}</b></Fx>
           {wa && <Fx className="setting" onClick={() => app.toast(`Escríbenos por WhatsApp: +${wa}\nReporte: EmbyVerse TV ${__VERSION__} · ${deviceInfo()} · usuario ${acc?.username ?? '-'}`)}><span>💬 Ayuda por WhatsApp</span><b>+{wa}</b></Fx>}
           <Fx className="setting danger" onClick={() => { getEngine().stop(); store.setAccount(null); clearCache(); location.reload(); }}><span>⎋ Cerrar sesión</span><b /></Fx>

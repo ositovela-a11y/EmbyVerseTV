@@ -151,6 +151,7 @@ fun SettingsScreen(nav: Navigator) {
             item { SettingsItem(Icons.Rounded.PlayCircle, stringResource(R.string.playback_title), stringResource(R.string.settings_playback_sub)) { nav.go(Routes.PLAYBACK) } }
             item { SettingsItem(Icons.Rounded.Favorite, stringResource(R.string.favorites_title), stringResource(R.string.settings_favorites_sub)) { nav.go(Routes.FAVORITES) } }
             item { SettingsItem(Icons.Rounded.Language, stringResource(R.string.language_title), currentLanguageLabel()) { langDialog = true } }
+            item { SettingsItem(androidx.compose.material.icons.Icons.Rounded.Tv, stringResource(R.string.tv_install_title), stringResource(R.string.tv_install_sub)) { nav.go(Routes.TV_INSTALL) } }
             item { SettingsItem(Icons.Rounded.Policy, stringResource(R.string.privacy_title), null) { nav.go(Routes.PRIVACY) } }
             if (!helpNumber.isNullOrBlank()) item {
                 SettingsItem(Icons.Rounded.SupportAgent, stringResource(R.string.help_whatsapp), stringResource(R.string.help_whatsapp_sub)) {

@@ -482,6 +482,27 @@ class SmokeFlowTest {
         log("Mejoras pro verificadas")
     }
 
+    /**
+     * Instalador de TV LG contra una «TV LG simulada» en la máquina de CI (ver android-emulator.yml):
+     * servidor de llaves en :9991 con la llave cifrada con la passphrase, SSH de prisoner en :9922 y un
+     * luna-send-pub falso que registra las órdenes. Comprueba descarga de llave, SSH, subida, instalación y renovación.
+     */
+    @Test fun k_instaladorTvLg() = runBlocking {
+        val host = android.net.Uri.parse(base).host ?: "10.0.2.2"
+        val inst = com.embyverse.app.data.tv.LgTvInstaller(app, app.container.okHttp)
+        val steps = mutableListOf<String>()
+        val t0 = System.currentTimeMillis()
+        val r = inst.install(host, "ABC123", listOf("http://$host:9991/fake.ipk")) { steps += it }
+        log("Instalador LG: ${r.ok} · ${r.message} · ${System.currentTimeMillis() - t0} ms · pasos: $steps")
+        assertTrue("instalador LG: ${r.message}", r.ok)
+        val again = inst.renew()
+        log("Renovar LG desde el celular: ${again.ok} · ${again.message}")
+        assertTrue("renovar LG: ${again.message}", again.ok)
+        val bad = inst.install(host, "ZZZ999", listOf("http://$host:9991/fake.ipk")) { }
+        log("Passphrase equivocada: ${bad.message}")
+        assertTrue("con passphrase equivocada no debe instalar", !bad.ok)
+    }
+
     private fun hasTagPrefix(prefix: String) = SemanticsMatcher("tag empieza por $prefix") {
         it.config.getOrNull(SemanticsProperties.TestTag)?.startsWith(prefix) == true
     }

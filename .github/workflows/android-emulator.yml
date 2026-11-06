@@ -47,6 +47,20 @@ jobs:
         run: |
           nohup node tests/android/mock-xtream.mjs 8800 > mock.log 2>&1 &
           sleep 3; curl -sf "http://localhost:8800/player_api.php?username=user&password=pass" > /dev/null && echo "proveedor listo"
+      - name: TV LG simulada (para probar el instalador desde el celular)
+        run: |
+          sudo apt-get install -y openssh-server > /dev/null 2>&1 || true
+          sudo useradd -m -s /bin/bash prisoner && sudo usermod -p '*' prisoner
+          mkdir -p /tmp/lgkey && ssh-keygen -q -t rsa -b 2048 -m PEM -N ABC123 -f /tmp/lgkey/webos_rsa
+          sudo mkdir -p /home/prisoner/.ssh /media/developer && sudo cp /tmp/lgkey/webos_rsa.pub /home/prisoner/.ssh/authorized_keys
+          sudo chown -R prisoner /home/prisoner/.ssh /media/developer && sudo chmod 700 /home/prisoner/.ssh && sudo chmod 600 /home/prisoner/.ssh/authorized_keys
+          printf '%s\n' '#!/bin/bash' 'echo "$*" >> /tmp/luna.log' \
+            'case "$*" in *appInstallService*) f=$(echo "$*" | grep -o "/media/developer/temp/[a-z]*\.ipk"); if head -c 8 "$f" | grep -q "<arch>"; then echo "{\"returnValue\":true}"; sleep 1; echo "{\"details\":{\"state\":\"installed\"}}"; else echo "{\"returnValue\":false,\"errorText\":\"bad ipk\"}"; fi ;; *) echo "{\"returnValue\":true}" ;; esac' \
+            | sudo tee /usr/local/bin/luna-send-pub > /dev/null && sudo chmod 755 /usr/local/bin/luna-send-pub
+          sudo mkdir -p /run/sshd && sudo ssh-keygen -A && sudo /usr/sbin/sshd -p 9922 -o PasswordAuthentication=no -E /tmp/sshd.log
+          { printf '!<arch>\n'; head -c 40000 /dev/urandom; } > /tmp/lgkey/fake.ipk
+          (cd /tmp/lgkey && nohup python3 -m http.server 9991 > /tmp/keyserver.log 2>&1 &)
+          sleep 2; curl -sf http://localhost:9991/webos_rsa | head -2
       - name: Emulador y recorrido
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -84,6 +98,7 @@ jobs:
       - name: Resultado
         if: always()
         run: |
+          echo '--- TV LG simulada: órdenes recibidas ---'; cat /tmp/luna.log 2>/dev/null || true; sudo tail -5 /tmp/sshd.log 2>/dev/null || true
           grep -h "EVTEST" logcat.txt | sed 's/^.*EVTEST[^:]*: //' | while read -r l; do echo "::notice::$l"; done || true
           grep -A25 "FATAL EXCEPTION\|OutOfMemoryError\|ANR in" logcat.txt | head -80 | sed 's/^/::error::/' || true
           grep -E "FAILURES|OK \(|Process crashed|shortMsg|INSTRUMENTATION_FAILED|Error in|AssertionError|Exception" instrument.txt | head -20 | sed 's/^/::warning::/' || true

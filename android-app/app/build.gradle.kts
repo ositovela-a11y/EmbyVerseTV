@@ -35,8 +35,8 @@ android {
         applicationId = if (vendor != null) "com.embyverse.app.v.$vendor" else "com.embyverse.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 24
-        versionName = "1.13.0"
+        versionCode = 25
+        versionName = "1.14.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testProguardFiles("test-proguard-rules.pro")
         buildConfigField("String", "CONFIG_BASE_URL", "\"${configBaseUrl.replace("\"", "")}\"")
@@ -175,6 +175,7 @@ dependencies {
     implementation(libs.media3.ui)
 
     implementation(libs.okhttp)
+    implementation(libs.jsch) // instalador de EmbyVerse en TVs LG (SSH del modo desarrollador)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
 

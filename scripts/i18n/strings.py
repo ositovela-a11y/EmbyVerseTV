@@ -92,6 +92,8 @@ S = {
 "event_featured": ("EVENTO DESTACADO", "FEATURED EVENT"),
 "event_live_now": ("● EN VIVO AHORA", "● LIVE NOW"),
 "cd_days": ("días", "days"), "cd_hours": ("horas", "hours"), "cd_min": ("min", "min"), "cd_sec": ("seg", "sec"),
+"tv_install_title": ("Instalar en TV Samsung o LG", "Install on Samsung or LG TV"),
+"tv_install_sub": ("Desde este celular, sin computadora", "From this phone, no computer needed"),
 "help_whatsapp": ("Ayuda por WhatsApp", "Help via WhatsApp"),
 "help_whatsapp_sub": ("Envía a soporte un reporte del equipo (sin contraseñas)", "Send support a device report (no passwords)"),
 "favorites_order": ("Ordenar", "Reorder"),
