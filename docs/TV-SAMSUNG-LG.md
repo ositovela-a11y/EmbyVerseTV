@@ -1,71 +1,89 @@
-# EmbyVerse en TVs Samsung y LG (modo desarrollador)
+# EmbyVerse en TVs Samsung y LG, sin computadora
 
-Las TVs Samsung (Tizen) y LG (webOS) no instalan APK. Para ellas existe **la misma app EmbyVerse en versión web para TV**: misma cuenta, mismos colores, logo, mensajes y suspensión de clientes de tu panel. Se instala **en modo desarrollador**, sin pasar por ninguna tienda, así que nadie la puede rechazar ni bajar.
+Las TVs Samsung y LG no instalan APK. Por eso existe **la misma app EmbyVerse en versión para TV**. Usa la misma cuenta, tus colores y logo, y respeta los mensajes y las suspensiones de tu panel.
 
-| | Samsung | LG |
+Se instala **en modo desarrollador**, sin pasar por ninguna tienda, así que nadie la puede rechazar ni bajar. **No hace falta PC.** El cliente lo hace desde su **celular Android con EmbyVerse**, conectado al **mismo Wi-Fi** que la TV.
+
+| | LG | Samsung |
 |---|---|---|
-| Archivo | `EmbyVerse-Samsung.wgt` (se firma una vez con tu certificado) | `EmbyVerse-LG.ipk` (listo) |
-| Qué necesitas | PC con Tizen Studio y cuenta Samsung (gratis) | PC con webOS CLI y cuenta LG Developer (gratis) |
-| ¿Cuánto dura instalada? | Se queda instalada. Se pierde si restableces la TV de fábrica | **El modo desarrollador de LG caduca a las 50 h** si no se renueva; al caducar, LG borra la app (ver abajo) |
-| Actualizaciones | **Solas**: al abrir, la app carga la versión nueva desde tu sitio (sin reinstalar) | **Solas**, igual |
-
-Los archivos están en GitHub → **Releases** → `tv-latest` (o `tv-beta` para la versión de revisión), y también en tu sitio: `…/EmbyVerseTV/tv/`.
-
----
-
-## Samsung (Tizen 4.0 o más nuevo, TVs 2018+)
-
-### 1. Poner la TV en modo desarrollador (una sola vez)
-1. En la TV abre **Apps** (Aplicaciones).
-2. Con el control escribe **1 2 3 4 5**. Aparece «Developer mode».
-3. Ponlo en **ON** y escribe la **IP de tu PC** (en Windows: `ipconfig`). Acepta y **reinicia la TV** (apágala y préndela con el control, espera 1 minuto).
-
-### 2. Preparar la PC (una sola vez)
-1. Instala **Tizen Studio** (versión con IDE) desde developer.tizen.org.
-2. Abre **Package Manager** → pestaña *Extension SDK* → instala **TV Extensions** y **Samsung Certificate Extension**.
-3. Abre **Device Manager** → *Remote Device Manager* → **+** → escribe la IP de la TV → conecta. (Para ver la IP de la TV: Configuración → General → Red → Estado de red.)
-4. Abre **Certificate Manager** → **+** → **Samsung** → tipo **TV** → crea el certificado de autor y el de distribuidor iniciando sesión con tu **cuenta Samsung**. En «DUID» elige la TV conectada (puedes agregar más TVs después).
-
-### 3. Firmar e instalar
-En la carpeta de Tizen Studio (`tizen-studio/tools/ide/bin`) abre una terminal y ejecuta:
-```
-tizen package -t wgt -s <nombre-de-tu-certificado> -- RUTA/EmbyVerse-Samsung.wgt
-sdb connect IP_DE_LA_TV
-tizen install -n RUTA/EmbyVerse-Samsung.wgt -t <nombre-de-la-tv-que-muestra-sdb-devices>
-```
-La app **EmbyVerse** aparece en Apps. Para más TVs: agrega su DUID al certificado de distribuidor y repite el paso 3.
+| Con qué se instala | La app EmbyVerse del celular (Ajustes → **Instalar en TV Samsung o LG**) | El instalador gratuito **Apps2Samsung** en el celular |
+| Cuenta que se necesita | Cuenta **LG Developer** (gratis) | Cuenta **Samsung** (gratis) |
+| ¿Caduca? | LG da 50 h de modo desarrollador. **EmbyVerse lo renueva sola** (ver abajo) | No caduca |
+| Actualizaciones | Solas, al abrir la app | Solas, al abrir la app |
+| TVs compatibles | webOS 4 o más nueva (2018+) | Tizen 4 o más nueva (2018+) |
 
 ---
 
-## LG (webOS 4.0 o más nuevo, TVs 2018+)
+## LG paso a paso (lo que hace el cliente)
 
-### 1. Cuenta y modo desarrollador (una sola vez)
-1. Crea una cuenta gratis en **webostv.developer.lge.com** (Sign in → Create account).
-2. En la TV, desde **LG Content Store**, instala la app **Developer Mode**. Ábrela, entra con tu cuenta LG Developer.
-3. Pon **Dev Mode Status** en **ON** (la TV se reinicia). Vuelve a abrir Developer Mode y pon **Key Server** en **ON**. Anota la **IP** que muestra.
+**En la TV (una sola vez):**
+1. Abre **LG Content Store**, busca **Developer Mode** e instálala.
+2. Abre **Developer Mode** e inicia sesión con una cuenta **LG Developer**. Se crea gratis en `webostv.developer.lge.com` → *Sign in* → *Create account*. Puede ser la del cliente o una que tú le des; mira «Cuentas LG» abajo.
+3. Pon **Dev Mode Status** en **ON**. La TV se reinicia sola.
+4. Vuelve a abrir **Developer Mode** y pon **Key Server** en **ON**. Deja esa pantalla abierta: ahí se ven la **IP** y la **Passphrase** (6 letras).
 
-### 2. Preparar la PC (una sola vez)
-1. Instala Node.js y luego: `npm install -g @webos-tools/cli`
-2. Agrega la TV: `ares-setup-device` → *add* → nombre `tv`, IP de la TV, puerto `9922`, usuario `prisoner`.
-3. Descarga la llave: `ares-novacom --device tv --getkey` y escribe la **Passphrase** que muestra la app Developer Mode.
+**En el celular:**
 
-### 3. Instalar
-```
-ares-install --device tv RUTA/EmbyVerse-LG.ipk
-```
-La app **EmbyVerse** aparece en la lista de apps de la TV.
+5. Abre **EmbyVerse** → **Ajustes** → **Instalar en TV Samsung o LG** → **TV LG**.
+6. Escribe la **IP** y la **Passphrase** que muestra la TV y toca **Instalar EmbyVerse**.
+7. En menos de un minuto aparece «EmbyVerse quedó instalada». La app se abre sola en la TV y el modo desarrollador queda renovado por 50 h.
 
-### Importante: renovar el modo desarrollador de LG
-LG da sesiones de desarrollador de **50 horas**. Antes de que se acaben, abre la app **Developer Mode** en la TV y pulsa **Extend** (vuelve a 50 h). **Si se acaba, LG borra las apps instaladas en modo desarrollador** y hay que volver a instalar (paso 3). Desde la PC también se puede renovar: `ares-extend-dev --device tv`.
+### Cómo se mantiene la LG sin que el cliente haga nada
+- **Sola:** cada vez que el cliente abre EmbyVerse en la TV, si pasaron 20 horas desde la última renovación, la app vuelve a pedir las 50 h. La pantalla de Developer Mode parpadea 3 segundos y regresa a EmbyVerse. Nunca lo hace a media película o canal.
+- **Desde tu celular, a distancia:** en tu panel (Design Studio) → **Temporada y eventos** → **TVs LG: modo desarrollador** → **Renovar en todas las LG** → **Publicar**. Las LG con la app abierta lo reciben en menos de 10 minutos y las demás al abrirla. El panel funciona en el navegador del celular.
+- **Desde el celular del cliente:** la misma pantalla del instalador tiene **Renovar 50 h** (en el mismo Wi-Fi).
+- En la TV, **Ajustes → Modo desarrollador LG** muestra cuándo se renovó y tiene un botón para renovar al momento.
+
+**Lo único que no se puede evitar:** si la TV pasa **más de 50 horas sin abrir EmbyVerse** (vacaciones, TV desconectada), LG borra la app. El cliente repite los pasos 4 a 7. La IP y la Passphrase quedan guardadas en su celular, así que es un solo toque. Recomiéndale abrir EmbyVerse al menos una vez cada dos días.
+
+### Cuentas LG
+- Lo más simple es que **cada cliente cree su propia cuenta LG Developer** (gratis, con su correo).
+- Si prefieres dársela tú, crea una cuenta **solo para eso**, nunca tu cuenta personal. Puede usarse en varias TVs, pero LG no publica un límite, y si LG la bloquea afectaría a todas esas TVs a la vez.
+
+---
+
+## Samsung paso a paso (lo que hace el cliente)
+
+**En el celular:**
+1. En EmbyVerse → **Ajustes** → **Instalar en TV Samsung o LG** → **TV Samsung**, toca **Descargar Apps2Samsung** e instálala.
+   - Es un instalador gratuito de código abierto, independiente de Samsung.
+   - Android pedirá permitir instalar apps de esa fuente: acepta.
+2. En la misma pantalla toca **Descargar EmbyVerse para Samsung**. Se guarda `EmbyVerse-Samsung.wgt` en Descargas.
+3. Anota la **IP del celular**: Ajustes del celular → Wi-Fi → toca tu red.
+
+**En la TV (una sola vez):**
+
+4. Entra a **Apps**. Con el control escribe **1 2 3 4 5**. Aparece «Developer mode».
+5. Ponlo en **ON** y escribe la **IP del celular**. Acepta.
+6. **Apaga y prende la TV** con el control y espera 1 minuto.
+
+**En el celular:**
+
+7. Abre **Apps2Samsung**. Encuentra la TV (o escribe su IP: TV → Configuración → General → Red → Estado de red).
+8. Elige **instalar un archivo .wgt propio** y selecciona `EmbyVerse-Samsung.wgt` de Descargas.
+9. La primera vez te pide **iniciar sesión con una cuenta Samsung** para firmar la app para esa TV. Inicia sesión.
+10. Listo: **EmbyVerse** aparece en Apps de la TV. En Samsung no caduca y se actualiza sola.
 
 ---
 
 ## Qué trae la versión de TV
-Inicio con banner de novedades, continuar viendo, partidos del día, evento destacado con cuenta regresiva, canales destacados, sagas y colecciones · TV en vivo con carpetas, favoritos, historial y guía (ahora/sigue) · Guía de TV · Películas y series con carpetas, fichas, temporadas y episodios · Búsqueda inteligente (sin acentos, con faltas de ortografía, por género) · Reproductor: cambio de canal con ▲▼ y CH+/−, número de canal con el teclado del control, canal anterior, lista de canales con ◀, audio y subtítulos, formato de pantalla, favoritos, saltar intro, siguiente episodio automático, continuar donde te quedaste · Perfiles con avatar, perfil infantil (solo contenido para niños, colores alegres, límite diario y PIN para salir), ocultar adultos, idioma preferido por perfil · Mensajes del panel, suspensión de clientes, servidor fijo o pedido por URL, colores y logo del panel · 60 fondos animados de temporada, protector de pantalla, sonidos de navegación, modo para equipos lentos, prueba de velocidad · Menú lateral o barra superior.
+Inicio con banner, continuar viendo, partidos del día, evento con cuenta regresiva, canales destacados, sagas · TV en vivo con carpetas, favoritos y guía · películas y series con fichas, temporadas y episodios · búsqueda inteligente · cambio de canal con flechas, CH+/− y número, canal anterior, audio y subtítulos, formato de pantalla, saltar intro, siguiente episodio · perfiles, perfil infantil, ocultar adultos · mensajes del panel, suspensión de clientes · 60 fondos animados, protector de pantalla, modo para equipos lentos, prueba de velocidad.
 
-**Diferencias con Android:** no hay Chromecast, imagen en imagen, widget, notificaciones con la app cerrada ni recordatorios en segundo plano (las TVs no lo permiten a apps instaladas en modo desarrollador); el modo noche de audio no está disponible en el reproductor de las TVs.
+**No disponible en TVs:**
+- Chromecast
+- Imagen en imagen
+- Widget
+- Avisos con la app cerrada
+- Modo noche de audio
 
 ## Si algo falla
-- **No abre / pantalla negra:** la TV debe ser 2018 o más nueva (Samsung Tizen 4+, LG webOS 4+).
-- **«No se pudo conectar con el servidor»:** revisa la dirección del servidor en tu panel. Algunas TVs no aceptan servidores `https` con certificado vencido.
-- **Un canal no reproduce:** la app prueba sola el otro formato (HLS ↔ .ts). Si aún falla, el canal no es compatible con el reproductor de esa TV.
+- **«No se pudo pedir la llave a la TV» (LG):**
+  - **Key Server** debe estar en ON en Developer Mode.
+  - El celular debe estar en el mismo Wi-Fi que la TV, no con datos móviles.
+  - Revisa la IP.
+- **«La Passphrase no es correcta» (LG):** escríbela igual que en la TV. Si la TV la cambió, apaga y prende Key Server y usa la nueva.
+- **Apps2Samsung no encuentra la TV:** la IP en «Developer mode» de la TV debe ser la del celular, y la TV se debe reiniciar después de ponerla.
+- **Un canal no reproduce:** la app prueba sola el otro formato (HLS ↔ .ts). Si aún falla, ese canal no es compatible con esa TV.
+
+## Si el cliente tiene iPhone
+El instalador de LG está en la app Android. Con iPhone hace falta que alguien con un celular Android en esa casa lo haga una vez. Apps2Samsung para iPhone está en prueba y requiere computadora para instalarse.
