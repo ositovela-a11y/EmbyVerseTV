@@ -3,6 +3,11 @@ package com.embyverse.app.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
@@ -32,13 +37,16 @@ fun UpdateDialog(updater: AppUpdater) {
     val nudge by updater.nudge.collectAsStateWithLifecycle()
     var hidden by remember(nudge) { mutableStateOf(updater.snoozed) }
     var needsPermission by remember { mutableStateOf(false) }
+    val notes by updater.notes.collectAsStateWithLifecycle()
     val s = state
     if (hidden) return
+    // Lo nuevo de la versión + crédito de diseño, en cada actualización.
+    val body: @Composable (String) -> Unit = { msg -> ReleaseNotesBody(msg, notes) }
     when (s) {
         is AppUpdater.State.Available -> AlertDialog(
             onDismissRequest = { updater.later(); hidden = true },
             title = { Text(stringResource(R.string.update_title, s.versionName)) },
-            text = { Text(stringResource(if (needsPermission) R.string.update_permission else R.string.update_message)) },
+            text = { body(stringResource(if (needsPermission) R.string.update_permission else R.string.update_message)) },
             confirmButton = {
                 TextButton(onClick = {
                     if (needsPermission) updater.openInstallPermission()
@@ -50,7 +58,7 @@ fun UpdateDialog(updater: AppUpdater) {
         is AppUpdater.State.Ready -> AlertDialog(
             onDismissRequest = { updater.later(); hidden = true },
             title = { Text(stringResource(R.string.update_ready_title, s.versionName)) },
-            text = { Text(stringResource(R.string.update_ready_message)) },
+            text = { body(stringResource(R.string.update_ready_message)) },
             confirmButton = { TextButton(onClick = { scope.launch { updater.downloadAndInstall() } }, modifier = Modifier.testTag("update_install")) { Text(stringResource(R.string.update_install)) } },
             dismissButton = { TextButton(onClick = { updater.later(); hidden = true }) { Text(stringResource(R.string.update_later)) } },
         )
@@ -72,5 +80,20 @@ fun UpdateDialog(updater: AppUpdater) {
             confirmButton = { TextButton(onClick = { hidden = true; scope.launch { updater.check() } }) { Text(stringResource(R.string.action_ok)) } },
         )
         AppUpdater.State.Idle -> Unit
+    }
+}
+
+
+/** Mensaje + «Qué hay de nuevo» (lista) + «Diseñada por EmbyVerse». Se desplaza si es largo. */
+@Composable
+fun ReleaseNotesBody(message: String?, notes: List<String>) {
+    val t = LocalEmby.current
+    Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()).testTag("release_notes"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (notes.isNotEmpty()) {
+            Text(stringResource(R.string.update_whats_new), style = MaterialTheme.typography.titleSmall, color = t.onBackground)
+            notes.forEach { n -> Row { Text("✦  ", color = t.accent); Text(n, style = MaterialTheme.typography.bodyMedium) } }
+        }
+        message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = t.textSecondary) }
+        Text(stringResource(R.string.credit_about), style = MaterialTheme.typography.labelMedium, color = t.accent, modifier = Modifier.testTag("credit_update"))
     }
 }

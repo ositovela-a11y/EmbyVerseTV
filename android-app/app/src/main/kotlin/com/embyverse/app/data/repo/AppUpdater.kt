@@ -37,6 +37,9 @@ class AppUpdater(private val context: Context, private val http: OkHttpClient) {
     }
 
     private var lastUrl: String? = null
+    /** «Qué hay de nuevo» de la versión que se ofrece (viene en update.json, en el idioma del equipo). */
+    private val _notes = MutableStateFlow<List<String>>(emptyList())
+    val notes: StateFlow<List<String>> = _notes
     private val _state = MutableStateFlow<State>(State.Idle)
     val state: StateFlow<State> = _state
     /** «Después»: no se vuelve a preguntar hasta reiniciar la app. */
@@ -66,6 +69,11 @@ class AppUpdater(private val context: Context, private val http: OkHttpClient) {
             val name = app["versionName"]?.jsonPrimitive?.content ?: "$code"
             val path = app["path"]?.jsonPrimitive?.content ?: return@withContext
             val url = if (path.startsWith("http")) path else "$base/${path.trimStart('/')}"
+            _notes.value = runCatching {
+                val n = app["notes"]?.jsonObject ?: return@runCatching emptyList()
+                val lang = if (java.util.Locale.getDefault().language == "en") "en" else "es"
+                ((n[lang] ?: n["es"]) as? kotlinx.serialization.json.JsonArray)?.map { it.jsonPrimitive.content }?.filter { it.isNotBlank() }.orEmpty()
+            }.getOrDefault(emptyList())
             val cur = _state.value
             if (code <= BuildConfig.VERSION_CODE) { _state.value = State.Idle; return@withContext }
             if (cur is State.Ready && cur.versionCode == code && valid(cur.file, code)) return@withContext

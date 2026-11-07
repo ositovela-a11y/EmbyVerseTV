@@ -82,6 +82,8 @@ Repositorio: github.com/ositovela-a11y/EmbyVerseTV (agrégalo a la sesión).
   provider.host, provider.askHost, provider.epgUrl, season, event.*, support.whatsapp, home.channels,
   style.default, blocked.users*).
 - Textos de la app: scripts/i18n/strings.py → `python3 scripts/i18n/strings.py`.
+- En CADA versión nueva agrega sus notas en android-app/app/src/main/assets/release-notes.json (sin el nombre
+  de la app): se muestran al ofrecer la actualización y en «Novedades».
 - Firma: android-app/app/embyverse-debug.keystore (NO cambiarla: los clientes tendrían que reinstalar).
 - La APK no debe llevar secretos. Nada de saltarse DRM. Publica a mis clientes (merge beta → main)
   SOLO cuando yo diga "publícala"; antes, entrégame la APK de revisión de beta.

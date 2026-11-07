@@ -3,6 +3,7 @@ import { ApiError } from '../errors';
 import { currentTarget, githubApi, linksFor, setTarget, type Vendor } from '../api-github';
 import { Group, Notice } from './ui';
 import { fixImage } from '../image-fix';
+import { VENDOR_THEMES } from '../vendor-themes';
 
 /**
  * Selector de la app que se está editando, separado en dos: «App de clientes» (la principal, la que usan
@@ -123,7 +124,10 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
   const [logo, setLogo] = useState<File | null>(null);
   const [logoPrev, setLogoPrev] = useState('');
   const [logoNote, setLogoNote] = useState('');
-  const [colors, setColors] = useState({ primary: '#7BE52F', accent: '#22D3EE', background: '#03070F' });
+  const [themeId, setThemeId] = useState(VENDOR_THEMES[1]!.id);
+  const themeOf = (id: string) => VENDOR_THEMES.find((x) => x.id === id) ?? VENDOR_THEMES[0]!;
+  const [colors, setColors] = useState(() => { const p = themeOf(VENDOR_THEMES[1]!.id).palette; return { primary: p.primary!, accent: p.accent!, background: p.background! }; });
+  const pickTheme = (id: string) => { setThemeId(id); const p = themeOf(id).palette; setColors({ primary: p.primary!, accent: p.accent!, background: p.background! }); };
   const pickLogo = async (f: File | undefined) => {
     setLogoNote(''); if (!f) return;
     try {
@@ -143,7 +147,7 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
   };
   const create = (e: FormEvent) => {
     e.preventDefault();
-    void run(async () => { const v = await githubApi.createVendor(name, { askHost: mode === 'ask', logo, colors }); setName(''); setLogo(null); setLogoPrev(''); setLogoNote(''); return v; },
+    void run(async () => { const v = await githubApi.createVendor(name, { askHost: mode === 'ask', logo, colors, themeId }); setName(''); setLogo(null); setLogoPrev(''); setLogoNote(''); return v; },
       `Vendedor creado ${mode === 'ask' ? '(sus clientes escribirán URL, usuario y contraseña)' : '(con tu servidor: sus clientes solo escriben usuario y contraseña)'}. Su APK estará lista en unos 5–15 minutos: abajo verás cuando esté lista. Elige «Editar su app» para cambiar su logotipo y colores.`);
   };
   return (
@@ -154,6 +158,21 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={30} placeholder="Nombre de la marca del vendedor (ej. Juan TV)" aria-label="Nombre del vendedor" />
           <button className="btn" disabled={busy || name.trim().length < 2}>{busy ? 'Creando…' : 'Crear app de vendedor'}</button>
         </form>
+        <div className="vendor-themes" role="radiogroup" aria-label="Tema de la app">
+          <b>1. Elige un tema</b> <span className="hint">Cambia colores, fondo, letra, bordes y la forma del menú: así su app no se ve igual a la tuya.</span>
+          <div className="vt-grid">
+            {VENDOR_THEMES.map((th) => (
+              <button type="button" key={th.id} className={`vt ${themeId === th.id ? 'on' : ''}`} onClick={() => pickTheme(th.id)} aria-pressed={themeId === th.id}
+                style={{ background: th.background.style === 'solid' ? th.palette.background : `linear-gradient(150deg, ${th.background.gradientStart}, ${th.background.gradientEnd})`, borderRadius: Math.min(th.radius.card, 16) }}>
+                <span className="vt-name" style={{ color: th.palette.onBackground, fontFamily: th.family === 'poppins' ? 'Poppins, sans-serif' : th.family === 'inter' ? 'Inter, sans-serif' : 'system-ui' }}>{th.name}</span>
+                <span className="vt-cards">{[0, 1, 2].map((i) => <i key={i} style={{ background: th.palette.surfaceVariant, borderRadius: th.radius.card / 2, outline: i === 0 ? `2px solid ${th.palette.accent}` : 'none' }} />)}</span>
+                <span className="vt-btn" style={{ background: th.button === 'outlined' ? 'transparent' : th.palette.primary, color: th.button === 'outlined' ? th.palette.primary : th.palette.buttonText, border: `2px solid ${th.palette.primary}`, borderRadius: th.radius.button }}>Reproducir</span>
+                <span className="vt-desc" style={{ color: th.palette.textSecondary }}>{th.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <b style={{ display: 'block', marginTop: 14 }}>2. Logotipo y ajuste de colores (opcional)</b>
         <div className="vendor-brand">
           <div className="vendor-logo-pick">
             <div className="vendor-logo-box" style={{ background: colors.background }}>{logoPrev ? <img src={logoPrev} alt="Logotipo" /> : <span>Sin logotipo</span>}</div>
@@ -174,7 +193,7 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
           </div>
         </div>
         <fieldset className="vendor-mode">
-          <legend>Servidor de la app del vendedor</legend>
+          <legend>3. Servidor de la app del vendedor</legend>
           <label><input type="radio" name="vmode" checked={mode === 'mine'} onChange={() => setMode('mine')} /><span><b>Con mi servidor</b> — sus clientes solo escriben usuario y contraseña (usa el servidor de tu app principal).</span></label>
           <label><input type="radio" name="vmode" checked={mode === 'ask'} onChange={() => setMode('ask')} /><span><b>Sin servidor</b> — la app no trae URL: sus clientes escriben URL, usuario y contraseña (para vendedores con otro servicio).</span></label>
           <span className="hint">Puedes cambiarlo después: «Editar su app» → Identidad → «Cómo entra el cliente».</span>
@@ -197,7 +216,7 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
           </div>
         ))}
       </Group>
-      <p className="hint">Pasos para una app nueva: 1) escribe el nombre, sube su logotipo, elige colores y servidor · 2) «Crear app de vendedor» (se publica sola) · 3) si quieres más cambios, «Editar su app» y «Publicar» · 4) cuando aparezca «✓ APK lista» (5–15 minutos), pulsa «Generar código para Downloader» y entrégaselo a tu vendedor. Cada versión nueva le llega sola a sus clientes.</p>
+      <p className="hint">Pasos para una app nueva: 1) escribe el nombre, elige un tema, sube su logotipo y elige el servidor · 2) «Crear app de vendedor» (se publica sola) · 3) si quieres más cambios, «Editar su app» y «Publicar» · 4) cuando aparezca «✓ APK lista» (5–15 minutos), pulsa «Generar código para Downloader» y entrégaselo a tu vendedor. Cada versión nueva le llega sola a sus clientes.</p>
     </div>
   );
 }

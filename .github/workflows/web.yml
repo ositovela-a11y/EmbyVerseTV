@@ -30,6 +30,12 @@ jobs:
               out = subprocess.run([aapt, 'dump', 'badging', f'web-player/apk/{f}'], capture_output=True, text=True).stdout if aapt else ''
               m = re.search(r"versionCode='(\d+)' versionName='([^']*)'", out)
               if m: apps[f] = {'versionCode': int(m.group(1)), 'versionName': m.group(2), 'path': f'apk/{f}'}
+          # «Lo nuevo» de cada versión (lo muestra la app al ofrecer la actualización).
+          try: rn = json.load(open('android-app/app/src/main/assets/release-notes.json'))
+          except Exception: rn = {}
+          for a in apps.values():
+              n = rn.get(a['versionName'].split('-')[0])
+              if isinstance(n, dict): a['notes'] = {k: v for k, v in n.items() if k in ('es', 'en')}
           json.dump({'apps': apps}, open('web-player/update.json', 'w'), indent=1)
           print(json.dumps(apps, indent=1))
           PY

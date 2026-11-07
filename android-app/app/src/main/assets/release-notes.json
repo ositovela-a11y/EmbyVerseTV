@@ -1,0 +1,35 @@
+{
+  "_info": "Notas de cada versión. Se muestran al ofrecer la actualización (update.json) y en «Novedades» después de actualizar. Escribir SIN el nombre de la app (las ven también las apps de vendedores). Agregar una entrada en cada versión nueva.",
+  "1.15.2": {
+    "es": [
+      "Cada actualización te muestra lo nuevo antes de instalarla y después de abrir la app.",
+      "Avisos de actualización más claros, con la lista de mejoras.",
+      "Mejoras de estabilidad y rendimiento."
+    ],
+    "en": [
+      "Every update now shows what's new before installing and after opening the app.",
+      "Clearer update notices with the list of improvements.",
+      "Stability and performance improvements."
+    ]
+  },
+  "1.15.1": {
+    "es": ["Marca propia en todas las pantallas, íconos y textos.", "Crédito de diseño en la bienvenida y en Acerca de."],
+    "en": ["Own branding on every screen, icon and text.", "Design credit on the welcome screen and in About."]
+  },
+  "1.15.0": {
+    "es": [
+      "Bienvenida nueva, carga con avance real y avisos cuando no hay internet.",
+      "Carátulas con esqueleto de carga y etiquetas NUEVO, ESTRENO, 4K y HD.",
+      "Fichas con «Más como esta» y errores del reproductor más claros, con «Siguiente canal».",
+      "En el celular: doble toque para adelantar 10 s, brillo y volumen deslizando y candado para niños.",
+      "Modo noche por horario, tamaño de letra ajustable y nueva sección de Ayuda."
+    ],
+    "en": [
+      "New welcome, real loading progress and offline notices.",
+      "Loading placeholders on covers and NEW, PREMIERE, 4K and HD tags.",
+      "«More like this» on details and clearer player errors with «Next channel».",
+      "On phones: double-tap to skip 10 s, swipe for brightness and volume, and a child lock.",
+      "Scheduled night mode, adjustable text size and a new Help section."
+    ]
+  }
+}
