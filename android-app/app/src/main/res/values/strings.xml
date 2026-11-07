@@ -78,6 +78,8 @@
     <string name="crash_copy">Copiar informe</string>
     <string name="crash_message">Lo sentimos. Copia este informe y envíalo al soporte para corregirlo. No incluye usuarios ni contraseñas.</string>
     <string name="crash_title">La app se cerró la última vez</string>
+    <string name="credit_about">Diseñada por EmbyVerse</string>
+    <string name="credit_splash">App diseñada por el equipo de EmbyVerse</string>
     <string name="data_saver">Ahorro de datos móviles</string>
     <string name="data_saver_sub">Con datos móviles usa calidad baja (cuando el video trae varias calidades).</string>
     <string name="empty_go_live">Ir a TV en vivo</string>

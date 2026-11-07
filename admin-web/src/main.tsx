@@ -153,7 +153,7 @@ function StudioLoaded({ user, loaded, reloadDraft, onLogout, flash }: { user: Us
   useEffect(loadVendors, [loadVendors]);
 
   const upload = async (f: File, kind: Asset['kind']) => {
-    try { const r = await api.upload(f, kind); loadAssets(); return r.asset; }
+    try { const r = await api.upload(f, kind) as { asset: Asset; note?: string }; loadAssets(); if (r.note) flash('info', r.note); return r.asset; }
     catch (e) { flash('error', e instanceof ApiError ? e.message : 'No se pudo subir la imagen'); return null; }
   };
 

@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { ApiError } from '../errors';
 import { currentTarget, githubApi, linksFor, setTarget, type Vendor } from '../api-github';
 import { Group, Notice } from './ui';
+import { fixImage } from '../image-fix';
 
 /**
  * Selector de la app que se está editando, separado en dos: «App de clientes» (la principal, la que usan
@@ -119,6 +120,18 @@ function Links({ slug }: { slug: string }) {
 export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: () => void }) {
   const [name, setName] = useState('');
   const [mode, setMode] = useState<'mine' | 'ask'>('mine');
+  const [logo, setLogo] = useState<File | null>(null);
+  const [logoPrev, setLogoPrev] = useState('');
+  const [logoNote, setLogoNote] = useState('');
+  const [colors, setColors] = useState({ primary: '#7BE52F', accent: '#22D3EE', background: '#03070F' });
+  const pickLogo = async (f: File | undefined) => {
+    setLogoNote(''); if (!f) return;
+    try {
+      const r = await fixImage(f, 'logo');
+      setLogo(r.file); setLogoNote(r.changed ? r.note : 'Imagen lista.');
+      setLogoPrev((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(r.file); });
+    } catch (e) { setLogo(null); setLogoPrev(''); setLogoNote(e instanceof Error ? e.message : 'No se pudo abrir la imagen.'); }
+  };
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'error' | 'info'; text: string } | null>(null);
   const cur = currentTarget();
@@ -130,7 +143,7 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
   };
   const create = (e: FormEvent) => {
     e.preventDefault();
-    void run(async () => { const v = await githubApi.createVendor(name, { askHost: mode === 'ask' }); setName(''); return v; },
+    void run(async () => { const v = await githubApi.createVendor(name, { askHost: mode === 'ask', logo, colors }); setName(''); setLogo(null); setLogoPrev(''); setLogoNote(''); return v; },
       `Vendedor creado ${mode === 'ask' ? '(sus clientes escribirán URL, usuario y contraseña)' : '(con tu servidor: sus clientes solo escriben usuario y contraseña)'}. Su APK estará lista en unos 5–15 minutos: abajo verás cuando esté lista. Elige «Editar su app» para cambiar su logotipo y colores.`);
   };
   return (
@@ -141,6 +154,25 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={30} placeholder="Nombre de la marca del vendedor (ej. Juan TV)" aria-label="Nombre del vendedor" />
           <button className="btn" disabled={busy || name.trim().length < 2}>{busy ? 'Creando…' : 'Crear app de vendedor'}</button>
         </form>
+        <div className="vendor-brand">
+          <div className="vendor-logo-pick">
+            <div className="vendor-logo-box" style={{ background: colors.background }}>{logoPrev ? <img src={logoPrev} alt="Logotipo" /> : <span>Sin logotipo</span>}</div>
+            <label className="btn-ghost">{logo ? 'Cambiar logotipo' : 'Subir logotipo'}
+              <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; void pickLogo(f); }} />
+            </label>
+            {logoNote && <span className="hint">{logoNote}</span>}
+            {!logo && <span className="hint" style={{ color: '#b54708' }}>Sin logotipo, la app usa uno con las iniciales del nombre (nunca el de EmbyVerse).</span>}
+          </div>
+          <div className="vendor-colors">
+            {([['primary', 'Color principal (botones)'], ['accent', 'Color de acento (foco y detalles)'], ['background', 'Fondo']] as const).map(([k, label]) => (
+              <label key={k}><input type="color" value={colors[k]} onChange={(e) => setColors((c) => ({ ...c, [k]: e.target.value }))} /> <span>{label}</span></label>
+            ))}
+            <div className="vendor-preview" style={{ background: colors.background }}>
+              <b style={{ color: colors.accent }}>{name.trim() || 'Nombre del vendedor'}</b>
+              <span style={{ background: colors.primary }} className="vp-btn">Reproducir</span>
+            </div>
+          </div>
+        </div>
         <fieldset className="vendor-mode">
           <legend>Servidor de la app del vendedor</legend>
           <label><input type="radio" name="vmode" checked={mode === 'mine'} onChange={() => setMode('mine')} /><span><b>Con mi servidor</b> — sus clientes solo escriben usuario y contraseña (usa el servidor de tu app principal).</span></label>
@@ -165,7 +197,7 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
           </div>
         ))}
       </Group>
-      <p className="hint">Pasos para una app nueva: 1) «Crear app de vendedor» · 2) «Editar su app» y cambia logo, nombre y colores · 3) «Publicar» · 4) cuando aparezca «✓ APK lista» (5–15 minutos), pulsa «Generar código para Downloader» y entrégaselo a tu vendedor. Cada versión nueva le llega sola a sus clientes.</p>
+      <p className="hint">Pasos para una app nueva: 1) escribe el nombre, sube su logotipo, elige colores y servidor · 2) «Crear app de vendedor» (se publica sola) · 3) si quieres más cambios, «Editar su app» y «Publicar» · 4) cuando aparezca «✓ APK lista» (5–15 minutos), pulsa «Generar código para Downloader» y entrégaselo a tu vendedor. Cada versión nueva le llega sola a sus clientes.</p>
     </div>
   );
 }

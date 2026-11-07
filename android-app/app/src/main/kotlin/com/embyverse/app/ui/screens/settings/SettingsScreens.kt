@@ -158,7 +158,8 @@ fun SettingsScreen(nav: Navigator) {
             item { SettingsItem(Icons.Rounded.PlayCircle, stringResource(R.string.playback_title), stringResource(R.string.settings_playback_sub)) { nav.go(Routes.PLAYBACK) } }
             item { SettingsItem(Icons.Rounded.Favorite, stringResource(R.string.favorites_title), stringResource(R.string.settings_favorites_sub)) { nav.go(Routes.FAVORITES) } }
             item { SettingsItem(Icons.Rounded.Language, stringResource(R.string.language_title), currentLanguageLabel()) { langDialog = true } }
-            item { SettingsItem(Icons.Rounded.Tv, stringResource(R.string.tv_install_title), stringResource(R.string.tv_install_sub)) { nav.go(Routes.TV_INSTALL) } }
+            // La app de TV Samsung/LG es la de EmbyVerse: en las apps de vendedores no se ofrece.
+            if (BuildConfig.VENDOR.isBlank()) item { SettingsItem(Icons.Rounded.Tv, stringResource(R.string.tv_install_title), stringResource(R.string.tv_install_sub)) { nav.go(Routes.TV_INSTALL) } }
             item { SettingsItem(Icons.Rounded.TextFields, stringResource(R.string.font_size_title), stringResource(fontLabel())) { fontDialog = true } }
             item { SettingsItem(Icons.Rounded.HelpOutline, stringResource(R.string.help_title), stringResource(R.string.help_sub)) { nav.go(Routes.HELP) } }
             item { SettingsItem(Icons.Rounded.NewReleases, stringResource(R.string.wn_menu), stringResource(R.string.wn_menu_sub, BuildConfig.VERSION_NAME)) { whatsNew = true } }
@@ -622,6 +623,10 @@ fun AboutScreen(nav: Navigator) {
                     Text(cfg.text("support.contact", stringResource(R.string.support_default)), color = t.onSurface)
                 }
             }
+            // Apps de vendedores: crédito del equipo que diseñó la app.
+            if (BuildConfig.VENDOR.isNotBlank()) item {
+                Text(stringResource(R.string.credit_about), style = MaterialTheme.typography.titleSmall, color = t.accent, modifier = Modifier.testTag("credit_about"))
+            }
             item { Text(stringResource(R.string.about_disclaimer), style = MaterialTheme.typography.bodySmall, color = t.textSecondary) }
             item { Text(stringResource(R.string.about_licenses), style = MaterialTheme.typography.bodySmall, color = t.textSecondary) }
         }
@@ -758,6 +763,7 @@ fun HelpScreen(nav: Navigator) {
                 EmbyButton(stringResource(R.string.help_whatsapp), { scope.launch { openWhatsAppHelp(context, c, helpNumber) } }, icon = Icons.Rounded.SupportAgent)
             }
             FAQ.forEachIndexed { i, (q, a) ->
+                if (BuildConfig.VENDOR.isNotBlank() && q == R.string.faq7_q) return@forEachIndexed
                 item {
                     com.embyverse.app.ui.components.FocusableSurface(onClick = { open = if (open == i) -1 else i }, modifier = Modifier.fillMaxWidth().testTag("faq_$i"), focusScale = 1.01f) { focused ->
                         Column(Modifier.fillMaxWidth().background(if (focused) t.surfaceVariant else t.surface).padding(16.dp)) {
@@ -772,7 +778,7 @@ fun HelpScreen(nav: Navigator) {
                     }
                 }
             }
-            item { SettingsItem(Icons.Rounded.Tv, stringResource(R.string.tv_install_title), stringResource(R.string.tv_install_sub)) { nav.go(Routes.TV_INSTALL) } }
+            if (BuildConfig.VENDOR.isBlank()) item { SettingsItem(Icons.Rounded.Tv, stringResource(R.string.tv_install_title), stringResource(R.string.tv_install_sub)) { nav.go(Routes.TV_INSTALL) } }
         }
     }
 }

@@ -26,16 +26,46 @@ if (name) {
   console.log('Nombre de la app:', name);
 }
 
+// ---------- App de vendedor: ninguna mención a EmbyVerse ----------
+// Todos los textos de la app dicen el nombre del vendedor; solo quedan los créditos («credit_*»).
+const isVendor = /[\\/]vendors[\\/]/.test(cfgFile);
+if (isVendor && name) {
+  for (const dir of ['values', 'values-en']) {
+    const f = join(res, dir, 'strings.xml');
+    if (!existsSync(f)) continue;
+    const x = readFileSync(f, 'utf8').replace(/(<string name="([a-z0-9_]+)"[^>]*>)([^<]*)(<\/string>)/g,
+      (all, open, key, text, close) => key.startsWith('credit_') ? all : open + text.replace(/EmbyVerse/g, xmlEsc(name)) + close);
+    writeFileSync(f, x);
+  }
+  console.log('Textos sin «EmbyVerse» (salvo los créditos).');
+}
+
 // ---------- Logotipo ----------
 const url = cfg.brand?.logo?.variant === 'asset' ? String(cfg.brand.logo.url ?? '') : '';
 const m = /\/config\/assets\/([^/?#]+)$/.exec(url);
-if (!m) { console.log('Logotipo integrado (sin cambios de ícono).'); process.exit(0); }
-const src = join(root, 'web-player/config/assets', decodeURIComponent(m[1]));
-if (!existsSync(src)) { console.error('No se encuentra el logotipo publicado:', src); process.exit(1); }
+if (!m && !isVendor) { console.log('Logotipo integrado (sin cambios de ícono).'); process.exit(0); }
 
 const require = createRequire(import.meta.url);
 let sharp;
 try { sharp = require('sharp'); } catch { sharp = require(join(process.env.SHARP_DIR || '/tmp/sharp', 'node_modules/sharp')); }
+
+let src;
+if (m) {
+  src = join(root, 'web-player/config/assets', decodeURIComponent(m[1]));
+  if (!existsSync(src)) { console.error('No se encuentra el logotipo publicado:', src); process.exit(1); }
+} else {
+  // Vendedor sin logotipo: se genera uno con sus iniciales y sus colores (nunca el de EmbyVerse).
+  const p = cfg.theme?.palette ?? {};
+  const words = (name || 'App').split(/\s+/).filter(Boolean);
+  const initials = (words.length > 1 ? words[0][0] + words[1][0] : words[0].slice(0, 2)).toUpperCase().replace(/[<>&"']/g, '');
+  const c1 = /^#[0-9a-f]{6}$/i.test(p.primary ?? '') ? p.primary : '#7BE52F';
+  const c2 = /^#[0-9a-f]{6}$/i.test(p.accent ?? '') ? p.accent : '#22D3EE';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs>`
+    + `<circle cx="512" cy="512" r="470" fill="url(#g)"/><text x="512" y="512" dy="0.35em" text-anchor="middle" font-family="DejaVu Sans, Arial, sans-serif" font-weight="bold" font-size="${initials.length > 1 ? 400 : 520}" fill="#ffffff">${initials}</text></svg>`;
+  src = '/tmp/vendor-logo.png';
+  await sharp(Buffer.from(svg)).png().toFile(src);
+  console.log('Vendedor sin logotipo: se generó uno con las iniciales', initials);
+}
 const out = (p) => { mkdirSync(dirname(p), { recursive: true }); return p; };
 const bg = cfg.theme?.palette?.background?.length === 7 ? cfg.theme.palette.background : '#000000';
 
@@ -66,4 +96,4 @@ await sharp(await square(288, 0)).webp({ quality: 92 }).toFile(out(join(res, 'dr
 const bl = await sharp(src).resize(600, 320, { fit: 'inside' }).png().toBuffer();
 await sharp({ create: { width: 640, height: 360, channels: 4, background: bg } }).composite([{ input: bl, gravity: 'center' }])
   .webp({ quality: 92 }).toFile(out(join(res, 'drawable-xhdpi/tv_banner.webp')));
-console.log('Logotipo e íconos generados desde', m[1]);
+console.log('Logotipo e íconos generados desde', m ? m[1] : 'iniciales');

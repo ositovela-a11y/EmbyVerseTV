@@ -2,6 +2,7 @@
 // repositorio (web-player/config/app.json) que GitHub Pages sirve a la app y a la web.
 // Se entra con un token personal de GitHub con permiso de escritura en el repositorio; el token
 // solo se guarda en este navegador y solo se envía a api.github.com.
+import { fixImage } from './image-fix';
 import type { RemoteConfig } from '../../backend/src/config/schema';
 import type { Asset, User, Validation, VersionInfo } from './api';
 import { ApiError } from './errors';
@@ -173,15 +174,19 @@ export const githubApi = {
     try { const l = await gh<FileInfo[]>('GET', `/contents/${GH.assetsDir}?ref=${GH.branch}`); return { assets: l.filter((f) => /\.(png|jpe?g|webp)$/i.test(f.name)).map(assetOf) }; }
     catch (e) { if (e instanceof ApiError && e.status === 404) return { assets: [] }; throw e; }
   },
-  async upload(file: File, kind: Asset['kind']) {
+  async upload(input: File, kind: Asset['kind']) {
+    // Cualquier imagen que abra el navegador se ajusta sola (formato, tamaño y peso) antes de subirla.
+    let file: File; let note = '';
+    try { const r = await fixImage(input, kind === 'logo' ? 'logo' : kind === 'banner' ? 'banner' : 'image'); file = r.file; note = r.note; }
+    catch (e) { throw new ApiError(400, 'github', e instanceof Error ? e.message : 'No se pudo abrir la imagen.'); }
     if (!/^image\/(png|jpeg|webp)$/.test(file.type)) throw new ApiError(400, 'github', 'Usa una imagen PNG, JPG o WebP.');
-    if (file.size > 1_500_000) throw new ApiError(400, 'github', 'La imagen pesa más de 1,5 MB. Redúcela antes de subirla.');
+    if (file.size > 1_500_000) throw new ApiError(400, 'github', 'La imagen pesa más de 1,5 MB aun después de ajustarla. Prueba con otra.');
     const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
     const base = file.name.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'imagen';
     const name = `${kind}-${base}-${Date.now().toString(36)}.${ext}`;
     const bytes = new Uint8Array(await file.arrayBuffer());
     const r = await gh<{ content: FileInfo }>('PUT', `/contents/${GH.assetsDir}/${name}`, { message: `Design Studio: imagen ${name}`, content: b64encode(bytes), branch: GH.branch });
-    return { asset: assetOf(r.content) };
+    return { asset: assetOf(r.content), note };
   },
   async approve() { /* en modo GitHub todas las imágenes del repositorio están aprobadas */ },
   async deleteAsset(id: string) {
@@ -190,7 +195,7 @@ export const githubApi = {
   },
   // ---- vendedores
   async vendors(): Promise<Vendor[]> { return (await readJsonFile<Vendor[]>(VENDORS_INDEX))?.data ?? []; },
-  async createVendor(name: string, opts: { askHost?: boolean } = {}): Promise<Vendor> {
+  async createVendor(name: string, opts: { askHost?: boolean; logo?: File | null; colors?: { primary: string; accent: string; background: string } } = {}): Promise<Vendor> {
     const clean = name.trim().slice(0, 30);
     if (clean.length < 2) throw new ApiError(400, 'github', 'Escribe el nombre del vendedor o de su marca.');
     let base = clean.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20);
@@ -207,6 +212,29 @@ export const githubApi = {
     start.texts = { ...(start.texts ?? {}) };
     if (opts.askHost) { start.texts['provider.askHost'] = '1'; delete start.texts['provider.host']; }
     else delete start.texts['provider.askHost'];
+    // Marca propia del vendedor: nada de «EmbyVerse» en textos, banners, secciones ni temas (las URL no se tocan).
+    const scrub = (v: unknown): unknown => {
+      if (typeof v === 'string') return /^https?:\/\//.test(v) ? v : v.replace(/EmbyVerse/gi, clean);
+      if (Array.isArray(v)) return v.map(scrub);
+      if (v && typeof v === 'object') { const o: Record<string, unknown> = {}; for (const [k, x] of Object.entries(v)) o[k] = scrub(x); return o; }
+      return v;
+    };
+    Object.assign(start, scrub(start) as RemoteConfig);
+    start.brand.tagline = null;
+    start.messages = []; // los avisos de tu app principal no pasan al vendedor
+    if (opts.logo) {
+      const { asset } = await githubApi.upload(opts.logo, 'logo');
+      start.brand.logo = { variant: 'asset', url: asset.url };
+    }
+    if (opts.colors) {
+      const p = start.theme.palette as unknown as Record<string, string>;
+      const on = (hex: string) => { const n = parseInt(hex.slice(1), 16); const l = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255; return l > 0.6 ? '#0A0F18' : '#FFFFFF'; };
+      p.primary = opts.colors.primary; p.buttonBackground = opts.colors.primary; p.onPrimary = on(opts.colors.primary); p.buttonText = on(opts.colors.primary);
+      p.accent = opts.colors.accent; p.focusRing = opts.colors.accent;
+      p.background = opts.colors.background;
+      // Cada tema guardado también toma los colores del vendedor (si no, al elegir un tema volverían los de la app principal).
+      for (const th of (start as unknown as { themes?: { palette?: Record<string, string> }[] }).themes ?? []) if (th.palette) Object.assign(th.palette, { primary: p.primary, buttonBackground: p.buttonBackground, onPrimary: p.onPrimary, buttonText: p.buttonText, accent: p.accent, focusRing: p.focusRing, background: p.background });
+    }
     start.brand.appName = clean; start.version = 1; start.publishedAt = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
     await gh('PUT', `/contents/${cfgPath(slug)}`, { message: `Diseño v1: app del vendedor ${clean}`, content: utf8b64(JSON.stringify(start, null, 2) + '\n'), branch: GH.branch });
     const v: Vendor = { slug, name: clean, createdAt: new Date().toISOString() };

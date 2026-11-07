@@ -154,6 +154,8 @@ S = {
 "night_auto": ("Modo noche por horario", "Scheduled night mode"),
 "night_auto_sub": ("Se enciende solo de %1$s a %2$s.", "Turns on by itself from %1$s to %2$s."),
 "night_from": ("Empieza a las", "Starts at"), "night_to": ("Termina a las", "Ends at"),
+"credit_splash": ("App diseñada por el equipo de EmbyVerse", "App designed by the EmbyVerse team"),
+"credit_about": ("Diseñada por EmbyVerse", "Designed by EmbyVerse"),
 "tv_install_title": ("Instalar en TV Samsung o LG", "Install on Samsung or LG TV"),
 "tv_install_sub": ("Desde este celular, sin computadora", "From this phone, no computer needed"),
 "help_whatsapp": ("Ayuda por WhatsApp", "Help via WhatsApp"),

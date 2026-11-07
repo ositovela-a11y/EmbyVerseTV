@@ -77,6 +77,8 @@
     <string name="crash_copy">Copy report</string>
     <string name="crash_message">Sorry. Copy this report and send it to support so it can be fixed. It contains no usernames or passwords.</string>
     <string name="crash_title">The app closed unexpectedly last time</string>
+    <string name="credit_about">Designed by EmbyVerse</string>
+    <string name="credit_splash">App designed by the EmbyVerse team</string>
     <string name="data_saver">Mobile data saver</string>
     <string name="data_saver_sub">On mobile data use low quality (when the video offers several).</string>
     <string name="empty_go_live">Go to Live TV</string>

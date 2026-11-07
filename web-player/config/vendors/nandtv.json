@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": 2,
-  "publishedAt": "2026-11-07T07:51:44Z",
+  "version": 3,
+  "publishedAt": "2026-11-07T08:00:17Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "Nandtv",
@@ -9,7 +9,7 @@
       "variant": "asset",
       "url": "https://ositovela-a11y.github.io/EmbyVerseTV/config/assets/logo-img-0220-mw63rpql.jpg"
     },
-    "tagline": "Tu universo de entretenimiento"
+    "tagline": null
   },
   "theme": {
     "palette": {
@@ -59,8 +59,8 @@
   },
   "themes": [
     {
-      "id": "embyverse",
-      "name": "EmbyVerse (original)",
+      "id": "Nandtv",
+      "name": "Nandtv (original)",
       "palette": {}
     },
     {
@@ -130,7 +130,7 @@
         "id": "promos",
         "type": "promo_banners",
         "enabled": true,
-        "title": "Novedades EmbyVerse",
+        "title": "Novedades Nandtv",
         "layout": "carousel",
         "card": {
           "aspect": "landscape",
@@ -230,7 +230,7 @@
     {
       "id": "welcome",
       "placement": "hero",
-      "title": "Bienvenido a EmbyVerse",
+      "title": "Bienvenido a Nandtv",
       "subtitle": "Añade tus listas M3U o tu proveedor IPTV y empieza a ver.",
       "imageUrl": null,
       "action": {
@@ -250,13 +250,5 @@
     "season.every": "24",
     "style.default": "style_purpura"
   },
-  "messages": [
-    {
-      "id": "msg-2crxhe",
-      "title": "Aviso",
-      "body": "Aprovecha las promociones que tenemos para ti por temporada de fin de año, 😎",
-      "startsAt": "2026-11-05T16:50:00.000Z",
-      "endsAt": "2026-11-07T16:50:00.000Z"
-    }
-  ]
+  "messages": []
 }

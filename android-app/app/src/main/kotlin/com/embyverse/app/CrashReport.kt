@@ -24,7 +24,7 @@ object CrashReport {
     private fun format(thread: Thread, e: Throwable): String {
         val trace = e.stackTraceToString().lineSequence().take(80).joinToString("\n")
         return buildString {
-            append("EmbyVerse ").append(BuildConfig.VERSION_NAME).append(" · Android ").append(Build.VERSION.SDK_INT)
+            append("App ").append(BuildConfig.VERSION_NAME).append(if (BuildConfig.VENDOR.isNotBlank()) " (" + BuildConfig.VENDOR + ")" else "").append(" · Android ").append(Build.VERSION.SDK_INT)
             append(" · ").append(Build.MANUFACTURER).append(' ').append(Build.MODEL).append('\n')
             append("Hilo: ").append(thread.name).append('\n')
             append("Memoria máx.: ").append(Runtime.getRuntime().maxMemory() / 1_048_576).append(" MB\n\n")

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -199,6 +200,9 @@ fun SplashScreen(brand: Brand, onFinished: () -> Unit) {
                 }
             }
         }
+        // Apps de vendedores: crédito discreto al pie de la bienvenida.
+        if (com.embyverse.app.BuildConfig.VENDOR.isNotBlank()) Text(stringResource(R.string.credit_splash), style = MaterialTheme.typography.labelMedium,
+            color = t.textSecondary, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 36.dp).graphicsLayer { alpha = text.value * 0.85f }.testTag("credit_splash"))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             BrandLogo(brand.logoVariant, brand.logoUrl,
                 Modifier.size(logoSize).graphicsLayer {
