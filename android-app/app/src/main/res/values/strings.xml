@@ -450,6 +450,7 @@
     <string name="update_ready_message">Ya se descargó en segundo plano. Toca Instalar: tarda unos segundos y no pierdes tu cuenta, favoritos ni historial.</string>
     <string name="update_ready_title">Versión %1$s lista para instalar</string>
     <string name="update_title">Nueva versión %1$s disponible</string>
+    <string name="update_whats_new">Lo nuevo en esta versión</string>
     <string name="vod_empty_message">Tus fuentes no incluyen contenido en esta sección o el filtro no tiene resultados.</string>
     <string name="vod_empty_title">No hay contenido</string>
     <string name="voice_search">Buscar por voz</string>

@@ -3,6 +3,7 @@
 // Se entra con un token personal de GitHub con permiso de escritura en el repositorio; el token
 // solo se guarda en este navegador y solo se envía a api.github.com.
 import { fixImage } from './image-fix';
+import { VENDOR_THEMES, applyVendorTheme } from './vendor-themes';
 import type { RemoteConfig } from '../../backend/src/config/schema';
 import type { Asset, User, Validation, VersionInfo } from './api';
 import { ApiError } from './errors';
@@ -195,7 +196,7 @@ export const githubApi = {
   },
   // ---- vendedores
   async vendors(): Promise<Vendor[]> { return (await readJsonFile<Vendor[]>(VENDORS_INDEX))?.data ?? []; },
-  async createVendor(name: string, opts: { askHost?: boolean; logo?: File | null; colors?: { primary: string; accent: string; background: string } } = {}): Promise<Vendor> {
+  async createVendor(name: string, opts: { askHost?: boolean; logo?: File | null; colors?: { primary: string; accent: string; background: string }; themeId?: string } = {}): Promise<Vendor> {
     const clean = name.trim().slice(0, 30);
     if (clean.length < 2) throw new ApiError(400, 'github', 'Escribe el nombre del vendedor o de su marca.');
     let base = clean.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20);
@@ -226,14 +227,19 @@ export const githubApi = {
       const { asset } = await githubApi.upload(opts.logo, 'logo');
       start.brand.logo = { variant: 'asset', url: asset.url };
     }
-    if (opts.colors) {
+    // Tema elegido (colores, fondo, letra, bordes, botones y distribución) + los colores ajustados a mano.
+    const th = VENDOR_THEMES.find((x) => x.id === opts.themeId);
+    if (th) {
+      applyVendorTheme(start as unknown as { theme: Record<string, unknown>; texts: Record<string, string> }, th, opts.colors);
+      // Los temas guardados de la app principal no pasan: el vendedor queda con el suyo.
+      (start as unknown as { themes?: unknown[] }).themes = [{ id: 'vendor', name: th.name, palette: { ...(start.theme.palette as unknown as Record<string, string>) } }];
+    } else if (opts.colors) {
       const p = start.theme.palette as unknown as Record<string, string>;
       const on = (hex: string) => { const n = parseInt(hex.slice(1), 16); const l = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255; return l > 0.6 ? '#0A0F18' : '#FFFFFF'; };
       p.primary = opts.colors.primary; p.buttonBackground = opts.colors.primary; p.onPrimary = on(opts.colors.primary); p.buttonText = on(opts.colors.primary);
       p.accent = opts.colors.accent; p.focusRing = opts.colors.accent;
       p.background = opts.colors.background;
-      // Cada tema guardado también toma los colores del vendedor (si no, al elegir un tema volverían los de la app principal).
-      for (const th of (start as unknown as { themes?: { palette?: Record<string, string> }[] }).themes ?? []) if (th.palette) Object.assign(th.palette, { primary: p.primary, buttonBackground: p.buttonBackground, onPrimary: p.onPrimary, buttonText: p.buttonText, accent: p.accent, focusRing: p.focusRing, background: p.background });
+      for (const t2 of (start as unknown as { themes?: { palette?: Record<string, string> }[] }).themes ?? []) if (t2.palette) Object.assign(t2.palette, { primary: p.primary, buttonBackground: p.buttonBackground, onPrimary: p.onPrimary, buttonText: p.buttonText, accent: p.accent, focusRing: p.focusRing, background: p.background });
     }
     start.brand.appName = clean; start.version = 1; start.publishedAt = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
     await gh('PUT', `/contents/${cfgPath(slug)}`, { message: `Diseño v1: app del vendedor ${clean}`, content: utf8b64(JSON.stringify(start, null, 2) + '\n'), branch: GH.branch });

@@ -259,12 +259,24 @@ fun WhatsNewDialog(force: Boolean = false, onClose: () -> Unit = {}) {
         onDismissRequest = close,
         title = { Text(stringResource(R.string.wn_title, BuildConfig.VERSION_NAME)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("whats_new")) {
-                WHATS_NEW.forEach { res ->
-                    Row { Text("✦  ", color = t.accent); Text(stringResource(res), style = MaterialTheme.typography.bodyMedium) }
-                }
-            }
+            // Notas de ESTA versión (assets/release-notes.json); si faltan, las de respaldo.
+            val fallback = WHATS_NEW.map { stringResource(it) }
+            val notes = remember { ReleaseNotes.forVersion(context, BuildConfig.VERSION_NAME) }.ifEmpty { fallback }
+            Column(Modifier.testTag("whats_new")) { ReleaseNotesBody(null, notes) }
         },
         confirmButton = { TextButton(onClick = close, modifier = Modifier.testTag("whats_new_ok")) { Text(stringResource(R.string.wn_ok)) } },
     )
+}
+
+
+/** Notas de versión incluidas en la app (las mismas que se publican en update.json). */
+object ReleaseNotes {
+    fun forVersion(ctx: Context, versionName: String): List<String> = runCatching {
+        val v = versionName.substringBefore('-')
+        val json = ctx.assets.open("release-notes.json").bufferedReader().use { it.readText() }
+        val o = org.json.JSONObject(json).optJSONObject(v) ?: return emptyList()
+        val lang = if (java.util.Locale.getDefault().language == "en") "en" else "es"
+        val a = o.optJSONArray(lang) ?: o.optJSONArray("es") ?: return emptyList()
+        (0 until a.length()).map { a.getString(it) }.filter { it.isNotBlank() }
+    }.getOrDefault(emptyList())
 }
