@@ -1,0 +1,21 @@
+{
+ "apps": {
+  "EmbyVerse.apk": {
+   "versionCode": 29,
+   "versionName": "1.15.2",
+   "path": "apk/EmbyVerse.apk",
+   "notes": {
+    "es": [
+     "Cada actualizaci\u00f3n te muestra lo nuevo antes de instalarla y despu\u00e9s de abrir la app.",
+     "Avisos de actualizaci\u00f3n m\u00e1s claros, con la lista de mejoras.",
+     "Mejoras de estabilidad y rendimiento."
+    ],
+    "en": [
+     "Every update now shows what's new before installing and after opening the app.",
+     "Clearer update notices with the list of improvements.",
+     "Stability and performance improvements."
+    ]
+   }
+  }
+ }
+}

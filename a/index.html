@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Descargar app</title>
+<style>body{background:#02050C;color:#E6EEF8;font:18px system-ui,sans-serif;display:grid;place-content:center;min-height:100vh;text-align:center;padding:16px}a{color:#7BE52F}</style>
+<script>
+  // Enlace corto para Downloader: /a/ baja la app principal; /a/?v=<vendedor> baja la app de ese vendedor.
+  (function () {
+    var v = (new URLSearchParams(location.search).get('v') || '').toLowerCase();
+    var file = /^[a-z][a-z0-9]{1,30}$/.test(v) ? 'EmbyVerse-' + v + '.apk' : 'EmbyVerse.apk';
+    // La APK se sirve desde este mismo sitio (con dominio propio, el enlace no muestra GitHub).
+    var url = '../apk/' + file;
+    window.APK_URL = url;
+    location.replace(url);
+  })();
+</script>
+</head><body><p>Descargando la app…</p><p>Si no empieza, <a id="l" href="#">pulsa aquí</a>.</p>
+<script>document.getElementById('l').href = window.APK_URL;</script></body></html>
