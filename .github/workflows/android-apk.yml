@@ -65,6 +65,8 @@ jobs:
           # La app lee el diseño publicado desde GitHub Pages (Design Studio).
           EMBYVERSE_CONFIGURL: ${{ matrix.url }}
           EMBYVERSE_VENDOR: ${{ matrix.slug }}
+          # Vacío = la app pide URL, usuario y contraseña (vendedor con otro servicio).
+          EMBYVERSE_HOST: ${{ matrix.host }}
         run: |
           set -o pipefail
           chmod +x gradlew

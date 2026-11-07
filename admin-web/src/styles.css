@@ -341,3 +341,9 @@ input[type=datetime-local] { min-width: 0; }
   .editing-banner { font-size: 13px; }
   .target-switch { flex-wrap: wrap; }
 }
+
+.vendor-mode { border:1px solid var(--line, #d0d5dd); border-radius:10px; padding:10px 14px; margin-top:10px; display:flex; flex-direction:column; gap:8px; }
+.vendor-mode legend { font-weight:700; padding:0 6px; }
+.vendor-mode label { display:flex !important; flex-direction:row !important; gap:10px; align-items:flex-start; justify-content:flex-start; text-align:left; line-height:1.4; cursor:pointer; width:100%; }
+.vendor-mode label input { width:auto !important; flex:none; margin-top:3px; }
+.vendor-mode label span { flex:1; display:block; }

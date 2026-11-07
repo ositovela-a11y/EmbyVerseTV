@@ -22,7 +22,8 @@ const brand = (ref, path) => {
   try {
     const text = ref ? execSync(`git show ${ref}:${path}`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString() : readFileSync(path, 'utf8');
     const c = JSON.parse(text);
-    return JSON.stringify([c.brand?.appName, c.brand?.logo, c.theme?.palette?.background]);
+    // El modo de entrada (con servidor fijo o pidiendo URL) va dentro de la APK: si cambia, se recompila.
+    return JSON.stringify([c.brand?.appName, c.brand?.logo, c.theme?.palette?.background, c.texts?.['provider.askHost'] === '1']);
   } catch { return null; }
 };
 let published = [];
@@ -31,6 +32,14 @@ try { published = JSON.parse(process.env.PUBLISHED ?? execSync('gh release view 
 const codeChanged = changed === null || changed.some((f) => !f.startsWith('web-player/config/'));
 const build = all.filter((t) => codeChanged || !published.includes(t.asset) || brand(before, t.config) !== brand(null, t.config));
 const out = (k, v) => process.env.GITHUB_OUTPUT && appendFileSync(process.env.GITHUB_OUTPUT, `${k}=${v}\n`);
+// Servidor que trae la APK: vacío si la app pide URL (vendedor con otro servicio); si no, el del diseño o el predeterminado.
+const DEFAULT_HOST = 'https://krnosmx.com:443';
+for (const t of build) {
+  try {
+    const c = JSON.parse(readFileSync(t.config, 'utf8'));
+    t.host = c.texts?.['provider.askHost'] === '1' ? '' : (c.texts?.['provider.host']?.trim() || DEFAULT_HOST);
+  } catch { t.host = DEFAULT_HOST; }
+}
 out('matrix', JSON.stringify({ include: build }));
 out('all', JSON.stringify({ include: all }));
 out('count', String(build.length));

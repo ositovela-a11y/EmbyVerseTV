@@ -190,7 +190,7 @@ export const githubApi = {
   },
   // ---- vendedores
   async vendors(): Promise<Vendor[]> { return (await readJsonFile<Vendor[]>(VENDORS_INDEX))?.data ?? []; },
-  async createVendor(name: string): Promise<Vendor> {
+  async createVendor(name: string, opts: { askHost?: boolean } = {}): Promise<Vendor> {
     const clean = name.trim().slice(0, 30);
     if (clean.length < 2) throw new ApiError(400, 'github', 'Escribe el nombre del vendedor o de su marca.');
     let base = clean.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20);
@@ -203,6 +203,10 @@ export const githubApi = {
     // El vendedor empieza con una copia del diseño publicado de la app principal, con su nombre.
     const main = await readConfig(GH.branch, GH.configPath);
     const start = structuredClone(main?.config ?? (await import('../../shared/default-config.json')).default as unknown as RemoteConfig);
+    // Servidor: el de la app principal (cliente solo pone usuario y contraseña) o sin servidor (escribe URL, usuario y contraseña).
+    start.texts = { ...(start.texts ?? {}) };
+    if (opts.askHost) { start.texts['provider.askHost'] = '1'; delete start.texts['provider.host']; }
+    else delete start.texts['provider.askHost'];
     start.brand.appName = clean; start.version = 1; start.publishedAt = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
     await gh('PUT', `/contents/${cfgPath(slug)}`, { message: `Diseño v1: app del vendedor ${clean}`, content: utf8b64(JSON.stringify(start, null, 2) + '\n'), branch: GH.branch });
     const v: Vendor = { slug, name: clean, createdAt: new Date().toISOString() };

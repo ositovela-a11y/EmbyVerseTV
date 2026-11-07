@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { ApiError } from '../errors';
 import { currentTarget, githubApi, linksFor, setTarget, type Vendor } from '../api-github';
 import { Group, Notice } from './ui';
@@ -34,18 +34,51 @@ export function EditingBanner({ vendors }: { vendors: Vendor[] }) {
     : <div className="editing-banner clients">Estás editando la <b>app de tus clientes</b>. Al publicar, todos tus clientes ven los cambios al abrir la app o al conectarse a internet, sin descargar nada.</div>;
 }
 
-/** Acorta un enlace con is.gd (gratis, sin cuenta). Se usa JSONP porque is.gd no permite peticiones directas desde el navegador. */
-function shorten(url: string): Promise<string> {
+/** Acorta un enlace con is.gd o v.gd (gratis, sin cuenta). JSONP porque no permiten peticiones directas desde el navegador. */
+function shortenWith(host: string, url: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const cb = `evShort${Date.now()}${Math.floor(Math.random() * 1000)}`;
     const w = window as unknown as Record<string, unknown>;
     const s = document.createElement('script');
-    const done = () => { delete w[cb]; s.remove(); };
-    w[cb] = (r: { shorturl?: string; errormessage?: string }) => { done(); if (r.shorturl) resolve(r.shorturl); else reject(new Error(r.errormessage || 'No se pudo crear el enlace corto')); };
-    s.onerror = () => { done(); reject(new Error('No se pudo conectar con is.gd')); };
-    s.src = `https://is.gd/create.php?format=json&callback=${cb}&url=${encodeURIComponent(url)}`;
+    const timer = setTimeout(() => { done(); reject(new Error(`${host} no respondió`)); }, 12_000);
+    const done = () => { clearTimeout(timer); delete w[cb]; s.remove(); };
+    w[cb] = (r: { shorturl?: string; errormessage?: string }) => { done(); if (r.shorturl) resolve(r.shorturl); else reject(new Error(`${host}: ${r.errormessage || 'no creó el enlace'}`)); };
+    s.onerror = () => { done(); reject(new Error(`No se pudo conectar con ${host}`)); };
+    s.src = `https://${host}/create.php?format=json&callback=${cb}&url=${encodeURIComponent(url)}`;
     document.head.appendChild(s);
   });
+}
+
+/**
+ * Intenta varias combinaciones: algunos acortadores rechazan los enlaces que terminan en «.apk»,
+ * así que también se prueba con la página de descarga (/a/?v=…), que baja la APK sola.
+ */
+async function shorten(urls: string[]): Promise<string> {
+  const errors: string[] = [];
+  for (const host of ['is.gd', 'v.gd']) for (const u of urls) {
+    try { return await shortenWith(host, u); } catch (e) { errors.push(e instanceof Error ? e.message : String(e)); }
+  }
+  throw new Error(`No se pudo crear el código corto (${[...new Set(errors)].slice(0, 2).join(' · ')}). Usa el enlace largo o go.aftvnews.com.`);
+}
+
+/** ¿Ya está publicada la APK? (la de un vendedor nuevo tarda unos 5–15 minutos en compilarse). */
+function useApkReady(url: string): 'checking' | 'ready' | 'building' | 'unknown' {
+  const [st, setSt] = useState<'checking' | 'ready' | 'building' | 'unknown'>('checking');
+  useEffect(() => {
+    let alive = true; let t: ReturnType<typeof setTimeout> | undefined;
+    const check = async () => {
+      try {
+        const r = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+        if (!alive) return;
+        if (r.ok) { setSt('ready'); return; }
+        setSt(r.status === 404 ? 'building' : 'unknown');
+      } catch { if (alive) setSt('unknown'); return; }
+      t = setTimeout(check, 30_000);
+    };
+    void check();
+    return () => { alive = false; if (t) clearTimeout(t); };
+  }, [url]);
+  return st;
 }
 
 const SHORT_KEY = (slug: string) => `ev.studio.short:${slug || 'principal'}`;
@@ -56,19 +89,22 @@ function Links({ slug }: { slug: string }) {
   const [short, setShort] = useState<string>(() => { try { return localStorage.getItem(SHORT_KEY(slug)) || ''; } catch { return ''; } });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const ready = useApkReady(l.apk);
   const make = async () => {
     setBusy(true); setErr('');
     try {
-      const s = (await shorten(l.apk)).replace(/^https?:\/\//, '');
+      const s = (await shorten([l.apk, `https://${l.short}`])).replace(/^https?:\/\//, '');
       setShort(s); try { localStorage.setItem(SHORT_KEY(slug), s); } catch { /* */ }
     } catch (e) { setErr(e instanceof Error ? e.message : 'Error'); }
     finally { setBusy(false); }
   };
   return (
     <div className="vendor-links">
+      {ready === 'building' && <span className="hint" style={{ color: '#b54708' }}>⏳ Su APK se está compilando (unos 5–15 minutos después de crearla o de cambiar su nombre o logotipo). Esta página se actualiza sola; mientras tanto el enlace de descarga todavía no funciona.</span>}
+      {ready === 'ready' && <span className="hint" style={{ color: '#067647' }}>✓ APK lista para descargar</span>}
       <span><b>Código para Downloader:</b>{' '}
-        {short ? <><code className="short-code">{short}</code> <button className="link" onClick={() => copy(short)}>Copiar</button></>
-          : <button className="btn" disabled={busy} onClick={() => void make()}>{busy ? 'Creando…' : 'Generar código para Downloader'}</button>}
+        {short ? <><code className="short-code">{short}</code> <button className="link" onClick={() => copy(short)}>Copiar</button> <button className="link" onClick={() => { setShort(''); try { localStorage.removeItem(SHORT_KEY(slug)); } catch { /* */ } }}>Crear otro</button></>
+          : <button className="btn" disabled={busy || ready === 'building'} onClick={() => void make()}>{busy ? 'Creando…' : ready === 'building' ? 'Espera a que termine la APK' : 'Generar código para Downloader'}</button>}
       </span>
       {err && <span className="hint" style={{ color: '#b42318' }}>{err}</span>}
       {short && <span className="hint">Tus clientes escriben <b>{short}</b> en Downloader y se instala la app. Siempre baja la versión más reciente; después se actualiza sola dentro de la app.</span>}
@@ -82,6 +118,7 @@ function Links({ slug }: { slug: string }) {
 
 export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: () => void }) {
   const [name, setName] = useState('');
+  const [mode, setMode] = useState<'mine' | 'ask'>('mine');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'error' | 'info'; text: string } | null>(null);
   const cur = currentTarget();
@@ -93,8 +130,8 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
   };
   const create = (e: FormEvent) => {
     e.preventDefault();
-    void run(async () => { const v = await githubApi.createVendor(name); setName(''); return v; },
-      'Vendedor creado. Su APK estará lista en unos 10–15 minutos. Elige «Editar su app» para cambiar su logotipo y colores.');
+    void run(async () => { const v = await githubApi.createVendor(name, { askHost: mode === 'ask' }); setName(''); return v; },
+      `Vendedor creado ${mode === 'ask' ? '(sus clientes escribirán URL, usuario y contraseña)' : '(con tu servidor: sus clientes solo escriben usuario y contraseña)'}. Su APK estará lista en unos 5–15 minutos: abajo verás cuando esté lista. Elige «Editar su app» para cambiar su logotipo y colores.`);
   };
   return (
     <div className="panel-stack">
@@ -104,6 +141,12 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={30} placeholder="Nombre de la marca del vendedor (ej. Juan TV)" aria-label="Nombre del vendedor" />
           <button className="btn" disabled={busy || name.trim().length < 2}>{busy ? 'Creando…' : 'Crear app de vendedor'}</button>
         </form>
+        <fieldset className="vendor-mode">
+          <legend>Servidor de la app del vendedor</legend>
+          <label><input type="radio" name="vmode" checked={mode === 'mine'} onChange={() => setMode('mine')} /><span><b>Con mi servidor</b> — sus clientes solo escriben usuario y contraseña (usa el servidor de tu app principal).</span></label>
+          <label><input type="radio" name="vmode" checked={mode === 'ask'} onChange={() => setMode('ask')} /><span><b>Sin servidor</b> — la app no trae URL: sus clientes escriben URL, usuario y contraseña (para vendedores con otro servicio).</span></label>
+          <span className="hint">Puedes cambiarlo después: «Editar su app» → Identidad → «Cómo entra el cliente».</span>
+        </fieldset>
       </Group>
       <Group title="Tus apps" hint="«Editar su app» abre su diseño en el estudio; al publicar solo cambia esa app.">
         <div className={`vendor ${cur === '' ? 'on' : ''}`}>
@@ -122,7 +165,7 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
           </div>
         ))}
       </Group>
-      <p className="hint">Pasos para una app nueva: 1) «Crear app de vendedor» · 2) «Editar su app» y cambia logo, nombre y colores · 3) «Publicar» · 4) en unos 15 minutos su APK está lista: pulsa «Generar código para Downloader» y entrégaselo a tu vendedor. Cada versión nueva le llega sola a sus clientes.</p>
+      <p className="hint">Pasos para una app nueva: 1) «Crear app de vendedor» · 2) «Editar su app» y cambia logo, nombre y colores · 3) «Publicar» · 4) cuando aparezca «✓ APK lista» (5–15 minutos), pulsa «Generar código para Downloader» y entrégaselo a tu vendedor. Cada versión nueva le llega sola a sus clientes.</p>
     </div>
   );
 }
