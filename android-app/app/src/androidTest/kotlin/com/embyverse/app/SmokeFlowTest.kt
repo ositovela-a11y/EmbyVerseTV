@@ -567,7 +567,7 @@ class SmokeFlowTest {
             waitCards()
             runCatching { compose.onNodeWithTag("folder_all", useUnmergedTree = true).performClick() }
             Thread.sleep(800); waitCards()
-            compose.onAllNodes(hasTagPrefix("card:MOVIE:"), useUnmergedTree = true)[0].performClick()
+            compose.onAllNodes(hasTagPrefix("card:MOVIE:"), useUnmergedTree = true)[2].performClick()
             waitText(app.getString(R.string.action_play))
             runCatching { compose.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("more_like_this")) }
             waitTag("more_like_this", 10_000)

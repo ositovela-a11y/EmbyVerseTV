@@ -91,8 +91,11 @@ class MovieDetailViewModel(private val c: AppContainer, private val sid: String,
     init {
         viewModelScope.launch { c.sources.loadMovieDetails(sid, id) }
         viewModelScope.launch {
-            val m = c.database.movies().get(sid, id)
-            m?.category?.let { cat -> similar.value = runCatching { c.database.movies().similar(cat, sid, id, 15).map { it.toCard(ContentKind.MOVIE) } }.getOrDefault(emptyList()) }
+            val dao = c.database.movies()
+            val cat = dao.get(sid, id)?.category
+            similar.value = runCatching {
+                (cat?.let { dao.similar(it, sid, id, 15) }.orEmpty().ifEmpty { dao.topRated(sid, id, 15) }).map { it.toCard(ContentKind.MOVIE) }
+            }.getOrDefault(emptyList())
         }
         refreshProgress()
     }
@@ -222,9 +225,11 @@ class SeriesDetailViewModel(private val c: AppContainer, private val sid: String
 
     init {
         viewModelScope.launch {
-            c.database.series().get(sid, id)?.category?.let { cat ->
-                similar.value = runCatching { c.database.series().similar(cat, sid, id, 15).map { it.toCard(ContentKind.SERIES) } }.getOrDefault(emptyList())
-            }
+            val dao = c.database.series()
+            val cat = dao.get(sid, id)?.category
+            similar.value = runCatching {
+                (cat?.let { dao.similar(it, sid, id, 15) }.orEmpty().ifEmpty { dao.topRated(sid, id, 15) }).map { it.toCard(ContentKind.SERIES) }
+            }.getOrDefault(emptyList())
         }
         viewModelScope.launch {
             val s = c.database.series().get(sid, id)

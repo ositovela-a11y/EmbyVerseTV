@@ -255,7 +255,8 @@ class MainActivity : AppCompatActivity() {
                     }
                     crash?.let { report -> CrashDialog(report) { crash = null } }
                     // Novedades de la versión: una vez después de actualizar.
-                    if (splashDone && crash == null) com.embyverse.app.ui.components.WhatsNewDialog()
+                    val tourOn by com.embyverse.app.data.prefs.UiPrefs.tourVisible.collectAsStateWithLifecycle()
+                    if (splashDone && crash == null && !tourOn) com.embyverse.app.ui.components.WhatsNewDialog()
                     // Versión nueva de la app: se ofrece al abrir o al recuperar internet.
                     if (splashDone && crash == null) com.embyverse.app.ui.components.UpdateDialog(container.updater)
                     // Mensaje del administrador / vendedor (una vez por dispositivo, mientras esté vigente).

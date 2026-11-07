@@ -14,6 +14,9 @@ object UiPrefs {
     /** 1 = normal, 1.15 = grande, 1.3 = muy grande. */
     val fontScale: StateFlow<Float> = _fontScale
 
+    /** La bienvenida está en pantalla (las «Novedades» esperan a que termine). */
+    val tourVisible = MutableStateFlow(false)
+
     fun init(ctx: Context) { _fontScale.value = sp(ctx).getFloat("font_scale", 1f) }
     private fun sp(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 

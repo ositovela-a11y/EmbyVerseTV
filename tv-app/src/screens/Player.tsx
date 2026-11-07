@@ -167,8 +167,10 @@ export function Player({ req, onClose }: { req: PlayRequest; onClose: () => void
   return (
     <div className={`player ${subCls}`}>
       {(state === 'loading' || state === 'buffering') && <div className="player-spin"><div className="spinner" /></div>}
-      {state === 'error' && <div className="player-error" data-fx-layer=""><h2>No se pudo reproducir</h2><p>El canal o video no respondió. Prueba otra vez o elige otro.</p><small>{err}</small>
-        <div className="row-btns"><Fx className="btn primary" def onClick={() => start(item)}>Reintentar</Fx><Fx className="btn" onClick={onClose}>Salir</Fx></div></div>}
+      {state === 'error' && <div className="player-error" data-fx-layer=""><h2>{live ? 'Este canal no está disponible ahora' : 'No se pudo reproducir este contenido'}</h2>
+        <p>{navigator.onLine === false ? 'No hay conexión a internet. Revisa tu Wi-Fi o cable.' : live ? 'Puede ser algo momentáneo del canal. Prueba otra vez o pasa al siguiente.' : 'El video no respondió. Prueba otra vez en un momento.'}</p><small>{err}</small>
+        <div className="row-btns"><Fx className="btn primary" def onClick={() => start(item)}>Reintentar</Fx>
+          {live ? <Fx className="btn" onClick={() => zap(1)}>Siguiente canal ⏭</Fx> : <Fx className="btn" onClick={onClose}>Salir</Fx>}</div></div>}
       {(digits || zapName) && <div className="zap-pill">{digits ? digits.padEnd(3, '_').split('').join(' ') : zapName}</div>}
       {ui && !panel && <div className="player-top"><b>{item.title}</b>{item.subtitle && <span>{item.subtitle}</span>}<div className="grow" />{quality && <span className={`q ${quality === '4K' ? 'k4' : ''}`}>{quality}</span>}<Clock /></div>}
       {ui && !panel && live && cur && <div className="mini-guide"><div><small>AHORA</small> <b>{cur.title}</b> <span>{fmt(cur.start)}–{fmt(cur.end)}</span></div>

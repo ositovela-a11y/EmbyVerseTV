@@ -162,6 +162,7 @@ function App() {
           <Fx className="btn primary" def onClick={() => { store.markSeen(notice.id); setNotice(null); }}>Entendido</Fx></div></div>}
         {saver && <Screensaver />}
         {toast && <div className="toast">{toast}</div>}
+        <NetBanner />
       </div>
     </Ctx.Provider>
   );
@@ -193,3 +194,18 @@ function Screensaver() {
 }
 
 createRoot(document.getElementById('root')!).render(<App />);
+
+
+/** Aviso fijo cuando la TV pierde internet y «Conexión recuperada» al volver. */
+function NetBanner() {
+  const [online, setOnline] = useState(() => navigator.onLine !== false);
+  const [back, setBack] = useState(false);
+  useEffect(() => {
+    const on = () => { setOnline(true); setBack(true); setTimeout(() => setBack(false), 3000); };
+    const off = () => { setOnline(false); setBack(false); };
+    window.addEventListener('online', on); window.addEventListener('offline', off);
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
+  }, []);
+  if (online && !back) return null;
+  return <div className={`net-banner${online ? ' ok' : ''}`}>{online ? 'Conexión recuperada' : 'Sin conexión a internet · reintentando…'}</div>;
+}

@@ -203,6 +203,7 @@ fun WelcomeTour(onDone: () -> Unit) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(i) { runCatching { focus.requestFocus() } }
     androidx.activity.compose.BackHandler(enabled = i > 0) { i-- }
+    androidx.compose.runtime.DisposableEffect(Unit) { UiPrefs.tourVisible.value = true; onDispose { UiPrefs.tourVisible.value = false } }
     Box(Modifier.fillMaxSize().background(t.background).testTag("welcome_tour"), contentAlignment = Alignment.Center) {
         Column(Modifier.widthIn(max = 560.dp).padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             BrandLogo(com.embyverse.core.config.LogoVariant.BUNDLED_FULL, null, Modifier.height(if (t.device.isTv) 90.dp else 72.dp))

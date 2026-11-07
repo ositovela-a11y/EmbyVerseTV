@@ -128,6 +128,10 @@ interface MovieDao {
     @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category, addedAt FROM movies WHERE category = :category AND NOT (sourceId = :sid AND providerId = :id) ORDER BY rating IS NULL, rating DESC, position LIMIT :limit")
     suspend fun similar(category: String, sid: String, id: String, limit: Int): List<CardRow>
 
+    /** Respaldo de «Más como esta» cuando no hay carpeta: las mejor calificadas. */
+    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category, addedAt FROM movies WHERE NOT (sourceId = :sid AND providerId = :id) ORDER BY rating IS NULL, rating DESC LIMIT :limit")
+    suspend fun topRated(sid: String, id: String, limit: Int): List<CardRow>
+
     @Query("SELECT * FROM movies ORDER BY addedAt DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<MovieEntity>>
 
@@ -199,6 +203,10 @@ interface SeriesDao {
     /** «Más como esta»: de la misma carpeta, las mejor calificadas primero. */
     @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category, addedAt FROM series WHERE category = :category AND NOT (sourceId = :sid AND providerId = :id) ORDER BY rating IS NULL, rating DESC, position LIMIT :limit")
     suspend fun similar(category: String, sid: String, id: String, limit: Int): List<CardRow>
+
+    /** Respaldo de «Más como esta» cuando no hay carpeta: las mejor calificadas. */
+    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category, addedAt FROM series WHERE NOT (sourceId = :sid AND providerId = :id) ORDER BY rating IS NULL, rating DESC LIMIT :limit")
+    suspend fun topRated(sid: String, id: String, limit: Int): List<CardRow>
 
     @Query("SELECT * FROM series ORDER BY addedAt DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<SeriesEntity>>

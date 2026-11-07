@@ -206,3 +206,12 @@ body.nav-top .menu-item { padding:10px 24px; border-radius:30px; } body.nav-top 
 body.nav-top .menu-foot { margin:0 0 0 auto; flex-direction:row; gap:16px; }
 body.nav-top .content { height:984px; } body.nav-top .screen { height:984px; padding-top:20px; }
 body.nav-top .live-body { height:820px; } body.nav-top .grid { height:760px; }
+
+/* Esqueleto de carga: hueco neutro con brillo que recorre mientras llega la carátula. */
+.img.skeleton { background:#1c2030; }
+.img.skeleton::after { content:''; position:absolute; inset:0; background:linear-gradient(100deg, transparent 30%, rgba(255,255,255,.08) 50%, transparent 70%); background-size:200% 100%; animation:skel 1.2s linear infinite; }
+@keyframes skel { from { background-position:150% 0; } to { background-position:-50% 0; } }
+.lite .img.skeleton::after { animation:none; }
+/* Aviso de conexión */
+.net-banner { position:fixed; top:18px; left:50%; transform:translateX(-50%); z-index:60; padding:10px 22px; border-radius:40px; font-weight:700; font-size:22px; color:#fff; background:#b3261e; box-shadow:0 8px 24px rgba(0,0,0,.4); }
+.net-banner.ok { background:#2e7d32; }

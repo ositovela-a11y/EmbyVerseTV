@@ -47,10 +47,10 @@ export function Img({ src, alt, className, fit = 'cover' }: { src?: string | nul
   useEffect(() => { setState(src ? 'load' : 'fail'); }, [src]);
   const hue = Math.abs(Array.from(alt).reduce((a, c) => a * 31 + c.charCodeAt(0), 7)) % 360;
   return (
-    <div className={`img ${className ?? ''}`} style={{ background: `linear-gradient(160deg, hsl(${hue},55%,32%), hsl(${(hue + 50) % 360},60%,12%))` }}>
+    <div className={`img ${className ?? ''}${state === 'load' ? ' skeleton' : ''}`} style={state === 'load' ? undefined : { background: `linear-gradient(160deg, hsl(${hue},55%,32%), hsl(${(hue + 50) % 360},60%,12%))` }}>
       {state !== 'fail' && src && <img src={src} alt="" loading="lazy" style={{ objectFit: fit, opacity: state === 'ok' ? 1 : 0 }}
         onLoad={() => setState('ok')} onError={() => setState('fail')} />}
-      {state !== 'ok' && <span className="img-alt">{alt}</span>}
+      {state === 'fail' && <span className="img-alt">{alt}</span>}
     </div>
   );
 }
