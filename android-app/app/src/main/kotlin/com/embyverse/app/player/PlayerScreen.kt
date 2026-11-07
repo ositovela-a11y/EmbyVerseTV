@@ -103,6 +103,9 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
         }
     }
     KeepScreenOnWhilePlaying(player)
+    // Celular: bloqueo de pantalla (niños) y referencia al reproductor para mostrar controles con un toque.
+    var locked by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val viewRef = androidx.compose.runtime.remember { arrayOfNulls<PlayerView>(1) }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         // Formato de pantalla: ajustar / llenar / zoom / 16:9 / 4:3 (para canales con bordes negros o estirados).
@@ -119,7 +122,7 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
                     keepScreenOn = true
                     controllerAutoShow = !vm.isLive
                     setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { v -> vm.controlsVisible.value = v == View.VISIBLE })
-                }
+                }.also { viewRef[0] = it }
             },
             update = { view ->
                 view.resizeMode = when (aspectMode) { 1, 3, 4 -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
@@ -134,9 +137,13 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
                     sv.setFractionalTextSize(androidx.media3.ui.SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * listOf(0.8f, 1f, 1.3f, 1.65f)[subStyle.subtitleSize.coerceIn(0, 3)])
                     sv.setApplyEmbeddedStyles(false)
                 }
-                view.player = player; view.useController = !pip; if (listVisible || optionsVisible || pip) view.hideController() },
+                view.player = player; view.useController = !pip && !locked; if (listVisible || optionsVisible || pip || locked) view.hideController() },
             onRelease = { view -> view.player = null },
         )
+
+        // Gestos del celular: toque, doble toque ±10 s, brillo y volumen (con los controles ocultos).
+        if (!t.device.isTv && !pip && !locked && !controls && !listVisible && !optionsVisible && error == null && castingTo == null)
+            PhoneGestureLayer(player, !vm.isLive, { viewRef[0]?.showController() })
 
         if (buffering && error == null) CircularProgressIndicator(Modifier.align(Alignment.Center).size(56.dp), color = t.primary, strokeWidth = 4.dp)
 
@@ -205,17 +212,29 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
             MiniGuide(program!!, nextProg, Modifier.align(Alignment.BottomStart).padding(start = 24.dp, bottom = if (controls) 96.dp else 28.dp))
         }
 
-        // Error comprensible con reintento.
+        // Error amable: qué pasó, reintentar, pasar al siguiente canal o avisar al proveedor.
         error?.let { e ->
-            Column(Modifier.align(Alignment.Center).widthIn(max = 480.dp).padding(24.dp)
-                .background(t.surface.copy(alpha = 0.95f), RoundedCornerShape(t.cardRadius)).padding(24.dp),
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            val cfg by com.embyverse.app.ui.LocalAppContainer.current.config.config.collectAsStateWithLifecycle()
+            Column(Modifier.align(Alignment.Center).widthIn(max = 520.dp).padding(24.dp)
+                .background(t.surface.copy(alpha = 0.96f), RoundedCornerShape(t.cardRadius)).padding(24.dp).testTag("player_error"),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Icon(Icons.Rounded.ErrorOutline, null, tint = t.error, modifier = Modifier.size(40.dp))
-                Text(stringResource(e.messageRes), style = MaterialTheme.typography.titleMedium, color = t.onBackground)
-                (e as? PlayerUiError.Message)?.detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = t.textSecondary) }
+                Text(stringResource(if (vm.isLive) R.string.player_unavailable_live else R.string.player_unavailable_vod), style = MaterialTheme.typography.titleMedium,
+                    color = t.onBackground, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Text(stringResource(e.messageRes), style = MaterialTheme.typography.bodyMedium, color = t.textSecondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    EmbyButton(stringResource(R.string.action_retry), { vm.retry() }, icon = Icons.Rounded.Refresh)
-                    EmbyButton(stringResource(R.string.action_close), onClose, secondary = true)
+                    EmbyButton(stringResource(R.string.action_retry), { vm.retry() }, icon = Icons.Rounded.Refresh, modifier = Modifier.testTag("player_retry"))
+                    if (vm.isLive) EmbyButton(stringResource(R.string.player_next_channel), { vm.error.value = null; vm.zap(1) }, icon = Icons.Rounded.SkipNext,
+                        secondary = true, modifier = Modifier.testTag("player_next_channel"))
+                    else EmbyButton(stringResource(R.string.action_close), onClose, secondary = true)
+                }
+                cfg.texts["support.whatsapp"]?.filter { it.isDigit() }?.takeIf { it.length >= 8 }?.let { n ->
+                    androidx.compose.material3.TextButton(onClick = {
+                        val msg = ctx.getString(R.string.player_report_msg, np?.title ?: "", ctx.getString(e.messageRes))
+                        runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse("https://wa.me/$n?text=" + android.net.Uri.encode(msg))).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                    }) { Text(stringResource(R.string.player_report), color = t.accent) }
                 }
             }
         }
@@ -239,6 +258,11 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
         AnimatedVisibility(visible = optionsVisible, enter = slideInHorizontally(tween(160)) { it }, exit = slideOutHorizontally(tween(140)) { it }, modifier = Modifier.align(Alignment.CenterEnd)) {
             PlayerOptions(vm)
         }
+
+        // Candado (celular): bloquea la pantalla para que los niños no toquen nada.
+        if (!t.device.isTv && !pip && controls && !locked && error == null) LockButton({ locked = true; viewRef[0]?.hideController() },
+            Modifier.align(Alignment.CenterEnd).padding(end = 18.dp))
+        if (locked) LockedOverlay { locked = false; viewRef[0]?.showController() }
     }
     if (kidsTimeUp) com.embyverse.app.ui.components.PinDialog(stringResource(R.string.kids_time_up), stringResource(R.string.kids_time_up_sub), onDismiss = onClose) { pin ->
         vm.kidsPinOk(pin)

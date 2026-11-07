@@ -46,7 +46,13 @@ interface HttpFetcher {
 sealed class SourceError(val userMessage: String) {
     data object InvalidUrl : SourceError("La dirección no es válida. Usa una URL que empiece por http:// o https://.")
     data object AuthFailed : SourceError("Usuario o contraseña incorrectos.")
-    data class AccountInactive(val status: String) : SourceError("La cuenta del proveedor no está activa (estado: $status).")
+    data class AccountInactive(val status: String) : SourceError(
+        when (status.trim().lowercase()) {
+            "expired" -> "Tu cuenta venció. Contacta a tu proveedor para renovarla."
+            "banned", "disabled" -> "Tu cuenta está suspendida. Contacta a tu proveedor."
+            else -> "Tu cuenta no está activa (estado: $status). Contacta a tu proveedor."
+        }
+    )
     data class Http(val code: Int) : SourceError(
         when (code) {
             401, 403 -> "El servidor rechazó el acceso (HTTP $code). Revisa las credenciales."
@@ -56,7 +62,7 @@ sealed class SourceError(val userMessage: String) {
         }
     )
     data object Timeout : SourceError("El servidor tardó demasiado en responder. Revisa tu conexión o inténtalo más tarde.")
-    data class Network(val detail: String?) : SourceError("No se pudo conectar con el servidor. Comprueba la dirección y tu conexión a Internet.")
+    data class Network(val detail: String?) : SourceError("No se pudo conectar con el servidor. Revisa que tengas internet e inténtalo de nuevo.")
     data object NotM3u : SourceError("El contenido descargado no es una lista M3U/M3U8 válida.")
     data object NotXtream : SourceError("El servidor no respondió como una API compatible con Xtream Codes. Prueba a añadirlo como lista M3U.")
     data class InvalidResponse(val detail: String) : SourceError("El proveedor devolvió datos con un formato no reconocido.")

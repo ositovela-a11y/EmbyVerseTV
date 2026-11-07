@@ -9,6 +9,8 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.printToLog
@@ -505,6 +507,74 @@ class SmokeFlowTest {
         val bad = inst.install(host, "ZZZ999", listOf("http://$host:9991/fake.ipk")) { }
         log("Passphrase equivocada: ${bad.message}")
         assertTrue("con passphrase equivocada no debe instalar", !bad.ok)
+    }
+
+    /** Ajustes profesionales: bienvenida, novedades, ayuda, términos, letra, horario nocturno, etiquetas y «Más como esta». */
+    @Test fun l_profesional() {
+        // Lógica: horario nocturno que cruza la medianoche y etiquetas automáticas.
+        val P = com.embyverse.app.data.prefs.PlaybackPrefs
+        assertTrue("23:00 está dentro de 22–07", P.inWindow(23 * 60, 22 * 60, 7 * 60))
+        assertTrue("06:59 está dentro de 22–07", P.inWindow(6 * 60 + 59, 22 * 60, 7 * 60))
+        assertTrue("12:00 está fuera de 22–07", !P.inWindow(12 * 60, 22 * 60, 7 * 60))
+        assertTrue("modo noche automático a las 23:00", com.embyverse.app.data.prefs.PlaybackPrefs(nightAuto = true).nightNow(23 * 60))
+        assertTrue("sin horario no se enciende", !com.embyverse.app.data.prefs.PlaybackPrefs().nightNow(23 * 60))
+        val b = com.embyverse.app.data.repo.badgesFor("Canal Deportes FHD", 2001, System.currentTimeMillis() / 1000 - 3600)
+        assertTrue("etiquetas: $b", "NUEVO" in b && "FHD" in b)
+        assertTrue("canal sin calidad no lleva etiqueta", com.embyverse.app.data.repo.badgesFor("Noticias", 2001, null).isEmpty())
+
+        val ui = app.getSharedPreferences("ui", android.content.Context.MODE_PRIVATE)
+        // Bienvenida (forzada) y novedades (como si viniera de una versión anterior).
+        ui.edit().putBoolean("force_tour", true).putInt("seen_version", 1).commit()
+        ActivityScenario.launch(MainActivity::class.java).use {
+            waitTag("welcome_tour", 30_000)
+            shot("20-bienvenida")
+            repeat(3) { compose.onNodeWithTag("tour_next", useUnmergedTree = true).performClick(); Thread.sleep(500) }
+            waitTag("nav_movies", 20_000)
+            assertTrue("bienvenida marcada como vista", com.embyverse.app.data.prefs.UiPrefs.onboardingDone(app))
+            waitTag("whats_new", 15_000)
+            shot("21-novedades")
+            compose.onNodeWithTag("whats_new_ok", useUnmergedTree = true).performClick()
+            log("Bienvenida de 3 pantallas y Novedades: bien")
+
+            // Ayuda y términos desde Ajustes.
+            compose.onNodeWithTag("nav_settings", useUnmergedTree = true).performClick()
+            compose.waitForIdle()
+            compose.onNode(androidx.compose.ui.test.hasScrollAction()).performScrollToNode(androidx.compose.ui.test.hasText(app.getString(R.string.help_title)))
+            compose.onNodeWithText(app.getString(R.string.help_title), useUnmergedTree = true).performClick()
+            waitTag("help_screen")
+            compose.onNodeWithTag("faq_0", useUnmergedTree = true).performClick()
+            waitText(app.getString(R.string.faq1_a).take(20))
+            shot("22-ayuda")
+            back()
+            compose.onNode(androidx.compose.ui.test.hasScrollAction()).performScrollToNode(androidx.compose.ui.test.hasText(app.getString(R.string.terms_title)))
+            compose.onNodeWithText(app.getString(R.string.terms_title), useUnmergedTree = true).performClick()
+            waitTag("terms_screen")
+            shot("23-terminos")
+            back()
+            log("Ayuda (preguntas frecuentes) y Términos: bien")
+
+            // Tamaño de letra muy grande y de regreso a normal.
+            compose.onNode(androidx.compose.ui.test.hasScrollAction()).performScrollToNode(androidx.compose.ui.test.hasText(app.getString(R.string.font_size_title)))
+            compose.onNodeWithText(app.getString(R.string.font_size_title), useUnmergedTree = true).performClick()
+            compose.onNodeWithTag("font_1.3", useUnmergedTree = true).performClick()
+            compose.waitForIdle(); Thread.sleep(800); shot("24-letra-muy-grande")
+            assertTrue("letra muy grande", com.embyverse.app.data.prefs.UiPrefs.fontScale.value == 1.3f)
+            com.embyverse.app.data.prefs.UiPrefs.setFontScale(app, 1f)
+            log("Tamaño de letra: bien")
+
+            // Ficha de película: etiquetas y «Más como esta».
+            compose.onNodeWithTag("nav_movies", useUnmergedTree = true).performClick()
+            waitCards()
+            runCatching { compose.onNodeWithTag("folder_all", useUnmergedTree = true).performClick() }
+            Thread.sleep(800); waitCards()
+            compose.onAllNodes(hasTagPrefix("card:MOVIE:"), useUnmergedTree = true)[0].performClick()
+            waitText(app.getString(R.string.action_play))
+            runCatching { compose.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("more_like_this")) }
+            waitTag("more_like_this", 10_000)
+            shot("25-mas-como-esta")
+            log("Ficha con «Más como esta»: bien")
+        }
+        ui.edit().putBoolean("force_tour", false).commit()
     }
 
     private fun hasTagPrefix(prefix: String) = SemanticsMatcher("tag empieza por $prefix") {

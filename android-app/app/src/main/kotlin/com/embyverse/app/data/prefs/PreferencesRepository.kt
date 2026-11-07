@@ -51,7 +51,21 @@ data class PlaybackPrefs(
     val aspectMode: Int = 0,
     /** Modo para equipos lentos: sin animaciones ni fondos animados y menos imágenes en memoria. */
     val liteMode: Boolean = false,
-)
+    /** Modo noche automático por horario (p. ej. de 22:00 a 07:00). */
+    val nightAuto: Boolean = false,
+    /** Inicio y fin del horario, en minutos desde medianoche. */
+    val nightFrom: Int = 22 * 60,
+    val nightTo: Int = 7 * 60,
+) {
+    /** ¿Debe estar activo el modo noche ahora? (encendido a mano o dentro del horario). */
+    fun nightNow(minuteOfDay: Int = java.util.Calendar.getInstance().let { it.get(java.util.Calendar.HOUR_OF_DAY) * 60 + it.get(java.util.Calendar.MINUTE) }): Boolean =
+        nightMode || (nightAuto && inWindow(minuteOfDay, nightFrom, nightTo))
+
+    companion object {
+        /** Horario que puede cruzar la medianoche (22:00 → 07:00). */
+        fun inWindow(m: Int, from: Int, to: Int): Boolean = if (from == to) true else if (from < to) m in from until to else m >= from || m < to
+    }
+}
 
 /**
  * Seguridad de UN perfil: PIN, carpetas bloqueadas, bloqueo automático de adultos y avatar.
@@ -124,6 +138,9 @@ class PreferencesRepository(private val context: Context) {
     private val DATA_SAVER = booleanPreferencesKey("play.dataSaver")
     private val ASPECT = intPreferencesKey("play.aspect")
     private val LITE = booleanPreferencesKey("app.lite")
+    private val NIGHT_AUTO = booleanPreferencesKey("play.nightAuto")
+    private val NIGHT_FROM = intPreferencesKey("play.nightFrom")
+    private val NIGHT_TO = intPreferencesKey("play.nightTo")
 
     val playback: Flow<PlaybackPrefs> = ds.data.map { p ->
         PlaybackPrefs(
@@ -146,6 +163,9 @@ class PreferencesRepository(private val context: Context) {
             dataSaver = p[DATA_SAVER] ?: false,
             aspectMode = p[ASPECT] ?: 0,
             liteMode = p[LITE] ?: LiteDefault.value,
+            nightAuto = p[NIGHT_AUTO] ?: false,
+            nightFrom = p[NIGHT_FROM] ?: 22 * 60,
+            nightTo = p[NIGHT_TO] ?: 7 * 60,
         )
     }.distinctUntilChanged()
 
@@ -167,6 +187,7 @@ class PreferencesRepository(private val context: Context) {
             p[SUB_SIZE] = n.subtitleSize; p[SUB_YELLOW] = n.subtitleYellow; p[SUB_BG] = n.subtitleBackground
             p[NIGHT] = n.nightMode; p[DATA_SAVER] = n.dataSaver
             p[ASPECT] = n.aspectMode; p[LITE] = n.liteMode
+            p[NIGHT_AUTO] = n.nightAuto; p[NIGHT_FROM] = n.nightFrom; p[NIGHT_TO] = n.nightTo
         }
     }
 

@@ -607,7 +607,8 @@ fun FavoritesScreen(nav: Navigator) {
             }
         }
         if (list == null) item { LoadingBox(Modifier.height(200.dp)) }
-        else if (list.isEmpty()) item { MessageState(Icons.Rounded.FavoriteBorder, stringResource(R.string.favorites_empty_title), stringResource(R.string.favorites_empty_message)) }
+        else if (list.isEmpty()) item { MessageState(Icons.Rounded.FavoriteBorder, stringResource(R.string.favorites_empty_title), stringResource(R.string.favorites_empty_message),
+            stringResource(R.string.empty_go_live), { nav.goTop(com.embyverse.app.ui.navigation.Routes.LIVE) }) }
         else if (ordering) {
             item { Text(stringResource(R.string.favorites_order_hint), style = MaterialTheme.typography.bodySmall, color = t.textSecondary, modifier = Modifier.padding(horizontal = t.screenPadding)) }
             items(list.size, key = { "o|${list[it].ref.kind}|${list[it].ref.sourceId}|${list[it].ref.id}" }) { i ->

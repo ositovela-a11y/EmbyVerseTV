@@ -1,6 +1,8 @@
 package com.embyverse.app.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -56,6 +58,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -189,7 +192,14 @@ fun MediaImage(url: String?, kind: ContentKind, modifier: Modifier = Modifier, c
     val candidates = remember(url) { com.embyverse.app.data.net.imageCandidates(url) }
     var attempt by remember(url) { mutableStateOf(0) }
     var failed by remember(url) { mutableStateOf(candidates.isEmpty()) }
-    Box(modifier.background(if (kind == ContentKind.LIVE) Brush.linearGradient(listOf(t.surfaceVariant, t.surface)) else fallbackBrush(fallbackText ?: url ?: "", t.surface))) {
+    var loaded by remember(url) { mutableStateOf(false) }
+    // Mientras llega la imagen: hueco neutro con brillo animado (esqueleto). Si falla: color propio y el título.
+    val loading = !failed && !loaded
+    Box(modifier.background(when {
+        kind == ContentKind.LIVE -> Brush.linearGradient(listOf(t.surfaceVariant, t.surface))
+        loading -> Brush.linearGradient(listOf(t.surfaceVariant, t.surface))
+        else -> fallbackBrush(fallbackText ?: url ?: "", t.surface)
+    }).shimmer(loading && kind != ContentKind.LIVE && !LocalLite.current)) {
         if (failed) {
             if (fallbackText != null && kind != ContentKind.LIVE) Text(fallbackText, style = MaterialTheme.typography.titleSmall, color = Color.White.copy(alpha = 0.9f),
                 maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.BottomStart).padding(10.dp))
@@ -197,7 +207,7 @@ fun MediaImage(url: String?, kind: ContentKind, modifier: Modifier = Modifier, c
                 modifier = Modifier.align(Alignment.Center).size(30.dp))
         } else {
             AsyncImage(model = candidates[attempt], contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = contentScale,
-                onError = { if (attempt + 1 < candidates.size) attempt++ else failed = true })
+                onSuccess = { loaded = true }, onError = { if (attempt + 1 < candidates.size) attempt++ else failed = true })
         }
     }
 }
@@ -221,6 +231,16 @@ fun MediaCardView(card: MediaCard, aspect: CardAspect, size: CardSize, onClick: 
                     if (live) ContentScale.Fit else ContentScale.Crop, fallbackText = card.title)
                 if (!live) Box(Modifier.fillMaxWidth().fillMaxHeight(0.35f).align(Alignment.BottomCenter)
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.45f)))))
+                // Etiquetas: NUEVO / ESTRENO (color de la marca) y calidad 4K / FHD / HD.
+                if (card.badges.isNotEmpty()) Row(Modifier.align(Alignment.TopStart).padding(5.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    card.badges.take(2).forEach { b ->
+                        val quality = b == "4K" || b == "FHD" || b == "HD"
+                        Text(b, style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Black, letterSpacing = 0.4.sp),
+                            color = if (quality) Color.Black else t.buttonText, maxLines = 1,
+                            modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(if (quality) Color.White.copy(alpha = 0.88f) else t.primary)
+                                .padding(horizontal = 5.dp, vertical = 1.dp).testTag("badge:$b"))
+                    }
+                }
                 card.progress?.let { p ->
                     LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth().height(3.dp).align(Alignment.BottomCenter),
                         color = t.primary, trackColor = Color.White.copy(alpha = 0.18f), drawStopIndicator = {}, gapSize = 0.dp)
@@ -299,12 +319,18 @@ fun LoadingBox(modifier: Modifier = Modifier) {
 @Composable
 fun MessageState(icon: ImageVector, title: String, message: String?, actionLabel: String? = null, onAction: (() -> Unit)? = null, modifier: Modifier = Modifier) {
     val t = LocalEmby.current
-    Column(modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(Modifier.size(72.dp).clip(CircleShape).background(t.surfaceVariant), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = t.accent, modifier = Modifier.size(36.dp))
+    // Pantalla vacía con diseño: ícono que flota suave sobre un halo de color, texto centrado y una acción útil.
+    val lite = LocalLite.current
+    val float by androidx.compose.animation.core.rememberInfiniteTransition(label = "emptyFloat").animateFloat(0f, 1f,
+        androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1_800), androidx.compose.animation.core.RepeatMode.Reverse), label = "f")
+    Column(modifier.fillMaxWidth().padding(32.dp).testTag("empty_state"), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(Modifier.size(96.dp).graphicsLayer { translationY = if (lite) 0f else (float - 0.5f) * 10.dp.toPx() }
+            .clip(CircleShape).background(Brush.radialGradient(listOf(t.primary.copy(alpha = 0.35f), t.surfaceVariant))), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = t.accent, modifier = Modifier.size(44.dp))
         }
-        Text(title, style = MaterialTheme.typography.titleMedium, color = t.onBackground)
-        message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = t.textSecondary) }
+        Text(title, style = MaterialTheme.typography.titleMedium, color = t.onBackground, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = t.textSecondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.widthIn(max = 420.dp)) }
         if (actionLabel != null && onAction != null) EmbyButton(actionLabel, onAction)
     }
 }

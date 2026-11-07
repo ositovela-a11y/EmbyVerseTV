@@ -581,6 +581,10 @@ export function PremiumPanel({ ed, canEdit }: PanelProps) {
         <TextField label="Número con lada (solo dígitos)" value={wa} max={20} placeholder="5215512345678" disabled={!canEdit} onChange={(v) => set('support.whatsapp', v.replace(/[^0-9]/g, ''), 'wa')} />
         {wa && wa.length < 10 && <Notice kind="error">Escribe el número completo con lada de país (p. ej. 52 + 10 dígitos).</Notice>}
       </Group>
+      <Group title="Términos de uso (opcional)" hint="Texto que ven tus clientes en Ajustes → Términos de uso. Si lo dejas vacío, la app muestra unos términos generales para servicios de streaming. Máximo 500 caracteres.">
+        <textarea className="input" rows={5} maxLength={500} disabled={!canEdit} value={t['legal.terms'] ?? ''} placeholder="Ej.: Tu cuenta es personal, el servicio se renueva cada mes con tu vendedor…"
+          onChange={(e) => { const v = e.target.value.slice(0, 500); ed.update((d) => { if (v.trim()) d.texts['legal.terms'] = v; else delete d.texts['legal.terms']; }, 'legal.terms'); }} style={{ width: '100%', resize: 'vertical' }} />
+      </Group>
     </>
   );
 }

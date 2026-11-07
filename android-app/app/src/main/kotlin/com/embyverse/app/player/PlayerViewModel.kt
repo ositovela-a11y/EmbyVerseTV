@@ -142,7 +142,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     init {
         viewModelScope.launch {
             prefs = c.prefs.playback.first()
-            subtitleStyle.value = prefs; nightMode.value = prefs.nightMode; aspect.value = prefs.aspectMode
+            subtitleStyle.value = prefs; nightMode.value = prefs.nightNow(); aspect.value = prefs.aspectMode
             langs = runCatching { c.prefs.profileLanguages(c.prefs.activeProfile()).first() }.getOrDefault("es" to "")
             player.value?.let { applyLanguages(it) }
             if (isLive) {
@@ -427,6 +427,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
                 delay(10_000)
                 if (isLive) updateProgram() else saveProgress()
                 if (++ticks % 6 == 0 && player.value?.isPlaying == true) countKidsMinute()
+                if (ticks % 6 == 0) checkNightSchedule()
             }
         }
     }
@@ -454,7 +455,18 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         viewModelScope.launch { c.library.toggleFavorite(np.ref, np.title, np.imageUrl); favorite.value = c.library.isFavorite(np.ref).first() }
     }
 
+    /** El cliente cambió el modo noche a mano durante esta reproducción: el horario ya no lo cambia. */
+    private var nightManual = false
+
+    /** Modo noche por horario: se enciende o apaga solo a la hora elegida, aunque ya esté viendo algo. */
+    private suspend fun checkNightSchedule() {
+        if (nightManual) return
+        val want = c.prefs.playback.first().nightNow()
+        if (want != nightMode.value) { nightMode.value = want; applyNight() }
+    }
+
     fun setNightMode(on: Boolean) {
+        nightManual = true
         nightMode.value = on
         viewModelScope.launch { c.prefs.updatePlayback { it.copy(nightMode = on) } }
         applyNight()

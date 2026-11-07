@@ -79,6 +79,10 @@ class SourceRepository(
     private val _syncState = MutableStateFlow<Map<String, SyncState>>(emptyMap())
     val syncState: StateFlow<Map<String, SyncState>> = _syncState
 
+    /** Avance real de la carga de listas (0..1) mientras se descargan; null = nada cargando. */
+    private val _syncProgress = MutableStateFlow<Float?>(null)
+    val syncProgress: StateFlow<Float?> = _syncProgress
+
     val sources: Flow<List<SourceEntity>> = db.sources().observeAll()
 
     private suspend fun adapter(type: SourceType): SourceAdapter = when (type) {
@@ -152,6 +156,13 @@ class SourceRepository(
     private suspend fun syncInternal(id: String): SyncState {
         val src = db.sources().get(id) ?: return SyncState.Failed(SourceError.InvalidUrl)
         _syncState.update { it + (id to SyncState.Running) }
+        _syncProgress.value = 0.05f
+        try { return syncWithProgress(id, src) } finally {
+            if (_syncState.value.values.none { it is SyncState.Running }) _syncProgress.value = null
+        }
+    }
+
+    private suspend fun syncWithProgress(id: String, src: com.embyverse.app.data.db.SourceEntity): SyncState {
         val spec = specOf(src)
         val password = credentials.get(id)
         if (spec.type == SourceType.XTREAM && password == null) {
@@ -163,8 +174,10 @@ class SourceRepository(
         val applied = java.util.Collections.synchronizedSet(HashSet<ContentKind>())
         val onSection: suspend (ContentKind, Catalog) -> Unit = { kind, part ->
             Log.i(TAG, "sincronización: sección $kind descargada y leída en ${System.currentTimeMillis() - t0} ms")
+            _syncProgress.value = maxOf(_syncProgress.value ?: 0f, when (kind) { ContentKind.LIVE -> 0.25f; ContentKind.MOVIE -> 0.55f; else -> 0.8f })
             applyKind(spec, password, kind, part)
             applied += kind
+            _syncProgress.value = maxOf(_syncProgress.value ?: 0f, 0.1f + applied.size * 0.3f)
             Log.i(TAG, "sincronización: sección $kind lista en ${System.currentTimeMillis() - t0} ms")
         }
         val state = when (val r = adapter(spec.type).sync(spec, password, onSection)) {

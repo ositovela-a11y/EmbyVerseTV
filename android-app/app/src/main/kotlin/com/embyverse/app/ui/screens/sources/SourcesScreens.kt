@@ -85,6 +85,7 @@ import com.embyverse.app.work.SyncWorker
 import com.embyverse.core.config.LogoVariant
 import com.embyverse.core.model.SourceType
 import com.embyverse.core.net.Outcome
+import androidx.compose.ui.platform.testTag
 import com.embyverse.core.net.UrlSafety
 import com.embyverse.core.source.ConnectionReport
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -262,6 +263,18 @@ class SourceEditViewModel(private val c: AppContainer, private val id: String?) 
         val d = draft() ?: run { test.value = TestState.Error(missing); return }
         saving.value = true
         viewModelScope.launch {
+            // Cuentas Xtream: se verifica usuario y contraseña ANTES de guardar, para no dejar al cliente
+            // con una app vacía por un error de escritura, una cuenta vencida o sin internet.
+            if (d.type == SourceType.XTREAM && (d.password != null || id == null)) {
+                if (!com.embyverse.app.ui.components.Connectivity.online.value) {
+                    test.value = TestState.Error(c.app.getString(R.string.login_offline)); saving.value = false; return@launch
+                }
+                test.value = TestState.Running
+                when (val r = c.sources.test(d)) {
+                    is Outcome.Fail -> { test.value = TestState.Error(r.error.userMessage); saving.value = false; return@launch }
+                    is Outcome.Ok -> test.value = TestState.Ok(r.value)
+                }
+            }
             val sid = c.sources.save(d)
             SyncWorker.syncNow(c.app, sid)
             saving.value = false
@@ -344,7 +357,8 @@ fun SourceEditScreen(nav: Navigator, id: String?, firstRun: Boolean, onDone: () 
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 EmbyButton(stringResource(R.string.action_test_connection), { vm.runTest(missing) }, icon = Icons.Rounded.NetworkCheck, secondary = true, enabled = test !is TestState.Running)
-                EmbyButton(stringResource(R.string.action_save), { vm.save(missing, onDone) }, enabled = !saving)
+                EmbyButton(stringResource(if (saving) R.string.login_checking else if (locked || firstRun) R.string.login_enter else R.string.action_save), { vm.save(missing, onDone) }, enabled = !saving,
+                    modifier = Modifier.testTag("source_save"))
             }
             Text(stringResource(R.string.source_legal_notice), style = MaterialTheme.typography.bodySmall, color = t.textSecondary)
             if (firstRun) {
@@ -378,9 +392,21 @@ private fun TestResult(test: TestState) {
             CircularProgressIndicator(Modifier.size(20.dp), color = t.primary, strokeWidth = 2.dp)
             Spacer(Modifier.size(10.dp)); Text(stringResource(R.string.source_testing), color = t.onSurface)
         }
-        is TestState.Error -> Row(Modifier.fillMaxWidth().background(t.error.copy(alpha = 0.12f), RoundedCornerShape(t.cardRadius)).padding(12.dp)) {
-            Icon(Icons.Rounded.ErrorOutline, null, tint = t.error); Spacer(Modifier.size(10.dp))
-            Text(test.message, color = t.onSurface, style = MaterialTheme.typography.bodyMedium)
+        is TestState.Error -> Column(Modifier.fillMaxWidth().background(t.error.copy(alpha = 0.12f), RoundedCornerShape(t.cardRadius)).padding(12.dp).testTag("login_error"),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row {
+                Icon(Icons.Rounded.ErrorOutline, null, tint = t.error); Spacer(Modifier.size(10.dp))
+                Text(test.message, color = t.onSurface, style = MaterialTheme.typography.bodyMedium)
+            }
+            // Ayuda directa con el proveedor (número de WhatsApp del panel).
+            val cfg by com.embyverse.app.ui.LocalAppContainer.current.config.config.collectAsStateWithLifecycle()
+            val ctx = LocalContext.current
+            cfg.texts["support.whatsapp"]?.filter { it.isDigit() }?.takeIf { it.length >= 8 }?.let { n ->
+                TextButton(onClick = { runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                    Uri.parse("https://wa.me/$n?text=" + Uri.encode(ctx.getString(R.string.login_help_msg, test.message)))).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }) {
+                    Text(stringResource(R.string.help_whatsapp_short), color = t.accent)
+                }
+            }
         }
         is TestState.Ok -> Column(Modifier.fillMaxWidth().background(t.primary.copy(alpha = 0.12f), RoundedCornerShape(t.cardRadius)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

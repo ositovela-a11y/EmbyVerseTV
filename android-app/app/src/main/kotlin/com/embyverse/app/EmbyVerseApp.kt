@@ -32,6 +32,8 @@ class EmbyVerseApp : Application(), SingletonImageLoader.Factory {
             com.embyverse.app.data.prefs.LiteDefault.value = am.isLowRamDevice || am.memoryClass <= 128 || mi.totalMem < 1_700L * 1024 * 1024
         }
         container = AppContainer(this)
+        com.embyverse.app.data.prefs.UiPrefs.init(this)
+        com.embyverse.app.ui.components.Connectivity.start(this)
         container.config.onAppStart()
         SyncWorker.schedule(this)
         // Si el panel cambia el servidor del proveedor, las cuentas se pasan solas al nuevo.

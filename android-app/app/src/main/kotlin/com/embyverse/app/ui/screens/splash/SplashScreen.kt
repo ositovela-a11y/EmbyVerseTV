@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -85,6 +86,8 @@ fun SplashScreen(brand: Brand, onFinished: () -> Unit) {
     val text = remember { Animatable(0f) }    // textos
     val exit = remember { Animatable(0f) }    // salida
     val message = remember { mutableIntStateOf(0) }
+    // Avance de la carga: llega al 100 % solo cuando el diseño y el perfil ya están listos.
+    val loadProgress = remember { Animatable(0f) }
     val messages = listOf(
         stringResource(R.string.splash_msg_1), stringResource(R.string.splash_msg_2),
         stringResource(R.string.splash_msg_3), stringResource(R.string.splash_msg_4),
@@ -96,6 +99,7 @@ fun SplashScreen(brand: Brand, onFinished: () -> Unit) {
     LaunchedEffect(Unit) {
         val fetch = async { withTimeoutOrNull(4_000) { container.config.refresh() } }
         val ensure = async { container.library.ensureProfile(defaultProfile) }
+        launch { loadProgress.animateTo(0.9f, tween(5_600, easing = FastOutSlowInEasing)) }
         launch {
             if (container.prefs.playback.first().introSound) runCatching {
                 MediaPlayer.create(context, R.raw.intro, AudioAttributes.Builder()
@@ -133,6 +137,7 @@ fun SplashScreen(brand: Brand, onFinished: () -> Unit) {
         for (i in 1 until messages.size) { delay(1_100); message.intValue = i }
         delay(900)
         ensure.await(); fetch.await()
+        loadProgress.animateTo(1f, tween(250))
         exit.animateTo(1f, tween(600, easing = FastOutSlowInEasing))
         onFinished()
     }
@@ -214,9 +219,14 @@ fun SplashScreen(brand: Brand, onFinished: () -> Unit) {
             Text(brand.tagline ?: stringResource(R.string.splash_universe), style = MaterialTheme.typography.titleSmall.copy(letterSpacing = 2.sp),
                 color = t.accent, modifier = Modifier.graphicsLayer { alpha = text.value })
             Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(16.dp))
+            androidx.compose.material3.LinearProgressIndicator(progress = { loadProgress.value },
+                modifier = Modifier.size(width = 180.dp, height = 4.dp).graphicsLayer { alpha = text.value }.testTag("splash_progress"),
+                color = t.primary, trackColor = t.surfaceVariant.copy(alpha = 0.6f), drawStopIndicator = {}, gapSize = 0.dp)
+            Spacer(Modifier.height(10.dp))
             AnimatedContent(message.intValue, label = "splashMsg",
                 transitionSpec = { (fadeIn(tween(320)) + slideInVertically(tween(320)) { it / 2 }) togetherWith fadeOut(tween(220)) }) { i ->
-                Text(messages[i.coerceIn(0, messages.lastIndex)], style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 1.2.sp),
+                Text(messages[i.coerceIn(0, messages.lastIndex)] + "  " + (loadProgress.value * 100).toInt() + " %", style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 1.2.sp),
                     color = t.textSecondary, modifier = Modifier.graphicsLayer { alpha = text.value })
             }
         }

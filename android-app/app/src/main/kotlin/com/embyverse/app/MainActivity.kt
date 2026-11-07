@@ -173,7 +173,7 @@ class MainActivity : AppCompatActivity() {
 
                 val liteFlow = remember { container.prefs.playback.map { it.liteMode } }
                 val lite by liteFlow.collectAsStateWithLifecycle(initialValue = com.embyverse.app.data.prefs.LiteDefault.value)
-                EmbyTheme(theme) { androidx.compose.runtime.CompositionLocalProvider(com.embyverse.app.ui.components.LocalLite provides lite) { com.embyverse.app.ui.FastScrolling {
+                EmbyTheme(theme) { com.embyverse.app.ui.components.FontScaled { androidx.compose.runtime.CompositionLocalProvider(com.embyverse.app.ui.components.LocalLite provides lite) { com.embyverse.app.ui.FastScrolling {
                     NebulaBackground(Modifier.fillMaxSize()) {
                         // Marca de agua: el logotipo apenas visible al fondo de toda la app.
                         if (splashDone) com.embyverse.app.ui.components.BrandLogo(config.brand.logoVariant, config.brand.logoUrl,
@@ -202,6 +202,10 @@ class MainActivity : AppCompatActivity() {
                             else -> {
                                 // La decisión de mostrar la configuración inicial se toma una sola vez por sesión.
                                 val startOnboarding = rememberSaveable { hasSources == false }
+                                // Bienvenida de 3 pantallas la primera vez (antes de pedir usuario y contraseña).
+                                var tour by rememberSaveable { mutableStateOf((startOnboarding && !com.embyverse.app.data.prefs.UiPrefs.onboardingDone(this@MainActivity)) ||
+                                    com.embyverse.app.data.prefs.UiPrefs.forceTour(this@MainActivity)) }
+                                if (tour) { com.embyverse.app.ui.components.WelcomeTour { tour = false }; return@NebulaBackground }
                                 AppShell(startOnboarding, config.brand.logoVariant, config.brand.logoUrl)
                                 // «Abrir en el último canal»: una vez por sesión, al entrar a la app.
                                 var autoChannelDone by rememberSaveable { mutableStateOf(false) }
@@ -244,7 +248,14 @@ class MainActivity : AppCompatActivity() {
                                 androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.action_close)) } },
                         )
                     }
+                    // Sin internet / conexión recuperada, y avance real de la carga de listas.
+                    if (splashDone) androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+                        com.embyverse.app.ui.components.OfflineBanner(Modifier.align(androidx.compose.ui.Alignment.TopCenter))
+                        com.embyverse.app.ui.components.SyncProgressPill(Modifier.align(androidx.compose.ui.Alignment.BottomCenter).padding(bottom = 72.dp))
+                    }
                     crash?.let { report -> CrashDialog(report) { crash = null } }
+                    // Novedades de la versión: una vez después de actualizar.
+                    if (splashDone && crash == null) com.embyverse.app.ui.components.WhatsNewDialog()
                     // Versión nueva de la app: se ofrece al abrir o al recuperar internet.
                     if (splashDone && crash == null) com.embyverse.app.ui.components.UpdateDialog(container.updater)
                     // Mensaje del administrador / vendedor (una vez por dispositivo, mientras esté vigente).
@@ -267,7 +278,7 @@ class MainActivity : AppCompatActivity() {
                             )
                         }
                     }
-                } } }
+                } } } }
             }
         }
     }

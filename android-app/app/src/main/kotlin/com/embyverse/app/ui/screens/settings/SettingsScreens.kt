@@ -27,6 +27,10 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Tv
+import androidx.compose.material.icons.rounded.TextFields
+import androidx.compose.material.icons.rounded.HelpOutline
+import androidx.compose.material.icons.rounded.NewReleases
+import androidx.compose.material.icons.rounded.Gavel
 import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Info
@@ -142,6 +146,8 @@ fun SettingsScreen(nav: Navigator) {
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val cfg by c.config.config.collectAsStateWithLifecycle()
     val helpNumber = cfg.texts["support.whatsapp"]?.filter(Char::isDigit)
+    var fontDialog by remember { mutableStateOf(false) }
+    var whatsNew by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
         ScreenTitle(stringResource(R.string.nav_settings))
         SettingsList {
@@ -153,7 +159,11 @@ fun SettingsScreen(nav: Navigator) {
             item { SettingsItem(Icons.Rounded.Favorite, stringResource(R.string.favorites_title), stringResource(R.string.settings_favorites_sub)) { nav.go(Routes.FAVORITES) } }
             item { SettingsItem(Icons.Rounded.Language, stringResource(R.string.language_title), currentLanguageLabel()) { langDialog = true } }
             item { SettingsItem(Icons.Rounded.Tv, stringResource(R.string.tv_install_title), stringResource(R.string.tv_install_sub)) { nav.go(Routes.TV_INSTALL) } }
+            item { SettingsItem(Icons.Rounded.TextFields, stringResource(R.string.font_size_title), stringResource(fontLabel())) { fontDialog = true } }
+            item { SettingsItem(Icons.Rounded.HelpOutline, stringResource(R.string.help_title), stringResource(R.string.help_sub)) { nav.go(Routes.HELP) } }
+            item { SettingsItem(Icons.Rounded.NewReleases, stringResource(R.string.wn_menu), stringResource(R.string.wn_menu_sub, BuildConfig.VERSION_NAME)) { whatsNew = true } }
             item { SettingsItem(Icons.Rounded.Policy, stringResource(R.string.privacy_title), null) { nav.go(Routes.PRIVACY) } }
+            item { SettingsItem(Icons.Rounded.Gavel, stringResource(R.string.terms_title), null) { nav.go(Routes.TERMS) } }
             if (!helpNumber.isNullOrBlank()) item {
                 SettingsItem(Icons.Rounded.SupportAgent, stringResource(R.string.help_whatsapp), stringResource(R.string.help_whatsapp_sub)) {
                     scope.launch { openWhatsAppHelp(context, c, helpNumber) }
@@ -162,6 +172,23 @@ fun SettingsScreen(nav: Navigator) {
             item { SettingsItem(Icons.Rounded.Info, stringResource(R.string.about_title), stringResource(R.string.settings_about_sub, BuildConfig.VERSION_NAME)) { nav.go(Routes.ABOUT) } }
         }
     }
+    if (whatsNew) com.embyverse.app.ui.components.WhatsNewDialog(force = true) { whatsNew = false }
+    if (fontDialog) AlertDialog(
+        onDismissRequest = { fontDialog = false },
+        title = { Text(stringResource(R.string.font_size_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                FONT_SCALES.forEach { (v, label) ->
+                    androidx.compose.material3.TextButton(onClick = { com.embyverse.app.data.prefs.UiPrefs.setFontScale(context, v); fontDialog = false },
+                        modifier = Modifier.fillMaxWidth().testTag("font_$v")) {
+                        Text((if (com.embyverse.app.data.prefs.UiPrefs.fontScale.value == v) "● " else "○ ") + stringResource(label),
+                            fontSize = (16 * v).sp, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = { fontDialog = false }) { Text(stringResource(R.string.action_close)) } },
+    )
     if (langDialog) AlertDialog(
         onDismissRequest = { langDialog = false },
         title = { Text(stringResource(R.string.language_title)) },
@@ -380,6 +407,19 @@ fun PlaybackSettingsScreen(nav: Navigator) {
             }
             item { SwitchRow(stringResource(R.string.subs_yellow), null, p.subtitleYellow) { v -> vm.update { it.copy(subtitleYellow = v) } } }
             item { SwitchRow(stringResource(R.string.night_mode), stringResource(R.string.night_mode_sub), p.nightMode) { v -> vm.update { it.copy(nightMode = v) } } }
+            item { SwitchRow(stringResource(R.string.night_auto), stringResource(R.string.night_auto_sub, hhmm(p.nightFrom), hhmm(p.nightTo)), p.nightAuto) { v -> vm.update { it.copy(nightAuto = v) } } }
+            if (p.nightAuto) item {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.testTag("night_schedule")) {
+                    Text(stringResource(R.string.night_from), style = MaterialTheme.typography.labelLarge, color = t.textSecondary)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(NIGHT_STARTS.size) { i -> val m = NIGHT_STARTS[i]; CategoryChip(hhmm(m), p.nightFrom == m) { vm.update { it.copy(nightFrom = m) } } }
+                    }
+                    Text(stringResource(R.string.night_to), style = MaterialTheme.typography.labelLarge, color = t.textSecondary)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(NIGHT_ENDS.size) { i -> val m = NIGHT_ENDS[i]; CategoryChip(hhmm(m), p.nightTo == m) { vm.update { it.copy(nightTo = m) } } }
+                    }
+                }
+            }
             if (!t.device.isTv) item { SwitchRow(stringResource(R.string.data_saver), stringResource(R.string.data_saver_sub), p.dataSaver) { v -> vm.update { it.copy(dataSaver = v) } } }
             item { SwitchRow(stringResource(R.string.intro_sound), stringResource(R.string.intro_sound_sub), p.introSound) { v -> vm.update { it.copy(introSound = v) } } }
             if (t.device.isTv) item { SwitchRow(stringResource(R.string.nav_sounds), stringResource(R.string.nav_sounds_sub), p.navSounds) { v -> vm.update { it.copy(navSounds = v) } } }
@@ -679,6 +719,78 @@ private fun ProfileLanguageRows() {
         androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val opts = listOf("" to R.string.lang_off, "es" to R.string.lang_es, "en" to R.string.lang_en)
             items(opts.size) { i -> CategoryChip(stringResource(opts[i].second), lang.second == opts[i].first) { scope.launch { c.prefs.setProfileLanguages(pid, lang.first, opts[i].first) } } }
+        }
+    }
+}
+
+
+private val NIGHT_STARTS = listOf(20 * 60, 21 * 60, 22 * 60, 23 * 60, 0)
+private val NIGHT_ENDS = listOf(5 * 60, 6 * 60, 7 * 60, 8 * 60, 9 * 60)
+private fun hhmm(m: Int) = "%02d:%02d".format(m / 60, m % 60)
+
+private val FONT_SCALES = listOf(1f to R.string.font_normal, 1.15f to R.string.font_large, 1.3f to R.string.font_xlarge)
+@Composable
+private fun fontLabel(): Int {
+    val v by com.embyverse.app.data.prefs.UiPrefs.fontScale.collectAsStateWithLifecycle()
+    return FONT_SCALES.firstOrNull { it.first == v }?.second ?: R.string.font_normal
+}
+
+private val FAQ = listOf(
+    R.string.faq1_q to R.string.faq1_a, R.string.faq2_q to R.string.faq2_a, R.string.faq3_q to R.string.faq3_a,
+    R.string.faq4_q to R.string.faq4_a, R.string.faq5_q to R.string.faq5_a, R.string.faq6_q to R.string.faq6_a,
+    R.string.faq7_q to R.string.faq7_a, R.string.faq8_q to R.string.faq8_a,
+)
+
+/** Ayuda: preguntas frecuentes y contacto directo con el proveedor por WhatsApp. */
+@Composable
+fun HelpScreen(nav: Navigator) {
+    val t = LocalEmby.current
+    val c = com.embyverse.app.ui.LocalAppContainer.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val cfg by c.config.config.collectAsStateWithLifecycle()
+    val helpNumber = cfg.texts["support.whatsapp"]?.filter(Char::isDigit)
+    var open by remember { mutableStateOf(-1) }
+    Column(Modifier.fillMaxSize().testTag("help_screen")) {
+        SubScreenTop(stringResource(R.string.help_title), nav::back)
+        SettingsList {
+            if (!helpNumber.isNullOrBlank()) item {
+                EmbyButton(stringResource(R.string.help_whatsapp), { scope.launch { openWhatsAppHelp(context, c, helpNumber) } }, icon = Icons.Rounded.SupportAgent)
+            }
+            FAQ.forEachIndexed { i, (q, a) ->
+                item {
+                    com.embyverse.app.ui.components.FocusableSurface(onClick = { open = if (open == i) -1 else i }, modifier = Modifier.fillMaxWidth().testTag("faq_$i"), focusScale = 1.01f) { focused ->
+                        Column(Modifier.fillMaxWidth().background(if (focused) t.surfaceVariant else t.surface).padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(stringResource(q), style = MaterialTheme.typography.titleSmall, color = t.onBackground, modifier = Modifier.weight(1f))
+                                Text(if (open == i) "−" else "+", style = MaterialTheme.typography.titleLarge, color = t.accent)
+                            }
+                            androidx.compose.animation.AnimatedVisibility(open == i) {
+                                Text(stringResource(a), style = MaterialTheme.typography.bodyMedium, color = t.textSecondary, modifier = Modifier.padding(top = 8.dp))
+                            }
+                        }
+                    }
+                }
+            }
+            item { SettingsItem(Icons.Rounded.Tv, stringResource(R.string.tv_install_title), stringResource(R.string.tv_install_sub)) { nav.go(Routes.TV_INSTALL) } }
+        }
+    }
+}
+
+/** Términos de uso del servicio (texto del negocio dentro de la app). */
+@Composable
+fun TermsScreen(nav: Navigator) {
+    val t = LocalEmby.current
+    val cfg by com.embyverse.app.ui.LocalAppContainer.current.config.config.collectAsStateWithLifecycle()
+    Column(Modifier.fillMaxSize().testTag("terms_screen")) {
+        SubScreenTop(stringResource(R.string.terms_title), nav::back)
+        SettingsList {
+            // El administrador puede reemplazar el texto desde el panel (texto «legal.terms»).
+            val custom = cfg.texts["legal.terms"]?.takeIf { it.isNotBlank() }
+            if (custom != null) item { Text(custom, style = MaterialTheme.typography.bodyMedium, color = t.onSurface) }
+            else listOf(R.string.terms_p1, R.string.terms_p2, R.string.terms_p3, R.string.terms_p4, R.string.terms_p5, R.string.terms_p6).forEach { res ->
+                item { Text(stringResource(res), style = MaterialTheme.typography.bodyMedium, color = t.onSurface) }
+            }
         }
     }
 }

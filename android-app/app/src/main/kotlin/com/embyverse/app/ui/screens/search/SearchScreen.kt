@@ -115,7 +115,7 @@ fun SearchScreen(nav: Navigator) {
                 }
             }
         }
-        if (r != null && r.isEmpty) item { MessageState(Icons.Rounded.SearchOff, stringResource(R.string.search_no_results), null) }
+        if (r != null && r.isEmpty) item { MessageState(Icons.Rounded.SearchOff, stringResource(R.string.search_no_results), stringResource(R.string.search_no_results_hint)) }
         if (r != null && r.channels.isNotEmpty()) item {
             Column { SectionHeader(stringResource(R.string.nav_live), null, null); CardRow(r.channels.map { it.toCard() }, CardAspect.LANDSCAPE, CardSize.S) { nav.openItem(it.ref) } }
         }

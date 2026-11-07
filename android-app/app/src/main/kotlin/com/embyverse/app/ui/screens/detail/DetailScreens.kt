@@ -57,6 +57,7 @@ import com.embyverse.app.data.db.MovieEntity
 import com.embyverse.app.data.db.ProgressEntity
 import com.embyverse.app.data.db.SeriesEntity
 import com.embyverse.app.data.repo.ItemRef
+import com.embyverse.app.data.repo.toCard
 import com.embyverse.app.di.AppContainer
 import com.embyverse.app.ui.appViewModel
 import com.embyverse.app.ui.components.CategoryChip
@@ -84,8 +85,15 @@ class MovieDetailViewModel(private val c: AppContainer, private val sid: String,
     val favorite = c.library.isFavorite(ref).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     val progress = MutableStateFlow<ProgressEntity?>(null)
 
+    /** «Más como esta» (misma carpeta). */
+    val similar = MutableStateFlow<List<com.embyverse.app.data.repo.MediaCard>>(emptyList())
+
     init {
         viewModelScope.launch { c.sources.loadMovieDetails(sid, id) }
+        viewModelScope.launch {
+            val m = c.database.movies().get(sid, id)
+            m?.category?.let { cat -> similar.value = runCatching { c.database.movies().similar(cat, sid, id, 15).map { it.toCard(ContentKind.MOVIE) } }.getOrDefault(emptyList()) }
+        }
         refreshProgress()
     }
     fun refreshProgress() { viewModelScope.launch { progress.value = c.library.progress(ref) } }
@@ -121,6 +129,7 @@ fun MovieDetailScreen(nav: Navigator, sid: String, id: String) {
     val movie by vm.movie.collectAsStateWithLifecycle()
     val fav by vm.favorite.collectAsStateWithLifecycle()
     val progress by vm.progress.collectAsStateWithLifecycle()
+    val similar by vm.similar.collectAsStateWithLifecycle()
     val t = LocalEmby.current
     androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { vm.refreshProgress(); onPauseOrDispose { } }
     val m = movie ?: run { LoadingBox(); return }
@@ -137,6 +146,11 @@ fun MovieDetailScreen(nav: Navigator, sid: String, id: String) {
                 }
                 Text(listOfNotNull(m.year?.toString(), formatDuration(m.durationSeconds), m.rating?.let { "★ %.1f".format(it) }, m.category).joinToString("  ·  "),
                     style = MaterialTheme.typography.bodySmall, color = t.textSecondary)
+                val badges = com.embyverse.app.data.repo.badgesFor(m.title, m.year, m.addedAt)
+                if (badges.isNotEmpty()) Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    badges.forEach { b -> Text(b, style = MaterialTheme.typography.labelSmall, color = t.buttonText, fontWeight = androidx.compose.ui.text.font.FontWeight.Black,
+                        modifier = Modifier.background(t.primary, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 1.dp)) }
+                }
             }
         }
         item {
@@ -169,6 +183,24 @@ fun MovieDetailScreen(nav: Navigator, sid: String, id: String) {
             Text(m.plot ?: stringResource(R.string.no_synopsis), style = MaterialTheme.typography.bodyLarge, color = if (m.plot != null) t.onSurface else t.textSecondary,
                 modifier = Modifier.padding(horizontal = t.screenPadding))
         }
+        similarRow(similar, nav)
+    }
+}
+
+/** Fila «Más como esta» al final de la ficha. */
+private fun androidx.compose.foundation.lazy.LazyListScope.similarRow(list: List<com.embyverse.app.data.repo.MediaCard>, nav: Navigator) {
+    if (list.isEmpty()) return
+    item {
+        val t = LocalEmby.current
+        Column(Modifier.testTag("more_like_this")) {
+            Text(stringResource(R.string.more_like_this), style = MaterialTheme.typography.titleMedium, color = t.onBackground,
+                modifier = Modifier.padding(horizontal = t.screenPadding, vertical = 8.dp))
+            LazyRow(contentPadding = PaddingValues(horizontal = t.screenPadding), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(list, key = { it.ref.sourceId + "/" + it.ref.id }) { card ->
+                    com.embyverse.app.ui.components.MediaCardView(card, com.embyverse.core.config.CardAspect.POSTER, com.embyverse.core.config.CardSize.M, { nav.openItem(card.ref) })
+                }
+            }
+        }
     }
 }
 
@@ -186,7 +218,14 @@ class SeriesDetailViewModel(private val c: AppContainer, private val sid: String
     ) { eps, prog -> eps.groupBy { it.season }.toSortedMap().mapValues { (_, l) -> l.map { it to prog[it.providerId] } } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
+    val similar = MutableStateFlow<List<com.embyverse.app.data.repo.MediaCard>>(emptyList())
+
     init {
+        viewModelScope.launch {
+            c.database.series().get(sid, id)?.category?.let { cat ->
+                similar.value = runCatching { c.database.series().similar(cat, sid, id, 15).map { it.toCard(ContentKind.SERIES) } }.getOrDefault(emptyList())
+            }
+        }
         viewModelScope.launch {
             val s = c.database.series().get(sid, id)
             if (s != null && !s.episodesLoaded) {
@@ -218,6 +257,7 @@ fun SeriesDetailScreen(nav: Navigator, sid: String, id: String) {
     val fav by vm.favorite.collectAsStateWithLifecycle()
     val loading by vm.loading.collectAsStateWithLifecycle()
     val error by vm.loadError.collectAsStateWithLifecycle()
+    val similar by vm.similar.collectAsStateWithLifecycle()
     val t = LocalEmby.current
     val s = series ?: run { LoadingBox(); return }
     var season by rememberSaveable { mutableIntStateOf(-1) }
@@ -255,6 +295,7 @@ fun SeriesDetailScreen(nav: Navigator, sid: String, id: String) {
                 EpisodeRow(ep, p) { nav.play(ItemRef(ContentKind.EPISODE, sid, ep.providerId)) }
             }
         }
+        similarRow(similar, nav)
     }
 }
 
