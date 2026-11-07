@@ -1,12 +1,13 @@
 {
   "schemaVersion": 1,
-  "version": 1,
-  "publishedAt": "2026-11-07T07:40:14Z",
+  "version": 2,
+  "publishedAt": "2026-11-07T07:51:44Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "Nandtv",
     "logo": {
-      "variant": "bundled_full"
+      "variant": "asset",
+      "url": "https://ositovela-a11y.github.io/EmbyVerseTV/config/assets/logo-img-0220-mw63rpql.jpg"
     },
     "tagline": "Tu universo de entretenimiento"
   },
@@ -246,7 +247,8 @@
     "provider.epgUrl": "https://epgshare01.online/epgshare01/epg_ripper_MX1.xml.gz",
     "season": "auto",
     "support.whatsapp": "4442011541",
-    "season.every": "24"
+    "season.every": "24",
+    "style.default": "style_purpura"
   },
   "messages": [
     {
