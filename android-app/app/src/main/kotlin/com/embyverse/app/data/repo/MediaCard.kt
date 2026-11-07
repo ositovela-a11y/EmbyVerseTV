@@ -27,11 +27,24 @@ private val RX_FHD = Regex("""\b(FHD|FULL ?HD|1080P?)\b""")
 private val RX_HD = Regex("""\b(HD|720P?)\b""")
 private val THIS_YEAR = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
 
+/**
+ * Límite de «NUEVO» por tipo: solo los ~120 títulos agregados más recientemente (y de los últimos 14 días).
+ * Así, si el proveedor carga todo el catálogo el mismo día, no aparece «NUEVO» en todas las carátulas.
+ */
+object NewBadge {
+    @Volatile var moviesSince = 0L
+    @Volatile var seriesSince = 0L
+    suspend fun refresh(db: com.embyverse.app.data.db.EmbyDatabase) = runCatching {
+        moviesSince = db.movies().addedAtRank(120) ?: 0L
+        seriesSince = db.series().addedAtRank(60) ?: 0L
+    }
+}
+
 /** Etiquetas automáticas: calidad por el nombre, «NUEVO» si se agregó hace menos de 14 días, «ESTRENO» si es de este año. */
-fun badgesFor(title: String, year: Int? = null, addedAtSec: Long? = null): List<String> {
+fun badgesFor(title: String, year: Int? = null, addedAtSec: Long? = null, newSince: Long = 0L): List<String> {
     val out = ArrayList<String>(2)
     val nowSec = System.currentTimeMillis() / 1000
-    if (addedAtSec != null && addedAtSec > 0 && nowSec - addedAtSec in 0..14 * 86_400L) out += "NUEVO"
+    if (addedAtSec != null && addedAtSec > newSince && nowSec - addedAtSec in 0..14 * 86_400L) out += "NUEVO"
     else if (year != null && year >= THIS_YEAR) out += "ESTRENO"
     val up = title.uppercase()
     when {
@@ -47,13 +60,13 @@ fun ChannelEntity.toCard() = MediaCard(ItemRef(ContentKind.LIVE, sourceId, provi
 fun MovieEntity.toCard() = MediaCard(
     ItemRef(ContentKind.MOVIE, sourceId, providerId), title, posterUrl,
     subtitle = listOfNotNull(year?.toString(), rating?.let { "★ %.1f".format(it) }).joinToString(" · ").ifEmpty { null },
-    backdropUrl = backdropUrl, badges = badgesFor(title, year, addedAt),
+    backdropUrl = backdropUrl, badges = badgesFor(title, year, addedAt, NewBadge.moviesSince),
 )
 
 fun SeriesEntity.toCard() = MediaCard(
     ItemRef(ContentKind.SERIES, sourceId, providerId), title, posterUrl,
     subtitle = listOfNotNull(year?.toString(), rating?.let { "★ %.1f".format(it) }).joinToString(" · ").ifEmpty { null },
-    backdropUrl = backdropUrl, badges = badgesFor(title, year, addedAt),
+    backdropUrl = backdropUrl, badges = badgesFor(title, year, addedAt, NewBadge.seriesSince),
 )
 
 fun ProgressEntity.toCard() = MediaCard(
@@ -67,5 +80,5 @@ fun FavoriteEntity.toCard() = MediaCard(ItemRef(ContentKind.valueOf(kind), sourc
 fun com.embyverse.app.data.db.CardRow.toCard(kind: ContentKind) = MediaCard(
     ItemRef(kind, sourceId, providerId), title, posterUrl,
     subtitle = listOfNotNull(year?.toString(), rating?.let { "★ %.1f".format(it) }).joinToString(" · ").ifEmpty { null },
-    backdropUrl = backdropUrl, badges = badgesFor(title, year, addedAt),
+    backdropUrl = backdropUrl, badges = badgesFor(title, year, addedAt, if (kind == ContentKind.SERIES) NewBadge.seriesSince else NewBadge.moviesSince),
 )

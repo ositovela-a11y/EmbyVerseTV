@@ -34,6 +34,7 @@ class EmbyVerseApp : Application(), SingletonImageLoader.Factory {
         container = AppContainer(this)
         com.embyverse.app.data.prefs.UiPrefs.init(this)
         com.embyverse.app.ui.components.Connectivity.start(this)
+        appScope.launch { com.embyverse.app.data.repo.NewBadge.refresh(container.database) }
         container.config.onAppStart()
         SyncWorker.schedule(this)
         // Si el panel cambia el servidor del proveedor, las cuentas se pasan solas al nuevo.

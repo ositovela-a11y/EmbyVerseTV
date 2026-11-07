@@ -193,6 +193,7 @@ class SourceRepository(
                     db.sources().setSynced(spec.id, System.currentTimeMillis(), c.live.size, c.movies.size, c.series.size, detectedEpg)
                     if (spec.type == SourceType.XTREAM) prefs.setSourceExpiry(spec.id, c.expiresAtEpochSeconds)
                 }
+                NewBadge.refresh(db)
                 Log.i(TAG, "sincronización completa en ${System.currentTimeMillis() - t0} ms")
                 when (done) {
                     is Outcome.Ok -> SyncState.Done(c.live.size, c.movies.size, c.series.size, c.warnings)

@@ -149,7 +149,7 @@ fun MovieDetailScreen(nav: Navigator, sid: String, id: String) {
                 }
                 Text(listOfNotNull(m.year?.toString(), formatDuration(m.durationSeconds), m.rating?.let { "★ %.1f".format(it) }, m.category).joinToString("  ·  "),
                     style = MaterialTheme.typography.bodySmall, color = t.textSecondary)
-                val badges = com.embyverse.app.data.repo.badgesFor(m.title, m.year, m.addedAt)
+                val badges = com.embyverse.app.data.repo.badgesFor(m.title, m.year, m.addedAt, com.embyverse.app.data.repo.NewBadge.moviesSince)
                 if (badges.isNotEmpty()) Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     badges.forEach { b -> Text(b, style = MaterialTheme.typography.labelSmall, color = t.buttonText, fontWeight = androidx.compose.ui.text.font.FontWeight.Black,
                         modifier = Modifier.background(t.primary, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 1.dp)) }

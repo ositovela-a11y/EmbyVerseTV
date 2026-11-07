@@ -132,6 +132,10 @@ interface MovieDao {
     @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category, addedAt FROM movies WHERE NOT (sourceId = :sid AND providerId = :id) ORDER BY rating IS NULL, rating DESC LIMIT :limit")
     suspend fun topRated(sid: String, id: String, limit: Int): List<CardRow>
 
+    /** Fecha de alta del título número :n más reciente (límite de la etiqueta «NUEVO»). */
+    @Query("SELECT addedAt FROM movies WHERE addedAt IS NOT NULL ORDER BY addedAt DESC LIMIT 1 OFFSET :n")
+    suspend fun addedAtRank(n: Int): Long?
+
     @Query("SELECT * FROM movies ORDER BY addedAt DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<MovieEntity>>
 
@@ -207,6 +211,10 @@ interface SeriesDao {
     /** Respaldo de «Más como esta» cuando no hay carpeta: las mejor calificadas. */
     @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category, addedAt FROM series WHERE NOT (sourceId = :sid AND providerId = :id) ORDER BY rating IS NULL, rating DESC LIMIT :limit")
     suspend fun topRated(sid: String, id: String, limit: Int): List<CardRow>
+
+    /** Fecha de alta del título número :n más reciente (límite de la etiqueta «NUEVO»). */
+    @Query("SELECT addedAt FROM series WHERE addedAt IS NOT NULL ORDER BY addedAt DESC LIMIT 1 OFFSET :n")
+    suspend fun addedAtRank(n: Int): Long?
 
     @Query("SELECT * FROM series ORDER BY addedAt DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<SeriesEntity>>
