@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": 1,
-  "publishedAt": "2026-11-08T00:37:32Z",
+  "version": 2,
+  "publishedAt": "2026-11-08T00:45:23Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "Nando tv",
@@ -233,7 +233,7 @@
     "support.whatsapp": "4442011541",
     "season.every": "24",
     "provider.askHost": "1",
-    "style.default": "style_cristal"
+    "style.default": "style_cine_rojo"
   },
   "messages": []
 }
