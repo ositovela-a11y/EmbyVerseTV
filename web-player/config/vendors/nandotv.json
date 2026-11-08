@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "version": 2,
-  "publishedAt": "2026-11-08T00:45:23Z",
+  "version": 3,
+  "publishedAt": "2026-11-08T00:47:29Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "Nando tv",
     "logo": {
-      "variant": "bundled_full"
+      "variant": "bundled_planet"
     },
     "tagline": null
   },
