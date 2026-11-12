@@ -1,8 +1,10 @@
 name: Laboratorio M3U (listas reales)
-# Instala la app en un emulador Android, la conecta a un proveedor simulado GRANDE
-# (tests/android/mock-xtream.mjs) y recorre películas, series y canales reproduciendo.
+# Descarga listas M3U públicas reales (iptv-org, canales gratuitos) y mide qué reproduce la app.
 on:
   workflow_dispatch:
+  push:
+    branches: [beta]
+    paths: ['android-app/app/src/androidTest/kotlin/com/embyverse/app/M3uLabTest.kt', '.github/workflows/m3u-lab.yml']
 concurrency: { group: m3u-lab, cancel-in-progress: true }
 permissions:
   contents: write
