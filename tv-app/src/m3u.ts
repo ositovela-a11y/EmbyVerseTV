@@ -166,7 +166,9 @@ export class M3uSource extends Xtream {
   async shortEpg(_id: string): Promise<EpgItem[]> { return []; }
 
   /** Dirección del canal; «fmt» indica cómo intentarlo cuando la dirección no dice el formato (HLS o .ts). */
-  liveUrl(id: string, fmt: 'ts' | 'm3u8' = 'ts') { return withHint(this.byId.get(id)?.url ?? '', fmt); }
+  // Sin extensión casi siempre es .ts (listas tipo Xtream): primero .ts y, si falla, HLS (una transmisión .ts no termina
+  // nunca y abrirla como HLS se quedaría esperando).
+  liveUrl(id: string, fmt: 'ts' | 'm3u8' = 'ts') { return withHint(this.byId.get(id)?.url ?? '', fmt === 'm3u8' ? 'ts' : 'm3u8'); }
   movieUrl(id: string) { return this.byId.get(id)?.url ?? ''; }
   episodeUrl(id: string) { return this.byId.get(id)?.url ?? ''; }
   /** User-Agent y Referer que pide la lista para ese canal (los aplica la app de PC). */
