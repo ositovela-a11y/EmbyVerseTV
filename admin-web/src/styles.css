@@ -369,3 +369,15 @@ input[type=datetime-local] { min-width: 0; }
 .vt-cards { display:flex; gap:6px; } .vt-cards i { display:block; width:34px; height:46px; }
 .vt-btn { align-self:flex-start; font-size:12px; font-weight:700; padding:4px 12px; }
 .vt-desc { font-size:11.5px; line-height:1.3; }
+
+.act-form { display:grid; grid-template-columns: 220px 1fr 160px auto; gap:12px; align-items:end; }
+.act-form label { display:flex !important; flex-direction:column !important; gap:6px; font-weight:600; font-size:13px; }
+@media (max-width: 760px) { .act-form { grid-template-columns: 1fr; } }
+.act-table { width:100%; border-collapse:collapse; font-size:14px; }
+.act-table th, .act-table td { text-align:left; padding:8px 10px; border-bottom:1px solid #eaecf0; vertical-align:middle; }
+.act-table code { font-size:15px; letter-spacing:1px; font-weight:700; }
+.act-table tr.expired td { color:#98a2b3; }
+.tag-exp { color:#d92d20; font-size:12px; }
+.act-actions { display:flex; gap:10px; align-items:center; justify-content:flex-end; }
+.act-actions select { width:auto; }
+.link.danger { color:#d92d20; }

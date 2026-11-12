@@ -1,3 +1,4 @@
+import { checkLicense, deviceCode, licenseRequired, type LicState } from '../license';
 import { lgDevSupported, lgDevLast, lgDevError, renewLgDevMode } from '../lgdev';
 import { useEffect, useState } from 'react';
 import { Card, Fx, Img, Row, Spinner, useApp, useLoad } from '../ui';
@@ -125,6 +126,7 @@ export function Settings() {
           <Toggle label="Modo para equipos lentos" v={p.lite} k="lite" />
           {lgDevSupported() && <Fx className="setting" onClick={() => renewLgDevMode().then((ok) => { app.toast(ok ? 'Modo desarrollador renovado por 50 h' : `No se pudo renovar. ${lgDevError()}`); setP(store.prefs()); })}>
             <span>🛠 Modo desarrollador LG</span><b>{lgDevLast() ? `Renovado ${new Date(lgDevLast()).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} · Renovar` : 'Renovar ahora'}</b></Fx>}
+          {licenseRequired(app.config.texts) && <LicenseRow />}
           <Fx className="setting" onClick={measure}><span>📶 Prueba de velocidad</span><b>{speed || 'Medir'}</b></Fx>
           {wa && <Fx className="setting" onClick={() => app.toast(`Escríbenos por WhatsApp: +${wa}\nReporte: EmbyVerse TV ${__VERSION__} · ${deviceInfo()} · usuario ${acc?.username ?? '-'}`)}><span>💬 Ayuda por WhatsApp</span><b>+{wa}</b></Fx>}
           <Fx className="setting danger" onClick={() => { getEngine().stop(); store.setAccount(null); clearCache(); location.reload(); }}><span>⎋ Cerrar sesión</span><b /></Fx>
@@ -183,4 +185,14 @@ export function PinPad({ title, onDone, onCancel }: { title: string; onDone: (pi
         <Fx className="btn" onClick={onCancel}>Cancelar</Fx></div>
     </div>
   );
+}
+
+
+/** Ajustes: código del equipo y estado de la activación. */
+function LicenseRow() {
+  const app = useApp();
+  const [st, setSt] = useState<LicState | null>(null);
+  useEffect(() => { checkLicense(app.config.texts).then(setSt).catch(() => {}); }, []);
+  const label = !st ? 'Revisando…' : st.state === 'active' ? (st.exp ? `Activo hasta ${st.exp}` : 'Activo de por vida') : st.state === 'trial' ? `Prueba: quedan ${st.daysLeft} días` : st.state === 'expired' ? `Venció el ${st.exp}` : 'Sin activar';
+  return <Fx className="setting" onClick={() => checkLicense(app.config.texts).then(setSt)}><span>🔑 Código del equipo: <b>{deviceCode()}</b></span><b>{label}</b></Fx>;
 }

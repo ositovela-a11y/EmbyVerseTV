@@ -43,6 +43,9 @@ await esbuild.build({
   define: {
     'process.env.NODE_ENV': '"production"',
     __CONFIG_URL__: JSON.stringify(CONFIG_URL),
+    // «store» = edición para tiendas (reproductor neutral con activación por equipo).
+    __EDITION__: JSON.stringify(process.env.EMBYVERSE_EDITION || 'embyverse'),
+    __LICENSE_URL__: JSON.stringify(process.env.EMBYVERSE_LICENSE_URL || CONFIG_URL.replace(/[^/]*$/, 'licenses.json')),
     __DEFAULT_HOST__: JSON.stringify(DEFAULT_HOST),
     __VERSION__: JSON.stringify(VERSION),
   },

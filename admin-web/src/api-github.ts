@@ -42,6 +42,8 @@ export function linksFor(slug: string) {
   };
 }
 const API = `https://api.github.com/repos/${GH.owner}/${GH.repo}`;
+const LICENSES = 'web-player/config/licenses.json';
+export interface Licenses { v: number; updated?: string; devices: Record<string, { exp: string | null }> }
 
 const token = () => { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; } };
 
@@ -258,6 +260,18 @@ export const githubApi = {
     const f = await gh<FileInfo>('GET', `/contents/${cfgPath(slug)}?ref=${GH.branch}`).catch(() => null);
     if (f) await gh('DELETE', `/contents/${cfgPath(slug)}`, { message: `Design Studio: elimina el diseño de ${slug}`, sha: f.sha, branch: GH.branch });
     if (currentTarget() === slug) setTarget('');
+  },
+  /** Activaciones de equipos (edición de tienda): config/licenses.json → { devices: { hash: { exp } } }. */
+  async licenses(): Promise<{ data: Licenses; sha: string | null }> {
+    const f = await readJsonFile<Licenses>(LICENSES);
+    return f ? { data: { v: 1, devices: {}, ...f.data }, sha: f.sha } : { data: { v: 1, devices: {} }, sha: null };
+  },
+  async saveLicenses(change: (d: Licenses) => void, message: string) {
+    // Se relee justo antes de guardar para no pisar un cambio hecho desde otro equipo.
+    const cur = await githubApi.licenses();
+    change(cur.data); cur.data.updated = new Date().toISOString();
+    await gh('PUT', `/contents/${LICENSES}`, { message: `Activaciones: ${message}`, content: utf8b64(JSON.stringify(cur.data, null, 1) + '\n'), branch: GH.branch, ...(cur.sha ? { sha: cur.sha } : {}) });
+    return cur.data;
   },
   async audit() { return { entries: [] }; },
   async users() { return { users: [] }; },

@@ -17,6 +17,8 @@ import { Library, MovieDetail, ShowDetail, Saga } from './screens/Library';
 import { Search, Favorites, Guide, Settings, Profiles } from './screens/Misc';
 import { Player } from './screens/Player';
 import { Splash, Login, Suspended } from './screens/Start';
+import { Activation } from './screens/Activation';
+import { checkLicense, licenseRequired, type LicState } from './license';
 import { Season, seasonFor } from './season';
 import { lgDevDue, renewLgDevMode } from './lgdev';
 
@@ -29,7 +31,8 @@ const KIDS_PALETTE = { primary: '#FFC93C', secondary: '#FF5FA2', accent: '#3DDCF
 
 function App() {
   const [config, setConfig] = useState<RemoteConfig>(cachedConfig);
-  const [phase, setPhase] = useState<'splash' | 'login' | 'profiles' | 'app' | 'suspended'>('splash');
+  const [phase, setPhase] = useState<'splash' | 'activate' | 'login' | 'profiles' | 'app' | 'suspended'>('splash');
+  const [lic, setLic] = useState<LicState>({ state: 'none' });
   const [stack, setStack] = useState<Route[]>([{ name: 'home' }]);
   const [profile, setProfile] = useState<Profile>(() => store.activeProfile());
   const [playing, setPlaying] = useState<PlayRequest | null>(null);
@@ -72,7 +75,7 @@ function App() {
     check(); const i = setInterval(check, 60_000); return () => clearInterval(i);
   }, [config, phase, notice]);
 
-  const afterSplash = useCallback(() => {
+  const continueStart = useCallback(() => {
     if (store.blockedFlag()) { setPhase('suspended'); return; }
     const acc = store.account();
     if (!acc) { setPhase('login'); return; }
@@ -80,6 +83,20 @@ function App() {
     newestMovies(1).catch(() => {}); // calienta el catálogo
     setPhase(store.profiles().length > 1 ? 'profiles' : 'app');
   }, []);
+
+  // Edición de tienda: primero la activación del equipo (o su prueba gratis).
+  const afterSplash = useCallback(() => {
+    if (!licenseRequired(config.texts)) { continueStart(); return; }
+    checkLicense(config.texts).then((r) => { setLic(r); if (r.state === 'active') continueStart(); else setPhase('activate'); })
+      .catch(() => setPhase('activate'));
+  }, [config, continueStart]);
+
+  // Si vence mientras se usa (o el administrador la quita), se revisa cada 6 horas.
+  useEffect(() => {
+    if (!licenseRequired(config.texts)) return;
+    const i = setInterval(() => { checkLicense(config.texts).then((r) => { setLic(r); if (r.state === 'expired' || r.state === 'none') { setPlaying(null); setPhase('activate'); } }).catch(() => {}); }, 6 * 3600_000);
+    return () => clearInterval(i);
+  }, [config]);
 
   useEffect(() => {
     if (phase !== 'app') return;
@@ -160,6 +177,7 @@ function App() {
   const season = seasonFor(config.texts, !!profile.kids);
   let body: JSX.Element;
   if (phase === 'splash') body = <Splash onDone={afterSplash} />;
+  else if (phase === 'activate') body = <Activation status={lic} onActive={continueStart} onTrial={continueStart} />;
   else if (phase === 'suspended') body = <Suspended />;
   else if (phase === 'login') body = <Login onLogged={() => { setClient(clientFor(store.account()!)); setPhase('app'); }} />;
   else if (phase === 'profiles') body = <Profiles onPick={() => { setProfile(store.activeProfile()); setPhase('app'); }} />;

@@ -76,8 +76,11 @@ export async function isBlocked(cfg: RemoteConfig, username: string): Promise<bo
   return set.has(await evHash(username));
 }
 
-export async function evHash(user: string): Promise<string> {
-  const data = new TextEncoder().encode('ev:' + user.trim().toLowerCase());
+export async function evHash(user: string): Promise<string> { return hash16('ev:' + user.trim().toLowerCase()); }
+
+/** SHA-256 (16 primeros caracteres hex) de un texto. */
+export async function hash16(text: string): Promise<string> {
+  const data = new TextEncoder().encode(text);
   const subtle = (crypto as any)?.subtle;
   if (subtle) {
     const d = await subtle.digest('SHA-256', data);

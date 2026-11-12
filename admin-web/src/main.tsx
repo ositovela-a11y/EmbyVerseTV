@@ -9,10 +9,11 @@ import { Notice, Segmented } from './components/ui';
 import { AppPreview, DEVICES, type Device } from './preview/AppPreview';
 import { useEditor, type Editor } from './store';
 import { EditingBanner, TargetSelect, VendorsPanel } from './components/vendors';
+import { ActivationsPanel } from './components/activations';
 import { currentTarget, githubApi, type Vendor } from './api-github';
 import './styles.css';
 
-type View = 'identity' | 'colors' | 'home' | 'appearance' | 'banners' | 'messages' | 'premium' | 'user' | 'texts' | 'assets' | 'versions' | 'users' | 'audit' | 'account' | 'vendors';
+type View = 'identity' | 'colors' | 'home' | 'appearance' | 'banners' | 'messages' | 'premium' | 'user' | 'texts' | 'assets' | 'versions' | 'users' | 'audit' | 'account' | 'vendors' | 'activations';
 const DESIGN_VIEWS: { id: View; label: string }[] = [
   { id: 'home', label: 'Inicio' }, { id: 'identity', label: 'Identidad' }, { id: 'colors', label: 'Colores y temas' },
   { id: 'appearance', label: 'Formas y menú' }, { id: 'banners', label: 'Banners' }, { id: 'messages', label: 'Mensajes' }, { id: 'premium', label: 'Temporada y eventos' }, { id: 'user', label: 'Opciones del usuario' }, { id: 'texts', label: 'Textos' },
@@ -203,6 +204,7 @@ function StudioLoaded({ user, loaded, reloadDraft, onLogout, flash }: { user: Us
   const errors = ed.validation.errors;
   const manage: { id: View; label: string; show: boolean }[] = [
     { id: 'vendors', label: 'Vendedores', show: IS_GITHUB },
+    { id: 'activations', label: 'Activaciones', show: IS_GITHUB },
     { id: 'assets', label: 'Recursos', show: user.permissions.includes('assets:read') },
     { id: 'versions', label: 'Versiones', show: true },
     { id: 'users', label: 'Usuarios', show: user.permissions.includes('users:manage') },
@@ -256,6 +258,7 @@ function StudioLoaded({ user, loaded, reloadDraft, onLogout, flash }: { user: Us
           {view === 'audit' && <AuditPanel />}
           {view === 'account' && <AccountPanel me={user} />}
           {view === 'vendors' && <VendorsPanel vendors={vendors} reload={loadVendors} />}
+          {view === 'activations' && <ActivationsPanel />}
           {isDesign && (
             <div className={`validation ${errors.length ? 'has-errors' : ''}`} role="status">
               {errors.length === 0 ? 'Configuración válida' : <details><summary>{errors.length} problema(s) impiden publicar</summary><ul>{errors.map((e) => <li key={e}>{e}</li>)}</ul></details>}
