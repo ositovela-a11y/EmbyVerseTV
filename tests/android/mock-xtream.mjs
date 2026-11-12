@@ -117,6 +117,31 @@ createServer((req, res) => {
     }
     return res.end(x + '</tv>');
   }
+  // Lista M3U «difícil» (para la app de PC): sin extensión, con User-Agent propio, con Referer estilo Kodi,
+  // un canal HLS normal, una película y episodios de una serie.
+  if (u.pathname === '/lista.m3u') {
+    res.writeHead(200, { 'content-type': 'audio/x-mpegurl', 'access-control-allow-origin': '*' });
+    return res.end(['#EXTM3U',
+      `#EXTINF:-1 tvg-id="n1" tvg-logo="${host}/img/l1.png" group-title="Noticias",Noticias HLS`, `${host}/hls/live.m3u8`,
+      `#EXTINF:-1 tvg-logo="${host}/img/l2.png" group-title="Noticias",Canal sin extensión`, `${host}/raw/7`,
+      `#EXTINF:-1 group-title="Deportes",Canal con User-Agent`, '#EXTVLCOPT:http-user-agent=ListaUA/1.0', `${host}/ua-only/live.m3u8`,
+      `#EXTINF:-1 group-title="Deportes",Canal con Referer (Kodi)`, `${host}/ref-only/live.m3u8|Referer=http://ref.test/&User-Agent=KodiUA`,
+      `#EXTINF:-1 tvg-logo="${host}/img/m1.png" group-title="Películas",Película de prueba (2024)`, `${host}/vod/pelicula.mp4`,
+      `#EXTINF:-1 group-title="Series",Serie Prueba S01E01`, `${host}/vod/s1e1.mp4`,
+      `#EXTINF:-1 group-title="Series",Serie Prueba S01E02`, `${host}/vod/s1e2.mp4`,
+    ].join('\n'));
+  }
+  const hlsList = () => readFileSync(join(MEDIA, 'hls/live.m3u8'), 'utf8').replace(/^(seg\d+\.ts)$/gm, '/hls/$1');
+  if (u.pathname.startsWith('/ua-only/')) {
+    if (req.headers['user-agent'] !== 'ListaUA/1.0') { res.writeHead(403); return res.end(); }
+    res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl' }); return res.end(hlsList());
+  }
+  if (u.pathname.startsWith('/ref-only/')) {
+    if (!/ref\.test/.test(req.headers.referer ?? '')) { res.writeHead(403); return res.end(); }
+    res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl' }); return res.end(hlsList());
+  }
+  if (u.pathname.startsWith('/raw/')) return liveTs(res);
+  if (u.pathname.startsWith('/vod/')) return sendFile(req, res, join(MEDIA, 'clip.mp4'), 'video/mp4');
   if (u.pathname === '/get.php') {
     res.writeHead(200, { 'content-type': 'audio/x-mpegurl' });
     const lines = ['#EXTM3U x-tvg-url="' + host + '/xmltv.php"'];

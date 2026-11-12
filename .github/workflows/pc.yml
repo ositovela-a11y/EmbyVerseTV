@@ -1,0 +1,59 @@
+# App para PC (Windows): la app de TV dentro de Electron, con listas M3U y cuentas Xtream.
+#   1) Prueba en Linux con el proveedor simulado (canales HLS, sin extensión, con User-Agent y Referer).
+#   2) Arma el instalador y la versión portátil de Windows → release «pc-latest» (main) o «pc-beta» (beta).
+name: App PC (Windows)
+on:
+  push:
+    branches: [main, beta]
+    paths: ['desktop/**', 'tv-app/**', 'tests/android/mock-xtream.mjs', '.github/workflows/pc.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  prueba:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Compilar la app con el proveedor simulado
+        run: |
+          cd tv-app && npm install --no-audit --no-fund
+          EMBYVERSE_HOST=http://127.0.0.1:8800 EMBYVERSE_CONFIG_URL=http://127.0.0.1:8090/none.json node build.mjs
+          rm -rf ../desktop/app && cp -r dist ../desktop/app
+          cd ../desktop && npm install --no-audit --no-fund && npm i --no-save playwright@1.48.2
+      - name: Probar
+        run: |
+          (cd tests/android && node mock-xtream.mjs > /tmp/mock.log 2>&1 &)
+          sleep 3
+          cd desktop && xvfb-run -a -s "-screen 0 1920x1080x24" node tests/e2e.cjs /tmp/pcshots
+      - name: Capturas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: pc-capturas, path: /tmp/pcshots, if-no-files-found: ignore }
+  windows:
+    needs: prueba
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Compilar la app
+        shell: bash
+        run: |
+          cd tv-app && npm install --no-audit --no-fund && node build.mjs
+          rm -rf ../desktop/app && cp -r dist ../desktop/app
+      - name: Instalador y portátil de Windows
+        shell: bash
+        env: { CSC_IDENTITY_AUTO_DISCOVERY: 'false' }
+        run: |
+          cd desktop && npm install --no-audit --no-fund
+          npx electron-builder --win nsis portable --x64 --publish never
+          ls -la dist
+      - name: Publicar
+        shell: bash
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          TAG=$([ "$GITHUB_REF_NAME" = main ] && echo pc-latest || echo pc-beta)
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "App PC ($TAG)" --notes "EmbyVerse para Windows: instalador y versión portátil."
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" desktop/dist/EmbyVerse-PC-Instalador.exe desktop/dist/EmbyVerse-PC-Portable.exe --clobber

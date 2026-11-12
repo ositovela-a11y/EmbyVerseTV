@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Fx, Logo, useApp } from '../ui';
 import { providerHost } from '../config';
-import { Xtream } from '../xtream';
-import { store } from '../store';
+import { clientFor, xtreamFromM3uUrl } from '../m3u';
+import { store, type Account } from '../store';
 
 /** Entrada «universo» (~8 s): viaje entre estrellas, galaxia, logo y bienvenida. */
 export function Splash({ onDone }: { onDone: () => void }) {
@@ -34,7 +34,26 @@ export function Login({ onLogged }: { onLogged: () => void }) {
   const [host, setHost] = useState(fixed ?? '');
   const [user, setUser] = useState(''); const [pass, setPass] = useState('');
   const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
+  // Dos formas de entrar: cuenta (usuario y contraseña) o lista M3U (enlace o, en la PC, archivo).
+  const [mode, setMode] = useState<'account' | 'm3u'>('account');
+  const [list, setList] = useState('');
+  const desk = (window as any).evDesktop;
+  const submitM3u = async (src: string) => {
+    setErr('');
+    const s = src.trim();
+    if (!/^https?:\/\//i.test(s) && !s.startsWith('file:')) { setErr('Pega el enlace de tu lista (empieza con http:// o https://).'); return; }
+    setBusy(true);
+    try {
+      // «get.php?username=…&password=…» es una cuenta: se usa completa (fichas, guía, temporadas).
+      const asXtream = s.startsWith('http') ? xtreamFromM3uUrl(s) : null;
+      const acc: Account = asXtream ?? { host: '', username: '', password: '', m3u: s };
+      const r = await clientFor(acc).login();
+      store.setAccount({ ...acc, expiresAt: r.expiresAt }); onLogged();
+    } catch (e: any) { setErr(e?.message ?? 'No se pudo abrir la lista.'); } finally { setBusy(false); }
+  };
+  const openFile = async () => { try { const f = await desk?.pickListFile?.(); if (f) await submitM3u(`file:${f}`); } catch (e: any) { setErr(e?.message ?? 'No se pudo abrir el archivo.'); } };
   const submit = async () => {
+    if (mode === 'm3u') { await submitM3u(list); return; }
     setErr('');
     const h = (fixed ?? host).trim();
     if (!h || !/^https?:\/\//i.test(h)) { setErr('Escribe la dirección del servidor (empieza con http:// o https://).'); return; }
@@ -42,7 +61,7 @@ export function Login({ onLogged }: { onLogged: () => void }) {
     setBusy(true);
     try {
       const acc = { host: h, username: user.trim(), password: pass };
-      const r = await new Xtream(acc).login();
+      const r = await clientFor(acc).login();
       store.setAccount({ ...acc, expiresAt: r.expiresAt }); onLogged();
     } catch (e: any) { setErr(e?.message ?? 'No se pudo iniciar sesión.'); } finally { setBusy(false); }
   };
@@ -57,13 +76,25 @@ export function Login({ onLogged }: { onLogged: () => void }) {
     <div className="screen login">
       <Logo className="login-logo" />
       <h1>Inicia sesión</h1>
-      <p className="muted">{fixed ? 'Escribe el usuario y contraseña que te dio tu proveedor.' : 'Escribe la dirección (URL), usuario y contraseña que te dio tu proveedor.'}</p>
-      <div className="login-form" data-fx-group="">
-        {!fixed && field('f-host', 'Servidor (URL)', host, setHost, 'url', true)}
-        {field('f-user', 'Usuario', user, setUser, 'text', !!fixed)}
-        {field('f-pass', 'Contraseña', pass, setPass, 'password')}
-        <Fx className="btn primary big" onClick={submit}>{busy ? 'Conectando…' : 'Entrar'}</Fx>
+      <p className="muted">{mode === 'm3u' ? 'Pega el enlace de tu lista M3U. Si es de tipo «get.php?username=…», se usa como cuenta completa.' : fixed ? 'Escribe el usuario y contraseña que te dio tu proveedor.' : 'Escribe la dirección (URL), usuario y contraseña que te dio tu proveedor.'}</p>
+      <div className="login-tabs" data-fx-group="">
+        <Fx className={`chip ${mode === 'account' ? 'on' : ''}`} onClick={() => { setMode('account'); setErr(''); }}>Usuario y contraseña</Fx>
+        <Fx className={`chip ${mode === 'm3u' ? 'on' : ''}`} onClick={() => { setMode('m3u'); setErr(''); }} id="tab-m3u">Lista M3U</Fx>
       </div>
+      {mode === 'account' ? (
+        <div className="login-form" data-fx-group="">
+          {!fixed && field('f-host', 'Servidor (URL)', host, setHost, 'url', true)}
+          {field('f-user', 'Usuario', user, setUser, 'text', !!fixed)}
+          {field('f-pass', 'Contraseña', pass, setPass, 'password')}
+          <Fx className="btn primary big" onClick={submit}>{busy ? 'Conectando…' : 'Entrar'}</Fx>
+        </div>
+      ) : (
+        <div className="login-form" data-fx-group="">
+          {field('f-m3u', 'Enlace de la lista (M3U / M3U8)', list, setList, 'url', true)}
+          <Fx className="btn primary big" onClick={submit} id="m3u-open">{busy ? 'Cargando lista…' : 'Abrir lista'}</Fx>
+          {desk?.pickListFile && <Fx className="btn big" onClick={openFile} id="m3u-file">Abrir archivo .m3u de la PC</Fx>}
+        </div>
+      )}
       {err && <div className="error-box">{err}</div>}
     </div>
   );

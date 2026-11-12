@@ -55,7 +55,11 @@ export function Player({ req, onClose }: { req: PlayRequest; onClose: () => void
         setState('error'); setErr(d ?? '');
       }
     });
-    eng.load(url(it, alt), { live: it.kind === 'live', startMs: it.startMs });
+    const u = url(it, alt);
+    // PC: User-Agent / Referer que pide la lista M3U para este canal.
+    const hdr = (client() as any).headersFor?.(it.id);
+    if (hdr && (hdr.ua || hdr.ref)) (window as any).evDesktop?.setStreamHeaders?.(u.split('#')[0], hdr.ua, hdr.ref);
+    eng.load(u, { live: it.kind === 'live', startMs: it.startMs });
     eng.setAspect(aspect);
     if (it.kind === 'live') { store.pushLive(app.profile.id, it.id); client().shortEpg(it.id, 3).then(setEpg); }
     setFav(store.isFav(app.profile.id, it.kind === 'live' ? 'live' : it.kind === 'movie' ? 'movie' : 'series', it.kind === 'episode' ? it.seriesId ?? it.id : it.id));
@@ -165,7 +169,9 @@ export function Player({ req, onClose }: { req: PlayRequest; onClose: () => void
   const subCls = `subs-size-${prefs.subSize} subs-bg-${prefs.subBg}${prefs.subYellow ? ' subs-yellow' : ''}`;
 
   return (
-    <div className={`player ${subCls}`}>
+    <div className={`player ${subCls}`} onMouseMove={showUi}
+      onClick={(e) => { if ((e.target as HTMLElement).closest('[data-fx], .player-error, .player-panel')) return; showUi(); if (!live) { eng.paused() ? eng.play() : eng.pause(); } }}
+      onDoubleClick={() => (window as any).evDesktop?.toggleFullscreen?.()}>
       {(state === 'loading' || state === 'buffering') && <div className="player-spin"><div className="spinner" /></div>}
       {state === 'error' && <div className="player-error" data-fx-layer=""><h2>{live ? 'Este canal no está disponible ahora' : 'No se pudo reproducir este contenido'}</h2>
         <p>{navigator.onLine === false ? 'No hay conexión a internet. Revisa tu Wi-Fi o cable.' : live ? 'Puede ser algo momentáneo del canal. Prueba otra vez o pasa al siguiente.' : 'El video no respondió. Prueba otra vez en un momento.'}</p><small>{err}</small>

@@ -1,0 +1,26 @@
+{
+  "name": "embyverse-pc",
+  "productName": "EmbyVerse",
+  "version": "1.0.0",
+  "description": "EmbyVerse para PC (Windows): TV en vivo, películas y series con tu cuenta o lista M3U.",
+  "author": "EmbyVerse",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis portable --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "com.embyverse.pc",
+    "productName": "EmbyVerse",
+    "files": ["main.js", "preload.js", "app/**/*", "icon.png"],
+    "directories": { "output": "dist" },
+    "win": { "icon": "icon.png", "artifactName": "EmbyVerse-PC-${version}-${arch}.${ext}" },
+    "nsis": { "oneClick": true, "perMachine": false, "artifactName": "EmbyVerse-PC-Instalador.${ext}", "shortcutName": "EmbyVerse" },
+    "portable": { "artifactName": "EmbyVerse-PC-Portable.${ext}" }
+  }
+}
