@@ -29,7 +29,7 @@ jobs:
               if not f.endswith('.apk'): continue
               out = subprocess.run([aapt, 'dump', 'badging', f'web-player/apk/{f}'], capture_output=True, text=True).stdout if aapt else ''
               m = re.search(r"versionCode='(\d+)' versionName='([^']*)'", out)
-              if m: apps[f] = {'versionCode': int(m.group(1)), 'versionName': m.group(2), 'path': f'apk/{f}'}
+              if m: apps[f] = {'versionCode': int(m.group(1)), 'versionName': m.group(2), 'path': f'apk/{f}?v={m.group(1)}'}  # ?v= evita copias viejas en caché
           # «Lo nuevo» de cada versión (lo muestra la app al ofrecer la actualización).
           try: rn = json.load(open('android-app/app/src/main/assets/release-notes.json'))
           except Exception: rn = {}

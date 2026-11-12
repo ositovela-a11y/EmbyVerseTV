@@ -4,14 +4,25 @@
 <style>body{background:#02050C;color:#E6EEF8;font:18px system-ui,sans-serif;display:grid;place-content:center;min-height:100vh;text-align:center;padding:16px}a{color:#7BE52F}</style>
 <script>
   // Enlace corto para Downloader: /a/ baja la app principal; /a/?v=<vendedor> baja la app de ese vendedor.
+  // Siempre la ÚLTIMA versión: se consulta update.json al momento y se pide la APK con su número de
+  // versión en el enlace, así ni el sitio ni Downloader entregan una copia vieja guardada en caché
+  // (que obligaría al cliente a actualizar justo después de instalar).
   (function () {
     var v = (new URLSearchParams(location.search).get('v') || '').toLowerCase();
     var file = /^[a-z][a-z0-9]{1,30}$/.test(v) ? 'EmbyVerse-' + v + '.apk' : 'EmbyVerse.apk';
-    // La APK se sirve desde este mismo sitio (con dominio propio, el enlace no muestra GitHub).
-    var url = '../apk/' + file;
-    window.APK_URL = url;
-    location.replace(url);
+    var base = '../apk/' + file;
+    window.APK_URL = base + '?t=' + Date.now();
+    var done = false;
+    function go(url) { if (done) return; done = true; window.APK_URL = url; var l = document.getElementById('l'); if (l) l.href = url; location.replace(url); }
+    setTimeout(function () { go(base + '?t=' + Date.now()); }, 2500); // sin respuesta: igual descarga, sin caché
+    try {
+      fetch('../update.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (u) {
+        var a = u && u.apps && u.apps[file];
+        if (a && a.versionCode) { var n = document.getElementById('ver'); if (n) n.textContent = 'Versión ' + a.versionName; go(base + '?v=' + a.versionCode); }
+        else go(base + '?t=' + Date.now());
+      }).catch(function () { go(base + '?t=' + Date.now()); });
+    } catch (e) { go(base + '?t=' + Date.now()); }
   })();
 </script>
-</head><body><p>Descargando la app…</p><p>Si no empieza, <a id="l" href="#">pulsa aquí</a>.</p>
+</head><body><p>Descargando la app…</p><p id="ver" style="opacity:.7;font-size:15px"></p><p>Si no empieza, <a id="l" href="#">pulsa aquí</a>.</p>
 <script>document.getElementById('l').href = window.APK_URL;</script></body></html>

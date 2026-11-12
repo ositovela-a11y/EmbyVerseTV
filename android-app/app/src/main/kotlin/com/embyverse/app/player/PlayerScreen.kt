@@ -89,6 +89,7 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
     val kidsTimeUp by vm.kidsTimeUp.collectAsStateWithLifecycle()
     val castingTo by vm.castingTo.collectAsStateWithLifecycle()
     val aspectMode by vm.aspect.collectAsStateWithLifecycle()
+    val reconnecting by vm.reconnecting.collectAsStateWithLifecycle()
     // Calidad real del video que se está viendo (ExoPlayer ya elige la mejor según la red).
     var videoHeight by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
     LaunchedEffect(player) {
@@ -146,6 +147,12 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
             PhoneGestureLayer(player, !vm.isLive, { viewRef[0]?.showController() })
 
         if (buffering && error == null) CircularProgressIndicator(Modifier.align(Alignment.Center).size(56.dp), color = t.primary, strokeWidth = 4.dp)
+        // En vivo: aviso de que el canal se está reconectando solo (se congeló, se quedó cargando o se cortó).
+        if (reconnecting > 0 && error == null && !pip) Text(
+            if (reconnecting > 1) stringResource(R.string.player_reconnecting_n, reconnecting) else stringResource(R.string.player_reconnecting),
+            style = MaterialTheme.typography.bodyMedium, color = Color.White,
+            modifier = Modifier.align(Alignment.Center).padding(top = 120.dp).background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
+                .padding(horizontal = 14.dp, vertical = 6.dp).testTag("player_reconnecting"))
 
         // Cabecera: título, canal / episodio y programa actual.
         if (pip) return@Box
@@ -223,6 +230,8 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
                 Text(stringResource(if (vm.isLive) R.string.player_unavailable_live else R.string.player_unavailable_vod), style = MaterialTheme.typography.titleMedium,
                     color = t.onBackground, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 Text(stringResource(e.messageRes), style = MaterialTheme.typography.bodyMedium, color = t.textSecondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                if (vm.isLive && reconnecting > 0) Text(stringResource(R.string.player_still_trying, reconnecting), style = MaterialTheme.typography.bodySmall,
+                    color = t.primary, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.testTag("player_still_trying"))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     EmbyButton(stringResource(R.string.action_retry), { vm.retry() }, icon = Icons.Rounded.Refresh, modifier = Modifier.testTag("player_retry"))
                     if (vm.isLive) EmbyButton(stringResource(R.string.player_next_channel), { vm.error.value = null; vm.zap(1) }, icon = Icons.Rounded.SkipNext,

@@ -15,6 +15,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
@@ -36,11 +38,16 @@ class LivePreview(private val context: Context, private val c: AppContainer, @Su
     private var job: Job? = null
     private var lastUrl: String? = null
     private var altIndex = -1
+    /** Reconexión automática: intentos seguidos sin lograr imagen y vigilante de congelado / carga sin fin. */
+    private var attempts = 0
+    private var reconnectJob: Job? = null
+    private var watchdog: Job? = null
 
     private val listener = object : Player.Listener {
         override fun onPlaybackStateChanged(state: Int) {
             buffering.value = state == Player.STATE_BUFFERING
-            if (state == Player.STATE_READY) { error.value = false; PlaybackProbe.readyCount++ }
+            if (state == Player.STATE_READY) { error.value = false; attempts = 0; PlaybackProbe.readyCount++ }
+            if (state == Player.STATE_ENDED) reconnect("la transmisión se cortó")
         }
         override fun onPlayerError(e: PlaybackException) {
             // Mismo rescate que en pantalla completa: si el formato no es el anunciado, se prueba otro.
@@ -53,7 +60,10 @@ class LivePreview(private val context: Context, private val c: AppContainer, @Su
                 _player.value?.let { p -> p.setMediaSource(StreamSource.mediaSource(c.okHttp, u, ch.userAgent, ch.referrer, ch.name, forcedMime = m)); p.prepare(); p.playWhenReady = true }
                 return
             }
-            buffering.value = false; error.value = true; PlaybackProbe.lastError = e.errorCodeName
+            // Se sigue intentando solo; tras 3 intentos se avisa, pero los intentos continúan.
+            if (attempts >= 3) { buffering.value = false; error.value = true; PlaybackProbe.lastError = e.errorCodeName }
+            altIndex = -1
+            reconnect("error ${e.errorCodeName}")
         }
     }
 
@@ -70,12 +80,54 @@ class LivePreview(private val context: Context, private val c: AppContainer, @Su
             p.setMediaSource(StreamSource.mediaSource(c.okHttp, url, ch.userAgent, ch.referrer, ch.name))
             p.prepare(); p.playWhenReady = true
         }
+        attempts = 0; reconnectJob?.cancel()
+        startWatchdog()
+    }
+
+    private fun prepareAgain() {
+        val ch = _channel.value ?: return
+        val url = lastUrl ?: return
+        _player.value?.let { p -> p.setMediaSource(StreamSource.mediaSource(c.okHttp, url, ch.userAgent, ch.referrer, ch.name)); p.prepare(); p.playWhenReady = true }
+    }
+
+    private fun reconnect(reason: String) {
+        if (reconnectJob?.isActive == true || _player.value == null) return
+        attempts++
+        PlaybackProbe.reconnects++; PlaybackProbe.lastReconnectReason = reason
+        val wait = when (attempts) { 1 -> 0L; 2 -> 2_000L; 3 -> 4_000L; 4 -> 8_000L; else -> 15_000L }
+        reconnectJob = scope.launch { delay(wait); if (!error.value) buffering.value = true; prepareAgain() }
+    }
+
+    /** Igual que en pantalla completa: si se queda cargando más de 12 s o la imagen se congela 8 s, se reconecta. */
+    private fun startWatchdog() {
+        if (watchdog?.isActive == true) return
+        watchdog = scope.launch {
+            var lastPos = -1L; var lastFrames = -1; var stuck = 0L; var buf = 0L
+            while (isActive) {
+                delay(2_000)
+                val p = _player.value
+                if (p == null || !p.playWhenReady || reconnectJob?.isActive == true) { stuck = 0; buf = 0; lastPos = -1; continue }
+                val now = android.os.SystemClock.elapsedRealtime()
+                when (p.playbackState) {
+                    Player.STATE_BUFFERING -> { stuck = 0; if (buf == 0L) buf = now else if (now - buf > 12_000) { buf = 0; reconnect("cargando sin fin") } }
+                    Player.STATE_READY -> {
+                        buf = 0
+                        val pos = p.currentPosition
+                        val frames = p.videoDecoderCounters?.let { it.ensureUpdated(); it.renderedOutputBufferCount } ?: -1
+                        val moving = lastPos < 0 || pos != lastPos || (frames >= 0 && frames != lastFrames)
+                        lastPos = pos; lastFrames = frames
+                        if (moving) stuck = 0 else if (stuck == 0L) stuck = now else if (now - stuck > 8_000) { stuck = 0; lastPos = -1; reconnect("imagen congelada") }
+                    }
+                    else -> { stuck = 0; buf = 0; lastPos = -1 }
+                }
+            }
+        }
     }
 
     /** Detiene y libera (al salir de la pantalla o antes de pasar a pantalla completa). */
     fun release() {
         if (Looper.myLooper() != Looper.getMainLooper()) { main.post { release() }; return }
-        job?.cancel()
+        job?.cancel(); reconnectJob?.cancel(); watchdog?.cancel()
         _player.value?.let { it.removeListener(listener); it.release() }
         _player.value = null
         buffering.value = false

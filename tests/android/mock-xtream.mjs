@@ -67,12 +67,21 @@ function sendFile(req, res, file, type) {
 }
 
 // Canal en vivo .ts: emisión continua (repite el clip) como un stream real que nunca termina.
+// Fallas de canal en vivo para probar la reconexión automática (se arman con /__stall?mode=…, afectan
+// solo a la siguiente conexión): «freeze» manda unos segundos y luego deja de mandar sin cerrar,
+// «end» manda unos segundos y corta, «hang» responde pero nunca manda video.
+let stallNext = null;
 function liveTs(res) {
   const data = readFileSync(join(MEDIA, 'live.ts'));
   res.writeHead(200, { 'content-type': 'video/mp2t' });
-  let off = 0, alive = true;
+  let off = 0, alive = true, sent = 0;
+  const mode = stallNext; stallNext = null;
+  if (mode) console.log(`canal en vivo con falla simulada: ${mode}`);
   res.on('close', () => { alive = false; });
-  const tick = () => { if (!alive) return; const chunk = data.subarray(off, off + 64 * 1024); off = (off + chunk.length) % data.length; res.write(chunk); setTimeout(tick, 120); };
+  if (mode === 'hang') return;
+  const tick = () => { if (!alive) return;
+    if (mode && ++sent > 30) { if (mode === 'end') res.end(); return; }
+    const chunk = data.subarray(off, off + 64 * 1024); off = (off + chunk.length) % data.length; res.write(chunk); setTimeout(tick, 120); };
   tick();
 }
 
@@ -86,6 +95,7 @@ createServer((req, res) => {
   const u = new URL(req.url, 'http://x');
   const host = `http://${req.headers.host}`;
   const json = (s) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(s); };
+  if (u.pathname === '/__stall') { stallNext = u.searchParams.get('mode') || 'freeze'; return json('{"ok":true}'); }
   if (u.pathname === '/player_api.php') {
     if (u.searchParams.get('username') !== USER || u.searchParams.get('password') !== PASS) return json('{"user_info":{"auth":0}}');
     const a = u.searchParams.get('action');
