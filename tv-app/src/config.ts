@@ -14,7 +14,8 @@ export interface RemoteConfig {
 
 const FALLBACK: RemoteConfig = {
   version: 0,
-  brand: { appName: 'EmbyVerse', tagline: 'Tu universo de entretenimiento' },
+  // App de un vendedor: su nombre desde el primer momento (antes de descargar su diseño).
+  brand: { appName: (() => { try { return (window as any).__EV__?.name; } catch { return ''; } })() || 'EmbyVerse', tagline: 'Tu universo de entretenimiento' },
   theme: { palette: { primary: '#7BE52F', secondary: '#1E6BFF', accent: '#22D3EE', background: '#03070F', surface: '#0A1324', surfaceVariant: '#13213B',
     onBackground: '#EAF2FF', textSecondary: '#8FA3BF', buttonText: '#04110A', focusRing: '#22D3EE', error: '#FF5A6E' } },
   texts: {}, messages: [], banners: [],
@@ -22,6 +23,13 @@ const FALLBACK: RemoteConfig = {
 
 declare const __CONFIG_URL__: string;
 const KEY = 'ev.config';
+/**
+ * Datos de la instalación escritos en index.html al armar la app (app de PC de un vendedor: su diseño,
+ * su servidor, edición y activaciones). Tienen prioridad sobre los de app.js para que, cuando la app
+ * se actualiza sola desde el sitio, siga siendo la del vendedor.
+ */
+export const EV: { config?: string; host?: string; edition?: string; license?: string; name?: string } = (() => { try { return (window as any).__EV__ || {}; } catch { return {}; } })();
+const CONFIG_URL = EV.config || __CONFIG_URL__;
 
 export function cachedConfig(): RemoteConfig {
   try { const v = localStorage.getItem(KEY); if (v) return { ...FALLBACK, ...JSON.parse(v) }; } catch { /* */ }
@@ -30,7 +38,7 @@ export function cachedConfig(): RemoteConfig {
 
 export async function fetchConfig(): Promise<RemoteConfig | null> {
   try {
-    const r = await fetch(`${__CONFIG_URL__}?t=${Math.floor(Date.now() / 60000)}`, { cache: 'no-store' });
+    const r = await fetch(`${CONFIG_URL}?t=${Math.floor(Date.now() / 60000)}`, { cache: 'no-store' });
     if (!r.ok) return null;
     const j = await r.json();
     const cfg: RemoteConfig = {
@@ -65,7 +73,8 @@ export function applyTheme(cfg: RemoteConfig, overrides?: Partial<Palette>) {
 declare const __DEFAULT_HOST__: string;
 export function providerHost(cfg: RemoteConfig): string | null {
   if ((cfg.texts['provider.askHost'] ?? '').trim() === '1') return null;
-  return (cfg.texts['provider.host'] ?? '').trim() || __DEFAULT_HOST__;
+  if (EV.host === '') return null; // instalación que pide la URL (vendedor con otro servicio)
+  return (cfg.texts['provider.host'] ?? '').trim() || EV.host || __DEFAULT_HOST__;
 }
 
 /** Suspensión remota (huella SHA-256 recortada del usuario, igual que en Android). */
@@ -76,8 +85,11 @@ export async function isBlocked(cfg: RemoteConfig, username: string): Promise<bo
   return set.has(await evHash(username));
 }
 
-export async function evHash(user: string): Promise<string> {
-  const data = new TextEncoder().encode('ev:' + user.trim().toLowerCase());
+export async function evHash(user: string): Promise<string> { return hash16('ev:' + user.trim().toLowerCase()); }
+
+/** SHA-256 (16 primeros caracteres hex) de un texto. */
+export async function hash16(text: string): Promise<string> {
+  const data = new TextEncoder().encode(text);
   const subtle = (crypto as any)?.subtle;
   if (subtle) {
     const d = await subtle.digest('SHA-256', data);
@@ -106,3 +118,6 @@ function sha256Hex(bytes: Uint8Array): string {
   }
   return H.map((x) => (x >>> 0).toString(16).padStart(8, '0')).join('');
 }
+
+/** ¿Es la app de un vendedor? (otro nombre que EmbyVerse): se muestra el crédito «Diseñada por EmbyVerse». */
+export const isVendorApp = (cfg: RemoteConfig) => /\/vendors\//.test(EV.config ?? '') || !/embyverse/i.test(cfg.brand.appName || 'EmbyVerse');

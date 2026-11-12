@@ -67,12 +67,22 @@ function sendFile(req, res, file, type) {
 }
 
 // Canal en vivo .ts: emisión continua (repite el clip) como un stream real que nunca termina.
+// Fallas de canal en vivo para probar la reconexión automática (se arman con /__stall?mode=…, afectan
+// solo a la siguiente conexión): «freeze» manda unos segundos y luego deja de mandar sin cerrar,
+// «end» manda unos segundos y corta, «hang» responde pero nunca manda video.
+let stallNext = null;
+const licenses = { v: 1, devices: {} };
 function liveTs(res) {
   const data = readFileSync(join(MEDIA, 'live.ts'));
   res.writeHead(200, { 'content-type': 'video/mp2t' });
-  let off = 0, alive = true;
+  let off = 0, alive = true, sent = 0;
+  const mode = stallNext; stallNext = null;
+  if (mode) console.log(`canal en vivo con falla simulada: ${mode}`);
   res.on('close', () => { alive = false; });
-  const tick = () => { if (!alive) return; const chunk = data.subarray(off, off + 64 * 1024); off = (off + chunk.length) % data.length; res.write(chunk); setTimeout(tick, 120); };
+  if (mode === 'hang') return;
+  const tick = () => { if (!alive) return;
+    if (mode && ++sent > 30) { if (mode === 'end') res.end(); return; }
+    const chunk = data.subarray(off, off + 64 * 1024); off = (off + chunk.length) % data.length; res.write(chunk); setTimeout(tick, 120); };
   tick();
 }
 
@@ -86,6 +96,12 @@ createServer((req, res) => {
   const u = new URL(req.url, 'http://x');
   const host = `http://${req.headers.host}`;
   const json = (s) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(s); };
+  // App de PC de un vendedor (prueba): su diseño (pide la URL del servidor) y la lista de activaciones.
+  if (u.pathname === '/cfg/vendor.json') return json(JSON.stringify({ version: 1, brand: { appName: 'Prueba Vendedor TV' },
+    theme: { palette: { primary: '#FF8A00', accent: '#FFD000', background: '#120A02' } }, texts: { 'provider.askHost': '1', 'license.whatsapp': '5215512345678' }, messages: [], banners: [] }));
+  if (u.pathname === '/licenses.json') return json(JSON.stringify(licenses));
+  if (u.pathname === '/__license') { licenses.devices[u.searchParams.get('h')] = { exp: u.searchParams.get('exp') || null }; return json('{"ok":true}'); }
+  if (u.pathname === '/__stall') { stallNext = u.searchParams.get('mode') || 'freeze'; return json('{"ok":true}'); }
   if (u.pathname === '/player_api.php') {
     if (u.searchParams.get('username') !== USER || u.searchParams.get('password') !== PASS) return json('{"user_info":{"auth":0}}');
     const a = u.searchParams.get('action');
@@ -117,6 +133,31 @@ createServer((req, res) => {
     }
     return res.end(x + '</tv>');
   }
+  // Lista M3U «difícil» (para la app de PC): sin extensión, con User-Agent propio, con Referer estilo Kodi,
+  // un canal HLS normal, una película y episodios de una serie.
+  if (u.pathname === '/lista.m3u') {
+    res.writeHead(200, { 'content-type': 'audio/x-mpegurl', 'access-control-allow-origin': '*' });
+    return res.end(['#EXTM3U',
+      `#EXTINF:-1 tvg-id="n1" tvg-logo="${host}/img/l1.png" group-title="Noticias",Noticias HLS`, `${host}/hls/live.m3u8`,
+      `#EXTINF:-1 tvg-logo="${host}/img/l2.png" group-title="Noticias",Canal sin extensión`, `${host}/raw/7`,
+      `#EXTINF:-1 group-title="Deportes",Canal con User-Agent`, '#EXTVLCOPT:http-user-agent=ListaUA/1.0', `${host}/ua-only/live.m3u8`,
+      `#EXTINF:-1 group-title="Deportes",Canal con Referer (Kodi)`, `${host}/ref-only/live.m3u8|Referer=http://ref.test/&User-Agent=KodiUA`,
+      `#EXTINF:-1 tvg-logo="${host}/img/m1.png" group-title="Películas",Película de prueba (2024)`, `${host}/vod/pelicula.mp4`,
+      `#EXTINF:-1 group-title="Series",Serie Prueba S01E01`, `${host}/vod/s1e1.mp4`,
+      `#EXTINF:-1 group-title="Series",Serie Prueba S01E02`, `${host}/vod/s1e2.mp4`,
+    ].join('\n'));
+  }
+  const hlsList = () => readFileSync(join(MEDIA, 'hls/live.m3u8'), 'utf8').replace(/^(seg\d+\.ts)$/gm, '/hls/$1');
+  if (u.pathname.startsWith('/ua-only/')) {
+    if (req.headers['user-agent'] !== 'ListaUA/1.0') { res.writeHead(403); return res.end(); }
+    res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl' }); return res.end(hlsList());
+  }
+  if (u.pathname.startsWith('/ref-only/')) {
+    if (!/ref\.test/.test(req.headers.referer ?? '')) { res.writeHead(403); return res.end(); }
+    res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl' }); return res.end(hlsList());
+  }
+  if (u.pathname.startsWith('/raw/')) return liveTs(res);
+  if (u.pathname.startsWith('/vod/')) return sendFile(req, res, join(MEDIA, 'clip.mp4'), 'video/mp4');
   if (u.pathname === '/get.php') {
     res.writeHead(200, { 'content-type': 'audio/x-mpegurl' });
     const lines = ['#EXTM3U x-tvg-url="' + host + '/xmltv.php"'];

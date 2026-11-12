@@ -104,8 +104,9 @@ class VideoEngine implements Engine {
     this.listen('timeupdate', () => this.cb('time'));
     this.listen('error', () => this.cb('error', v.error ? `video ${v.error.code}` : 'video'));
     this.listen('loadedmetadata', () => { if (opts.startMs && !opts.live) v.currentTime = opts.startMs / 1000; this.cb('ready'); });
-    const isHls = /\.m3u8(\?|$)/i.test(url);
-    const isTs = /\.ts(\?|$)/i.test(url);
+    // «#ev=hls» / «#ev=ts»: pista de formato para direcciones sin extensión (listas M3U).
+    const isHls = /\.m3u8(\?|#|$)/i.test(url) || /#ev=hls$/.test(url);
+    const isTs = /\.ts(\?|#|$)/i.test(url) || /#ev=ts$/.test(url);
     const nativeHls = !!v.canPlayType('application/vnd.apple.mpegurl') || !!v.canPlayType('application/x-mpegURL');
     if (isHls && !nativeHls && Hls && (Hls as any).isSupported?.()) {
       const h = new (Hls as any)({ lowLatencyMode: false, maxBufferLength: 30, startLevel: -1 });

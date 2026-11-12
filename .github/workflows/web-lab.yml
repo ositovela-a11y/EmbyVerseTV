@@ -1,0 +1,18 @@
+# Laboratorio (no publica nada): ¿una página web puede reproducir listas M3U reales o hace falta la app de PC?
+name: Laboratorio página web vs app de PC
+on:
+  push:
+    branches: [beta]
+    paths: ['tests/web-lab.mjs', '.github/workflows/web-lab.yml']
+permissions:
+  contents: read
+jobs:
+  lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm i --no-save playwright@1.48.2 && npx playwright install chromium
+      - run: node tests/web-lab.mjs

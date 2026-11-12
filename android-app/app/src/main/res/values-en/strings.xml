@@ -259,7 +259,7 @@
     <string name="playback_live_format_hint">If a channel fails, try the other format. Only formats declared by the provider are used.</string>
     <string name="playback_lock_landscape">Always play in landscape</string>
     <string name="playback_reconnect">Auto reconnect</string>
-    <string name="playback_reconnect_sub">Retry when the network drops</string>
+    <string name="playback_reconnect_sub">Retries by itself if a channel freezes, keeps loading or the network drops</string>
     <string name="playback_sub_lang">Preferred subtitle language</string>
     <string name="playback_subtitles">Enable subtitles by default</string>
     <string name="playback_title">Playback</string>
@@ -469,4 +469,7 @@
     <string name="wn_menu_sub">What\'s new in version %1$s</string>
     <string name="wn_ok">Great!</string>
     <string name="wn_title">What\'s new in %1$s</string>
+    <string name="player_reconnecting">Reconnecting the channel…</string>
+    <string name="player_reconnecting_n">Reconnecting the channel… (attempt %1$d)</string>
+    <string name="player_still_trying">Still retrying by itself (attempt %1$d). You can wait or go to the next channel.</string>
 </resources>

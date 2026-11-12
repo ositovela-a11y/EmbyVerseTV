@@ -618,4 +618,38 @@ class SmokeFlowTest {
         c.sources.loadMovieDetails(id, "1")
         log("Hilo principal: probar, actualizar, episodios y ficha sin cierres")
     }
+
+    /**
+     * Canales que se congelan, se cortan o se quedan cargando: el reproductor debe reconectar solo,
+     * sin que el cliente cambie de canal y regrese. El proveedor simulado falla a propósito en la
+     * siguiente conexión (/__stall) y la reconexión debe lograr imagen otra vez.
+     */
+    @Test fun m_reconexionEnVivo() {
+        val c = app.container
+        val ch = runBlocking {
+            c.database.channels().listForZapping(null).first { it.providerId != "2" && c.sources.resolveStreamUrl(it.sourceId, it.streamUrl).contains("/live/user/pass/") }
+        }
+        val http = c.okHttp
+        for ((mode, label) in listOf("freeze" to "imagen congelada", "end" to "transmisión cortada", "hang" to "se queda cargando")) {
+            http.newCall(okhttp3.Request.Builder().url("$base/__stall?mode=$mode").build()).execute().close()
+            PlaybackProbe.reset()
+            val t0 = System.currentTimeMillis()
+            val intent = android.content.Intent(app, com.embyverse.app.player.PlayerActivity::class.java)
+                .putExtra("kind", "LIVE").putExtra("source", ch.sourceId).putExtra("id", ch.providerId)
+            ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(intent).use {
+                // «hang» nunca llega a tener imagen en la primera conexión; los otros sí y luego fallan.
+                val needReady = if (mode == "hang") 1 else 2
+                try {
+                    compose.waitUntil(120_000) { PlaybackProbe.reconnects > 0 && PlaybackProbe.readyCount >= needReady }
+                } catch (e: ComposeTimeoutException) {
+                    shot("fallo-reconexion-$mode")
+                    fail("$label: no se recuperó solo en 120 s (listo ${PlaybackProbe.readyCount} veces, reconexiones ${PlaybackProbe.reconnects}, " +
+                        "motivo ${PlaybackProbe.lastReconnectReason}, error ${PlaybackProbe.lastError})")
+                }
+                log("Reconexión ($label): recuperado solo en ${System.currentTimeMillis() - t0} ms · motivo «${PlaybackProbe.lastReconnectReason}» · ${PlaybackProbe.reconnects} intento(s)")
+                Thread.sleep(1_500); shot("reconexion-$mode")
+                assertTrue("$label: no debe quedar el aviso de error", compose.onAllNodesWithTag("player_error", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+            }
+        }
+    }
 }

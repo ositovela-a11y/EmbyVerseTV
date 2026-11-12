@@ -1,0 +1,67 @@
+# App para PC (Windows): la app de TV dentro de Electron, con listas M3U y cuentas Xtream. De pago:
+# cada equipo se activa desde el panel (Activaciones). Una app por marca: la principal y una por vendedor.
+#   1) Prueba en Linux con el proveedor simulado como app de un vendedor: activación, nombre y logotipo
+#      del vendedor, Xtream con URL y lista M3U (canales HLS, sin extensión, con User-Agent y Referer).
+#   2) Arma el instalador y la versión portátil de Windows de cada marca → release «pc-latest» (main) o «pc-beta» (beta).
+name: App PC (Windows)
+on:
+  push:
+    branches: [main, beta]
+    paths: ['desktop/**', 'tv-app/**', 'tests/android/mock-xtream.mjs', 'tests/fixtures/pc-vendor.json', 'web-player/config/vendors/**', '.github/workflows/pc.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  prueba:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Compilar la app con el proveedor simulado
+        run: |
+          cd tv-app && npm install --no-audit --no-fund
+          EMBYVERSE_HOST=http://127.0.0.1:8800 EMBYVERSE_CONFIG_URL=http://127.0.0.1:8090/none.json node build.mjs
+          rm -rf ../desktop/app && cp -r dist ../desktop/app
+          cd ../desktop && npm install --no-audit --no-fund && npm i --no-save playwright@1.48.2 sharp@0.33.5
+          node brand.mjs --slug prueba --config ../tests/fixtures/pc-vendor.json --config-url http://127.0.0.1:8800/cfg/vendor.json --license-url http://127.0.0.1:8800/licenses.json
+      - name: Probar
+        run: |
+          (cd tests/android && node mock-xtream.mjs > /tmp/mock.log 2>&1 &)
+          sleep 3
+          cd desktop && xvfb-run -a -s "-screen 0 1920x1080x24" node tests/e2e.cjs /tmp/pcshots
+      - name: Capturas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: pc-capturas, path: /tmp/pcshots, if-no-files-found: ignore }
+  windows:
+    needs: prueba
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Compilar la app
+        shell: bash
+        run: cd tv-app && npm install --no-audit --no-fund && node build.mjs
+      - name: Instalador y portátil de Windows (principal y vendedores)
+        shell: bash
+        env: { CSC_IDENTITY_AUTO_DISCOVERY: 'false' }
+        run: |
+          (cd desktop && npm install --no-audit --no-fund && npm i --no-save sharp@0.33.5)
+          SLUGS=$(node -p "try{require('./web-player/config/vendors/index.json').map(v=>v.slug).filter(s=>/^[a-z][a-z0-9]{1,30}$/.test(s)).join(' ')}catch(e){''}")
+          for slug in principal $SLUGS; do
+            git checkout -- desktop/package.json desktop/icon.png
+            rm -rf desktop/app && cp -r tv-app/dist desktop/app
+            if [ "$slug" = principal ]; then node desktop/brand.mjs; else node desktop/brand.mjs --slug "$slug"; fi
+            (cd desktop && npx electron-builder --win nsis portable --x64 --publish never)
+          done
+          git checkout -- desktop/package.json desktop/icon.png
+          ls -la desktop/dist
+      - name: Publicar
+        shell: bash
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          TAG=$([ "$GITHUB_REF_NAME" = main ] && echo pc-latest || echo pc-beta)
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "App PC ($TAG)" --notes "EmbyVerse para Windows: instalador y versión portátil."
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" desktop/dist/*-PC-Instalador.exe desktop/dist/*-PC-Portable.exe --clobber

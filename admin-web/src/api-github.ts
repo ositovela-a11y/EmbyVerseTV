@@ -7,6 +7,7 @@ import { VENDOR_THEMES, applyVendorTheme } from './vendor-themes';
 import type { RemoteConfig } from '../../backend/src/config/schema';
 import type { Asset, User, Validation, VersionInfo } from './api';
 import { ApiError } from './errors';
+import type { SealedRegistry } from './registry';
 import { validateLocal } from './store';
 
 export const GH = {
@@ -39,9 +40,15 @@ export function linksFor(slug: string) {
     apk: `${site}/apk/${slug ? `EmbyVerse-${slug}.apk` : 'EmbyVerse.apk'}`,
     short: `${site.replace('https://', '')}/a/${slug ? `?v=${slug}` : ''}`,
     web: `${site}/${slug ? `?v=${slug}` : ''}`,
+    // App de PC (Windows): enlace corto que siempre baja la última versión de esa marca.
+    pc: `${site}/pc/${slug ? `?v=${slug}` : ''}`,
+    pcExe: `https://github.com/${GH.owner}/${GH.repo}/releases/download/pc-latest/${slug || 'EmbyVerse'}-PC-Instalador.exe`,
   };
 }
 const API = `https://api.github.com/repos/${GH.owner}/${GH.repo}`;
+const LICENSES = 'web-player/config/licenses.json';
+const REGISTRY = 'admin/registro.enc.json';
+export interface Licenses { v: number; updated?: string; devices: Record<string, { exp: string | null }> }
 
 const token = () => { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; } };
 
@@ -258,6 +265,24 @@ export const githubApi = {
     const f = await gh<FileInfo>('GET', `/contents/${cfgPath(slug)}?ref=${GH.branch}`).catch(() => null);
     if (f) await gh('DELETE', `/contents/${cfgPath(slug)}`, { message: `Design Studio: elimina el diseño de ${slug}`, sha: f.sha, branch: GH.branch });
     if (currentTarget() === slug) setTarget('');
+  },
+  /** Activaciones de equipos (edición de tienda): config/licenses.json → { devices: { hash: { exp } } }. */
+  async licenses(): Promise<{ data: Licenses; sha: string | null }> {
+    const f = await readJsonFile<Licenses>(LICENSES);
+    return f ? { data: { v: 1, devices: {}, ...f.data }, sha: f.sha } : { data: { v: 1, devices: {} }, sha: null };
+  },
+  async saveLicenses(change: (d: Licenses) => void, message: string) {
+    // Se relee justo antes de guardar para no pisar un cambio hecho desde otro equipo.
+    const cur = await githubApi.licenses();
+    change(cur.data); cur.data.updated = new Date().toISOString();
+    await gh('PUT', `/contents/${LICENSES}`, { message: `Activaciones: ${message}`, content: utf8b64(JSON.stringify(cur.data, null, 1) + '\n'), branch: GH.branch, ...(cur.sha ? { sha: cur.sha } : {}) });
+    return cur.data;
+  },
+  /** Registro cifrado de activaciones (fuera del sitio publicado). */
+  async registry(): Promise<{ data: SealedRegistry; sha: string } | null> { return readJsonFile<SealedRegistry>(REGISTRY); },
+  async saveRegistry(data: SealedRegistry, sha: string | null, message: string) {
+    const r = await gh<{ content: { sha: string } }>('PUT', `/contents/${REGISTRY}`, { message: `Registro: ${message}`, content: utf8b64(JSON.stringify(data) + '\n'), branch: GH.branch, ...(sha ? { sha } : {}) });
+    return r.content.sha;
   },
   async audit() { return { entries: [] }; },
   async users() { return { users: [] }; },

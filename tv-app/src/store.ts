@@ -1,5 +1,6 @@
 // Datos guardados en la TV: cuenta, perfiles, favoritos, «continuar viendo», búsquedas y ajustes.
-export interface Account { host: string; username: string; password: string; expiresAt?: number | null }
+/** Cuenta Xtream (host, usuario, contraseña) o lista M3U («m3u»: enlace o «file:ruta» en la PC). */
+export interface Account { host: string; username: string; password: string; expiresAt?: number | null; m3u?: string }
 export interface Profile { id: string; name: string; avatar: string; kids?: boolean; pin?: string | null; blockAdult?: boolean; kidsMinutes?: number; audio?: string; subs?: string }
 export interface Fav { kind: 'live' | 'movie' | 'series'; id: string; title: string; image?: string | null; at: number }
 export interface Progress { kind: 'movie' | 'episode'; id: string; seriesId?: string; title: string; image?: string | null; pos: number; dur: number; at: number; ext?: string; season?: number; episode?: number }

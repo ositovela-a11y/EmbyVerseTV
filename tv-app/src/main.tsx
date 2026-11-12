@@ -1,3 +1,4 @@
+import { clientFor } from './m3u';
 import './polyfills';
 import './styles.css';
 import { createRoot } from 'react-dom/client';
@@ -7,7 +8,7 @@ import { applyTheme, cachedConfig, fetchConfig, isActive, isBlocked, type Remote
 import { store, type Profile } from './store';
 import { Xtream } from './xtream';
 import { setClient, newestMovies } from './catalog';
-import { KEY, isKey, registerKeys, exitApp } from './platform';
+import { KEY, isKey, registerKeys, exitApp, isTizen, isWebOS } from './platform';
 import * as nav from './nav';
 import { dispatchKeys } from './keys';
 import { Home } from './screens/Home';
@@ -16,6 +17,8 @@ import { Library, MovieDetail, ShowDetail, Saga } from './screens/Library';
 import { Search, Favorites, Guide, Settings, Profiles } from './screens/Misc';
 import { Player } from './screens/Player';
 import { Splash, Login, Suspended } from './screens/Start';
+import { Activation } from './screens/Activation';
+import { checkLicense, licenseRequired, type LicState } from './license';
 import { Season, seasonFor } from './season';
 import { lgDevDue, renewLgDevMode } from './lgdev';
 
@@ -28,7 +31,8 @@ const KIDS_PALETTE = { primary: '#FFC93C', secondary: '#FF5FA2', accent: '#3DDCF
 
 function App() {
   const [config, setConfig] = useState<RemoteConfig>(cachedConfig);
-  const [phase, setPhase] = useState<'splash' | 'login' | 'profiles' | 'app' | 'suspended'>('splash');
+  const [phase, setPhase] = useState<'splash' | 'activate' | 'login' | 'profiles' | 'app' | 'suspended'>('splash');
+  const [lic, setLic] = useState<LicState>({ state: 'none' });
   const [stack, setStack] = useState<Route[]>([{ name: 'home' }]);
   const [profile, setProfile] = useState<Profile>(() => store.activeProfile());
   const [playing, setPlaying] = useState<PlayRequest | null>(null);
@@ -71,14 +75,28 @@ function App() {
     check(); const i = setInterval(check, 60_000); return () => clearInterval(i);
   }, [config, phase, notice]);
 
-  const afterSplash = useCallback(() => {
+  const continueStart = useCallback(() => {
     if (store.blockedFlag()) { setPhase('suspended'); return; }
     const acc = store.account();
     if (!acc) { setPhase('login'); return; }
-    setClient(new Xtream(acc));
+    setClient(clientFor(acc));
     newestMovies(1).catch(() => {}); // calienta el catálogo
     setPhase(store.profiles().length > 1 ? 'profiles' : 'app');
   }, []);
+
+  // Edición de tienda: primero la activación del equipo (o su prueba gratis).
+  const afterSplash = useCallback(() => {
+    if (!licenseRequired(config.texts)) { continueStart(); return; }
+    checkLicense(config.texts).then((r) => { setLic(r); if (r.state === 'active') continueStart(); else setPhase('activate'); })
+      .catch(() => setPhase('activate'));
+  }, [config, continueStart]);
+
+  // Si vence mientras se usa (o el administrador la quita), se revisa cada 6 horas.
+  useEffect(() => {
+    if (!licenseRequired(config.texts)) return;
+    const i = setInterval(() => { checkLicense(config.texts).then((r) => { setLic(r); if (r.state === 'expired' || r.state === 'none') { setPlaying(null); setPhase('activate'); } }).catch(() => {}); }, 6 * 3600_000);
+    return () => clearInterval(i);
+  }, [config]);
 
   useEffect(() => {
     if (phase !== 'app') return;
@@ -129,6 +147,27 @@ function App() {
     return () => window.removeEventListener('keydown', h);
   }, [stack, route, notice, saver]);
 
+  // PC y navegador: el mouse también navega. Pasar el cursor enfoca, la rueda baja/sube como las flechas.
+  useEffect(() => {
+    if (isTizen || isWebOS) return;
+    const over = (e: MouseEvent) => {
+      const el = (e.target as HTMLElement)?.closest?.('[data-fx]') as HTMLElement | null;
+      if (el && el !== nav.focused() && !el.hasAttribute('data-fx-disabled')) nav.focus(el, { scroll: false });
+      idle.current = Date.now();
+    };
+    let last = 0;
+    const wheel = (e: WheelEvent) => {
+      if ((e.target as HTMLElement)?.closest?.('.player')) return;
+      const now = Date.now(); if (now - last < 110) return; last = now;
+      const horiz = Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey;
+      const d = horiz ? (e.deltaX || e.deltaY) : e.deltaY;
+      fireKey(horiz ? (d > 0 ? 39 : 37) : (d > 0 ? 40 : 38));
+    };
+    const ctx = (e: MouseEvent) => { e.preventDefault(); fireKey(27); }; // clic derecho = Atrás
+    window.addEventListener('mouseover', over); window.addEventListener('wheel', wheel, { passive: true }); window.addEventListener('contextmenu', ctx);
+    return () => { window.removeEventListener('mouseover', over); window.removeEventListener('wheel', wheel); window.removeEventListener('contextmenu', ctx); };
+  }, []);
+
   // Protector de pantalla tras 5 minutos sin usar el control (no durante el video).
   useEffect(() => {
     const i = setInterval(() => { if (!playing && phase === 'app' && store.prefs().screensaver && Date.now() - idle.current > 5 * 60_000) setSaver(true); }, 30_000);
@@ -138,8 +177,9 @@ function App() {
   const season = seasonFor(config.texts, !!profile.kids);
   let body: JSX.Element;
   if (phase === 'splash') body = <Splash onDone={afterSplash} />;
+  else if (phase === 'activate') body = <Activation status={lic} onActive={continueStart} onTrial={continueStart} />;
   else if (phase === 'suspended') body = <Suspended />;
-  else if (phase === 'login') body = <Login onLogged={() => { setClient(new Xtream(store.account()!)); setPhase('app'); }} />;
+  else if (phase === 'login') body = <Login onLogged={() => { setClient(clientFor(store.account()!)); setPhase('app'); }} />;
   else if (phase === 'profiles') body = <Profiles onPick={() => { setProfile(store.activeProfile()); setPhase('app'); }} />;
   else body = (
     <div className="shell">
@@ -208,4 +248,12 @@ function NetBanner() {
   }, []);
   if (online && !back) return null;
   return <div className={`net-banner${online ? ' ok' : ''}`}>{online ? 'Conexión recuperada' : 'Sin conexión a internet · reintentando…'}</div>;
+}
+
+
+/** Simula una tecla (para la rueda y el clic derecho del mouse). */
+function fireKey(code: number) {
+  const ev = new KeyboardEvent('keydown', { bubbles: true, cancelable: true });
+  Object.defineProperty(ev, 'keyCode', { get: () => code });
+  window.dispatchEvent(ev);
 }

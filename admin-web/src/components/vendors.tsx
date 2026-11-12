@@ -113,6 +113,9 @@ function Links({ slug }: { slug: string }) {
       <span><b>Enlace largo:</b> <code>{l.short}</code> <button className="link" onClick={() => copy(l.short)}>Copiar</button></span>
       <span><b>APK:</b> <a href={l.apk} target="_blank" rel="noreferrer">{l.apk.split('/').pop()}</a></span>
       <span><b>Página de descarga:</b> <a href={l.web} target="_blank" rel="noreferrer">{l.web.replace('https://', '')}</a></span>
+      <span><b>App para PC (Windows):</b> <code>{l.pc.replace('https://', '')}</code> <button className="link" onClick={() => copy(l.pc)}>Copiar</button>
+        {' '}<a href={l.pcExe} target="_blank" rel="noreferrer">descargar instalador</a></span>
+      <span className="hint">La app de PC es de pago: el cliente o vendedor te manda el código que aparece al abrirla y tú lo activas en «Activaciones». Se compila sola unos 10 minutos después de crear el vendedor o cambiar su nombre o logotipo.</span>
       <span className="hint">¿Prefieres un código numérico de Downloader? Pégale el enlace largo en <a href="https://go.aftvnews.com/" target="_blank" rel="noreferrer">go.aftvnews.com</a> (pide resolver un captcha, por eso no se puede hacer automático).</span>
     </div>
   );

@@ -48,7 +48,10 @@ object PlaybackProbe {
     @Volatile var readyCount = 0
     @Volatile var lastError: String? = null
     @Volatile var lastKey: String? = null
-    fun reset() { readyCount = 0; lastError = null }
+    /** Reconexiones automáticas de canales en vivo (congelado, cargando sin fin o error). */
+    @Volatile var reconnects = 0
+    @Volatile var lastReconnectReason: String? = null
+    fun reset() { readyCount = 0; lastError = null; reconnects = 0; lastReconnectReason = null }
 }
 
 /** Pista de audio o subtítulos que se puede elegir en el panel de opciones. */
@@ -124,6 +127,8 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     val upNextCancelled = MutableStateFlow(false)
     /** Banner breve con el nombre del canal al cambiar de canal. */
     val zapBanner = MutableStateFlow(false)
+    /** En vivo: número de intento de reconexión automática (0 = no está reconectando). */
+    val reconnecting = MutableStateFlow(0)
 
     private var ref = startRef
     private var prefs = PlaybackPrefs()
@@ -136,6 +141,9 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     private var progressJob: Job? = null
     private var appContext: Context? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private var watchdogJob: Job? = null
+    private var reconnectJob: Job? = null
+    private var attempts = 0
 
     val isLive get() = ref.kind == ContentKind.LIVE
 
@@ -183,11 +191,13 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         }
         registerNetwork(ctx.applicationContext)
         startProgressTicker()
+        startWatchdog()
     }
 
     fun detach() {
         saveProgress()
         progressJob?.cancel()
+        watchdogJob?.cancel(); reconnectJob?.cancel()
         unregisterNetwork()
         player.value?.let { p ->
             if (!isLive) resumeFrom = p.currentPosition
@@ -211,6 +221,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         favorite.value = c.library.isFavorite(np.ref).first()
         computeUpNext(np)
         retries = 0; altIndex = -1; forcedMime = null; originalUrl = null
+        reconnectJob?.cancel(); attempts = 0; reconnecting.value = 0
         resumeFrom = when {
             np.ref.kind == ContentKind.LIVE -> null
             firstLoad && context == "restart" -> 0L
@@ -264,10 +275,65 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     }
 
     fun retry() {
+        reconnectJob?.cancel()
         val np = nowPlaying.value ?: return
         error.value = null; buffering.value = true
         val p = player.value ?: return
         if (isLive) prepare(np, null) else prepare(np, p.currentPosition.takeIf { it > 0 } ?: resumeFrom)
+    }
+
+    // ---------------------------------------------------------------- reconexión automática (en vivo)
+    /**
+     * Vigila el canal en vivo cada 2 s. Si se queda cargando más de 12 s, o la imagen se congela (ni la
+     * posición ni los cuadros de video avanzan) más de 8 s, o la transmisión «termina», se vuelve a
+     * conectar solo, sin que el cliente tenga que cambiar de canal y regresar. Si el cliente pausó, no se toca.
+     */
+    private fun startWatchdog() {
+        watchdogJob?.cancel()
+        watchdogJob = viewModelScope.launch {
+            var lastPos = -1L; var lastFrames = -1; var stuckSince = 0L; var bufSince = 0L
+            while (isActive) {
+                delay(2_000)
+                val p = player.value ?: continue
+                if (!isLive || !prefs.autoReconnect || castingTo.value != null || !p.playWhenReady || reconnectJob?.isActive == true || kidsTimeUp.value) {
+                    stuckSince = 0; bufSince = 0; lastPos = -1; lastFrames = -1; continue
+                }
+                val now = android.os.SystemClock.elapsedRealtime()
+                when (p.playbackState) {
+                    Player.STATE_BUFFERING -> {
+                        stuckSince = 0
+                        if (bufSince == 0L) bufSince = now else if (now - bufSince > BUFFERING_LIMIT_MS) { bufSince = 0; reconnect("cargando sin fin") }
+                    }
+                    Player.STATE_READY -> {
+                        bufSince = 0
+                        val pos = p.currentPosition
+                        val frames = p.videoDecoderCounters?.let { it.ensureUpdated(); it.renderedOutputBufferCount } ?: -1
+                        val moving = lastPos < 0 || pos != lastPos || (frames >= 0 && frames != lastFrames)
+                        lastPos = pos; lastFrames = frames
+                        if (moving) stuckSince = 0
+                        else if (stuckSince == 0L) stuckSince = now
+                        else if (now - stuckSince > FROZEN_LIMIT_MS) { stuckSince = 0; lastPos = -1; reconnect("imagen congelada") }
+                    }
+                    else -> { bufSince = 0; stuckSince = 0; lastPos = -1 }
+                }
+            }
+        }
+    }
+
+    /** Vuelve a abrir el canal en vivo; espera más entre intentos (0, 2, 4, 8 y luego cada 15 s) y nunca se rinde. */
+    private fun reconnect(reason: String) {
+        if (!isLive || reconnectJob?.isActive == true) return
+        if (nowPlaying.value == null) return
+        attempts++
+        reconnecting.value = attempts
+        PlaybackProbe.reconnects++; PlaybackProbe.lastReconnectReason = reason
+        val wait = when (attempts) { 1 -> 0L; 2 -> 2_000L; 3 -> 4_000L; 4 -> 8_000L; else -> 15_000L }
+        reconnectJob = viewModelScope.launch {
+            delay(wait)
+            val np = nowPlaying.value ?: return@launch
+            if (error.value == null) buffering.value = true
+            prepare(np, null)
+        }
     }
 
     // ---------------------------------------------------------------- TV en vivo
@@ -540,7 +606,10 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         override fun onPlaybackStateChanged(state: Int) {
             buffering.value = state == Player.STATE_BUFFERING || state == Player.STATE_IDLE && error.value == null
             if (state == Player.STATE_READY) { retries = 0; error.value = null; PlaybackProbe.readyCount++
+                attempts = 0; reconnecting.value = 0
                 if (isLive) com.embyverse.app.data.repo.ChannelHealth.worked(ref.sourceId, ref.id) }
+            // Una transmisión en vivo no termina: si el servidor cortó, se vuelve a conectar.
+            if (state == Player.STATE_ENDED && isLive && prefs.autoReconnect) { reconnect("la transmisión se cortó"); return }
             if (state == Player.STATE_ENDED) { buffering.value = false; onEnded() }
         }
 
@@ -572,6 +641,16 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
                     return
                 }
             }
+            // En vivo se sigue intentando hasta que el canal reproduzca. Tras 3 intentos se muestra el aviso
+            // (con «Siguiente canal»), pero los intentos continúan solos en segundo plano.
+            if (isLive && prefs.autoReconnect && cur != null) {
+                originalUrl?.let { nowPlaying.value = cur.copy(url = it) }
+                originalUrl = null; altIndex = -1; forcedMime = null
+                if (attempts >= 3) { PlaybackProbe.lastError = e.errorCodeName; error.value = PlayerUiError.Message(messageFor(e), e.errorCodeName) }
+                else buffering.value = true
+                reconnect("error ${e.errorCodeName}")
+                return
+            }
             val transient = e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
                 e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ||
                 e.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED
@@ -583,6 +662,11 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
             PlaybackProbe.lastError = e.errorCodeName
             error.value = PlayerUiError.Message(messageFor(e), e.errorCodeName)
         }
+    }
+
+    private companion object {
+        const val BUFFERING_LIMIT_MS = 12_000L
+        const val FROZEN_LIMIT_MS = 8_000L
     }
 
     private fun messageFor(e: PlaybackException): Int {
@@ -608,7 +692,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         val cm = ctx.getSystemService(ConnectivityManager::class.java) ?: return
         val cb = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                viewModelScope.launch { if (error.value != null && prefs.autoReconnect) retry() }
+                viewModelScope.launch { if ((error.value != null || reconnecting.value > 0) && prefs.autoReconnect) retry() }
             }
         }
         runCatching { cm.registerDefaultNetworkCallback(cb) }.onSuccess { networkCallback = cb }

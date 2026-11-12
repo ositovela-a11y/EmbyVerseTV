@@ -1,5 +1,17 @@
 {
   "_info": "Notas de cada versión. Se muestran al ofrecer la actualización (update.json) y en «Novedades» después de actualizar. Escribir SIN el nombre de la app (las ven también las apps de vendedores). Agregar una entrada en cada versión nueva.",
+  "1.15.3": {
+    "es": [
+      "Los canales en vivo que se congelan, se quedan cargando o se cortan se reconectan solos, sin tener que cambiar de canal y regresar.",
+      "Aviso «Reconectando el canal…» mientras se recupera la señal.",
+      "La descarga de la app siempre entrega la versión más reciente."
+    ],
+    "en": [
+      "Live channels that freeze, keep loading or drop now reconnect by themselves, no need to switch channels and come back.",
+      "“Reconnecting the channel…” notice while the signal recovers.",
+      "The app download always delivers the latest version."
+    ]
+  },
   "1.15.2": {
     "es": [
       "Cada actualización te muestra lo nuevo antes de instalarla y después de abrir la app.",
@@ -13,8 +25,14 @@
     ]
   },
   "1.15.1": {
-    "es": ["Marca propia en todas las pantallas, íconos y textos.", "Crédito de diseño en la bienvenida y en Acerca de."],
-    "en": ["Own branding on every screen, icon and text.", "Design credit on the welcome screen and in About."]
+    "es": [
+      "Marca propia en todas las pantallas, íconos y textos.",
+      "Crédito de diseño en la bienvenida y en Acerca de."
+    ],
+    "en": [
+      "Own branding on every screen, icon and text.",
+      "Design credit on the welcome screen and in About."
+    ]
   },
   "1.15.0": {
     "es": [
