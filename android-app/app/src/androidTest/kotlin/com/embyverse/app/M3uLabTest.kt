@@ -91,7 +91,7 @@ class M3uLabTest {
             for (ch in sample) {
                 totalTried++
                 val r = playLikeApp(client, ch.url, ch.headers.userAgent, ch.headers.referrer)
-                var line = "  ${if (r.ok) "✓" else "✗"} ${ch.name.take(34)} · ${r.ms} ms${if (r.ok) "" else " · ${r.error}"}"
+                var line = "  ${if (r.ok) "✓" else "✗"} ${ch.title.take(34)} · ${r.ms} ms${if (r.ok) "" else " · ${r.error}"}"
                 if (r.ok) okApp++ else {
                     errors[r.error] = (errors[r.error] ?: 0) + 1
                     // ¿Se recupera con otro User-Agent (VLC o navegador), como hacen otros reproductores?
