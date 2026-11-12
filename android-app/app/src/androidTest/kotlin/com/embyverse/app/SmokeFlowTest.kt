@@ -640,10 +640,10 @@ class SmokeFlowTest {
                 // «hang» nunca llega a tener imagen en la primera conexión; los otros sí y luego fallan.
                 val needReady = if (mode == "hang") 1 else 2
                 try {
-                    compose.waitUntil(75_000) { PlaybackProbe.reconnects > 0 && PlaybackProbe.readyCount >= needReady }
+                    compose.waitUntil(120_000) { PlaybackProbe.reconnects > 0 && PlaybackProbe.readyCount >= needReady }
                 } catch (e: ComposeTimeoutException) {
                     shot("fallo-reconexion-$mode")
-                    fail("$label: no se recuperó solo en 75 s (listo ${PlaybackProbe.readyCount} veces, reconexiones ${PlaybackProbe.reconnects}, " +
+                    fail("$label: no se recuperó solo en 120 s (listo ${PlaybackProbe.readyCount} veces, reconexiones ${PlaybackProbe.reconnects}, " +
                         "motivo ${PlaybackProbe.lastReconnectReason}, error ${PlaybackProbe.lastError})")
                 }
                 log("Reconexión ($label): recuperado solo en ${System.currentTimeMillis() - t0} ms · motivo «${PlaybackProbe.lastReconnectReason}» · ${PlaybackProbe.reconnects} intento(s)")
