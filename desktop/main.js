@@ -1,4 +1,4 @@
-// EmbyVerse para PC: la misma app de TV (React) dentro de una ventana de Windows.
+// App para PC: la misma app de TV (React) dentro de una ventana de Windows.
 // A diferencia de un navegador, aquí los canales «http://», las listas de otros servidores y los
 // User-Agent / Referer que pide cada lista funcionan sin bloqueos.
 const { app, BrowserWindow, ipcMain, dialog, session, shell } = require('electron');
@@ -22,12 +22,14 @@ function fit() {
 function create() {
   win = new BrowserWindow({
     width: 1280, height: 720, minWidth: 640, minHeight: 360, backgroundColor: '#03070F', autoHideMenuBar: true,
-    title: 'EmbyVerse', icon: path.join(__dirname, 'icon.png'),
+    title: app.getName(), icon: path.join(__dirname, 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true, nodeIntegration: false, sandbox: true,
       // Reproductor IPTV: debe abrir listas y canales de cualquier servidor (http o https).
       webSecurity: false, allowRunningInsecureContent: true, backgroundThrottling: false,
+      // Instalada: sin herramientas de desarrollador (protege la activación y la configuración).
+      devTools: !app.isPackaged,
     },
   });
   win.removeMenu();

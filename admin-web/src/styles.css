@@ -381,3 +381,14 @@ input[type=datetime-local] { min-width: 0; }
 .act-actions { display:flex; gap:10px; align-items:center; justify-content:flex-end; }
 .act-actions select { width:auto; }
 .link.danger { color:#d92d20; }
+.act-form-wide { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 960px) { .act-form-wide { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .act-form-wide { grid-template-columns: 1fr; } }
+.act-stats { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:12px; margin-bottom:16px; }
+.act-stats > div { background:#fff; border:1px solid #eaecf0; border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:2px; }
+.act-stats b { font-size:26px; line-height:1.1; }
+.act-stats span { font-size:13px; color:#667085; }
+@media (max-width: 640px) { .act-stats { grid-template-columns: 1fr 1fr; } }
+.act-filters { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+.act-filters .seg { flex: 0 1 auto; }
+.act-filters .seg button { white-space: nowrap; }

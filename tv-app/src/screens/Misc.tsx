@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card, Fx, Img, Row, Spinner, useApp, useLoad } from '../ui';
 import { search, liveIn, client, clearCache } from '../catalog';
 import { store, type Profile } from '../store';
+import { isVendorApp } from '../config';
 import { SearchBox } from './Live';
 import { deviceInfo, platformName } from '../platform';
 import { getEngine } from '../player';
@@ -128,14 +129,15 @@ export function Settings() {
             <span>🛠 Modo desarrollador LG</span><b>{lgDevLast() ? `Renovado ${new Date(lgDevLast()).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} · Renovar` : 'Renovar ahora'}</b></Fx>}
           {licenseRequired(app.config.texts) && <LicenseRow />}
           <Fx className="setting" onClick={measure}><span>📶 Prueba de velocidad</span><b>{speed || 'Medir'}</b></Fx>
-          {wa && <Fx className="setting" onClick={() => app.toast(`Escríbenos por WhatsApp: +${wa}\nReporte: EmbyVerse TV ${__VERSION__} · ${deviceInfo()} · usuario ${acc?.username ?? '-'}`)}><span>💬 Ayuda por WhatsApp</span><b>+{wa}</b></Fx>}
+          {wa && <Fx className="setting" onClick={() => app.toast(`Escríbenos por WhatsApp: +${wa}\nReporte: ${app.config.brand.appName} ${__VERSION__} · ${deviceInfo()} · usuario ${acc?.username ?? '-'}`)}><span>💬 Ayuda por WhatsApp</span><b>+{wa}</b></Fx>}
           <Fx className="setting danger" onClick={() => { getEngine().stop(); store.setAccount(null); clearCache(); location.reload(); }}><span>⎋ Cerrar sesión</span><b /></Fx>
         </div>
         {pinFor && <PinPad title={app.profile.pin ? 'Nuevo PIN (4 dígitos). Escribe el mismo de antes para quitarlo' : 'Crea un PIN de 4 dígitos'}
           onCancel={() => setPinFor(false)} onDone={(v) => { saveProfile({ pin: app.profile.pin === v ? null : v }); setPinFor(false); app.toast(app.profile.pin === v ? 'PIN quitado' : 'PIN guardado'); }} />}
         <div className="about">
           <h3>Acerca de</h3>
-          <p>EmbyVerse TV {__VERSION__} · {platformName}</p>
+          <p>{app.config.brand.appName} {__VERSION__} · {platformName}</p>
+          {isVendorApp(app.config) && <p className="muted">Diseñada por EmbyVerse</p>}
           <p className="muted">{deviceInfo()}</p>
           {acc && <p className="muted">Cuenta: {acc.username}{acc.expiresAt ? ` · vence ${new Date(acc.expiresAt).toLocaleDateString('es-MX')}` : ''}</p>}
           <p className="muted">Diseño v{app.config.version}</p>

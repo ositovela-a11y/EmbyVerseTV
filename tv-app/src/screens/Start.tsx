@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Fx, Logo, useApp } from '../ui';
-import { providerHost } from '../config';
+import { isVendorApp, providerHost } from '../config';
 import { clientFor, xtreamFromM3uUrl } from '../m3u';
 import { store, type Account } from '../store';
 
@@ -23,6 +23,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
       <Logo className="splash-logo" />
       <h1>Bienvenido a {config.brand.appName}</h1>
       <p key={i} className="splash-msg">{msgs[i]}</p>
+      {isVendorApp(config) && <p className="splash-credit" style={{ position: 'absolute', bottom: 48, width: '100%', textAlign: 'center', opacity: 0.6, fontSize: 22 }}>App diseñada por el equipo de EmbyVerse</p>}
     </div>
   );
 }
@@ -76,9 +77,9 @@ export function Login({ onLogged }: { onLogged: () => void }) {
     <div className="screen login">
       <Logo className="login-logo" />
       <h1>Inicia sesión</h1>
-      <p className="muted">{mode === 'm3u' ? 'Pega el enlace de tu lista M3U. Si es de tipo «get.php?username=…», se usa como cuenta completa.' : fixed ? 'Escribe el usuario y contraseña que te dio tu proveedor.' : 'Escribe la dirección (URL), usuario y contraseña que te dio tu proveedor.'}</p>
+      <p className="muted">{mode === 'm3u' ? 'Pega el enlace de tu lista M3U. Si es de tipo «get.php?username=…», se usa como cuenta completa.' : fixed ? 'Xtream Codes: escribe el usuario y contraseña que te dio tu proveedor.' : 'Xtream Codes: escribe la dirección (URL) del servidor, usuario y contraseña que te dio tu proveedor.'}</p>
       <div className="login-tabs" data-fx-group="">
-        <Fx className={`chip ${mode === 'account' ? 'on' : ''}`} onClick={() => { setMode('account'); setErr(''); }}>Usuario y contraseña</Fx>
+        <Fx className={`chip ${mode === 'account' ? 'on' : ''}`} onClick={() => { setMode('account'); setErr(''); }} id="tab-xtream">Xtream Codes</Fx>
         <Fx className={`chip ${mode === 'm3u' ? 'on' : ''}`} onClick={() => { setMode('m3u'); setErr(''); }} id="tab-m3u">Lista M3U</Fx>
       </div>
       {mode === 'account' ? (

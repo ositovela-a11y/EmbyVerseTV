@@ -71,6 +71,7 @@ function sendFile(req, res, file, type) {
 // solo a la siguiente conexión): «freeze» manda unos segundos y luego deja de mandar sin cerrar,
 // «end» manda unos segundos y corta, «hang» responde pero nunca manda video.
 let stallNext = null;
+const licenses = { v: 1, devices: {} };
 function liveTs(res) {
   const data = readFileSync(join(MEDIA, 'live.ts'));
   res.writeHead(200, { 'content-type': 'video/mp2t' });
@@ -95,6 +96,11 @@ createServer((req, res) => {
   const u = new URL(req.url, 'http://x');
   const host = `http://${req.headers.host}`;
   const json = (s) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(s); };
+  // App de PC de un vendedor (prueba): su diseño (pide la URL del servidor) y la lista de activaciones.
+  if (u.pathname === '/cfg/vendor.json') return json(JSON.stringify({ version: 1, brand: { appName: 'Prueba Vendedor TV' },
+    theme: { palette: { primary: '#FF8A00', accent: '#FFD000', background: '#120A02' } }, texts: { 'provider.askHost': '1', 'license.whatsapp': '5215512345678' }, messages: [], banners: [] }));
+  if (u.pathname === '/licenses.json') return json(JSON.stringify(licenses));
+  if (u.pathname === '/__license') { licenses.devices[u.searchParams.get('h')] = { exp: u.searchParams.get('exp') || null }; return json('{"ok":true}'); }
   if (u.pathname === '/__stall') { stallNext = u.searchParams.get('mode') || 'freeze'; return json('{"ok":true}'); }
   if (u.pathname === '/player_api.php') {
     if (u.searchParams.get('username') !== USER || u.searchParams.get('password') !== PASS) return json('{"user_info":{"auth":0}}');

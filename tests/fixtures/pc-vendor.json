@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "brand": { "appName": "Prueba Vendedor TV" },
+  "theme": { "palette": { "primary": "#FF8A00", "accent": "#FFD000", "background": "#120A02" } },
+  "texts": { "provider.askHost": "1", "license.whatsapp": "5215512345678" },
+  "messages": [], "banners": []
+}

@@ -2,11 +2,12 @@
 // activa desde su panel (no hay pagos dentro de la app). Lista pública de activaciones:
 // …/config/licenses.json → { devices: { "<sha256('lic:'+CÓDIGO) 16 hex>": { exp: "AAAA-MM-DD" | null } } }
 // Se guarda el resumen (hash), no el código: nadie puede copiar un código activo de ese archivo.
-import { hash16 } from './config';
+import { EV, hash16 } from './config';
 
 declare const __EDITION__: string;
 declare const __LICENSE_URL__: string;
-export const EDITION = __EDITION__;
+export const EDITION = EV.edition || __EDITION__;
+const LICENSE_URL = EV.license || __LICENSE_URL__;
 
 const K_CODE = 'ev.devcode', K_CACHE = 'ev.lic.cache', K_FIRST = 'ev.lic.first';
 const ALPHA = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -24,8 +25,8 @@ export function deviceCode(): string {
 
 export type LicState = { state: 'active'; exp: string | null } | { state: 'trial'; daysLeft: number } | { state: 'expired'; exp: string } | { state: 'none' };
 
-/** ¿Se exige activación? Edición de tienda, o el panel lo pide (texto «license.required» = 1). */
-export const licenseRequired = (texts: Record<string, string>) => EDITION === 'store' || texts['license.required'] === '1';
+/** ¿Se exige activación? Edición de tienda, app de PC (de pago), o el panel lo pide (texto «license.required» = 1). */
+export const licenseRequired = (texts: Record<string, string>) => EDITION === 'store' || EDITION === 'pc' || texts['license.required'] === '1';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -35,7 +36,7 @@ export async function checkLicense(texts: Record<string, string>): Promise<LicSt
   const h = await hash16('lic:' + code);
   let entry: { exp: string | null } | undefined | null = null;
   try {
-    const r = await fetch(`${__LICENSE_URL__}?t=${Date.now()}`, { cache: 'no-store' });
+    const r = await fetch(`${LICENSE_URL}?t=${Date.now()}`, { cache: 'no-store' });
     if (!r.ok) throw new Error(String(r.status));
     const j = await r.json();
     entry = j?.devices?.[h];
@@ -48,7 +49,8 @@ export async function checkLicense(texts: Record<string, string>): Promise<LicSt
     if (!entry.exp || entry.exp >= today()) return { state: 'active', exp: entry.exp ?? null };
     return { state: 'expired', exp: entry.exp };
   }
-  const trialDays = Math.max(0, Number(texts['license.trialDays'] ?? 7) || 0);
+  // Prueba gratis: en la PC 2 días (texto «pc.trialDays»), en TV 7 (texto «license.trialDays»).
+  const trialDays = Math.max(0, Number(EDITION === 'pc' ? texts['pc.trialDays'] ?? 2 : texts['license.trialDays'] ?? 7) || 0);
   let first = Number(localStorage.getItem(K_FIRST) || 0);
   if (!first) { first = Date.now(); try { localStorage.setItem(K_FIRST, String(first)); } catch { /* */ } }
   const left = Math.ceil(trialDays - (Date.now() - first) / 86_400_000);

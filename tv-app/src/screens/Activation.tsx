@@ -8,7 +8,8 @@ export function Activation({ status, onActive, onTrial }: { status: LicState; on
   const [st, setSt] = useState(status);
   const [checking, setChecking] = useState(false);
   const code = deviceCode();
-  const wa = (config.texts['support.whatsapp'] ?? '').replace(/\D/g, '');
+  // Contacto para activar: «license.whatsapp» (quien cobra la activación) o, si no hay, el de soporte.
+  const wa = (config.texts['license.whatsapp'] || config.texts['support.whatsapp'] || '').replace(/\D/g, '');
   const check = async () => {
     setChecking(true);
     const r = await checkLicense(config.texts).catch(() => st);
