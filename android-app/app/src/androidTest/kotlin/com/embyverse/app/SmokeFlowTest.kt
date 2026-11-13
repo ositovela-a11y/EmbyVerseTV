@@ -795,7 +795,9 @@ class SmokeFlowTest {
             waitTag("vpn_on", 15_000)
             compose.onNodeWithTag("vpn_on", useUnmergedTree = true).performClick()
             compose.waitUntil(30_000) { c.vpn.state.value == com.embyverse.app.data.vpn.VpnManager.State.ON || c.vpn.state.value == com.embyverse.app.data.vpn.VpnManager.State.ERROR }
-            Thread.sleep(2_000); shot("35-vpn-conectada")
+            runCatching { compose.waitUntil(10_000) { compose.onAllNodesWithText("Conectada", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() } }
+                .onFailure { log("VPN: la pantalla no mostró «Conectada» (estado ${c.vpn.state.value})") }
+            Thread.sleep(1_000); shot("35-vpn-conectada")
             assertTrue("VPN conectada: ${c.vpn.message.value}", c.vpn.state.value == com.embyverse.app.data.vpn.VpnManager.State.ON)
             var seen = ""
             for (i in 0..9) { seen = runCatching { quick.newCall(probe).execute().use { r -> r.body.string() } }.getOrDefault("sin respuesta"); if (seen.contains("10.77.0.2")) break; Thread.sleep(1_000) }
@@ -825,7 +827,10 @@ class SmokeFlowTest {
                     val name = id ?: "original"
                     shot("tema-$name-inicio")
                     // Modo control remoto: el selector debe verse claro.
-                    // Como con el control remoto: una tecla saca del modo táctil y se enfoca una tarjeta.
+                    // Películas (cuadrícula): como con el control remoto, una tecla saca del modo táctil y se enfoca la 1.ª tarjeta.
+                    val moviesTag = if (id == "style_estelar") "hub_movies" else "nav_movies"
+                    runCatching { compose.onNodeWithTag(moviesTag, useUnmergedTree = true).performClick(); waitCards() }
+                    Thread.sleep(1_200)
                     inst.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_DOWN); Thread.sleep(400)
                     runCatching {
                         val card = compose.onAllNodes(hasTagPrefix("card:"), useUnmergedTree = false)[0]

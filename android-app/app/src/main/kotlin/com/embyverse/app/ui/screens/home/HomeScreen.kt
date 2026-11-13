@@ -258,7 +258,7 @@ private fun HomeHeaderRow(s: HomeUiState, nav: Navigator) {
         Column(Modifier.weight(1f)) {
             Text("${s.config.text("home.greeting", stringResource(R.string.home_greeting))}${s.profileName?.let { ", $it" } ?: ""}",
                 style = MaterialTheme.typography.titleMedium, color = t.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            s.config.brand.tagline?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = t.textSecondary, maxLines = 1) }
+            s.config.brand.tagline?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = t.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
         com.embyverse.app.ui.components.RefreshListsButton(compact = !t.device.isTv)
         // En celular la hora ya está en la barra de arriba: sin reloj aquí para que el saludo se lea completo.
