@@ -287,7 +287,7 @@ private fun EpisodeExtras(vm: PlayerViewModel, player: androidx.media3.exoplayer
     val cancelled by vm.upNextCancelled.collectAsStateWithLifecycle()
     var pos by androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(0L) }
     var dur by androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(0L) }
-    var introSkipped by androidx.compose.runtime.remember(upNext) { androidx.compose.runtime.mutableStateOf(false) }
+    val intro by vm.intro.collectAsStateWithLifecycle()
     LaunchedEffect(player) {
         while (player != null) {
             pos = player.currentPosition
@@ -297,15 +297,21 @@ private fun EpisodeExtras(vm: PlayerViewModel, player: androidx.media3.exoplayer
     }
     val remaining = if (dur > 0) (dur - pos) / 1000 else Long.MAX_VALUE
     Column(modifier.padding(32.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (isEpisode && !introSkipped && pos in 8_000L..300_000L && dur > 600_000L) {
-            // El botón toma el foco solo al aparecer: con OK se salta (antes costaba llegar a él con el control).
+        // «Saltar intro»: solo dentro de la intro de esa serie (aprendida) o unos segundos al principio si aún no se sabe.
+        val h = intro
+        var introShown by androidx.compose.runtime.remember(h) { androidx.compose.runtime.mutableStateOf(false) }
+        // Se cuenta como «no la usó» solo si el botón llegó a verse (no al retomar a media serie).
+        if (isEpisode && h != null && introShown && pos > h.end) LaunchedEffect(h) { vm.introIgnored() }
+        if (isEpisode && h != null && dur > 600_000L && pos in h.start..h.end) {
+            LaunchedEffect(h) { introShown = true }
             val skipFocus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
-            LaunchedEffect(Unit) { kotlinx.coroutines.delay(150); runCatching { skipFocus.requestFocus() } }
+            // Solo toma el foco cuando ya se sabe que ahí hay intro (antes se lo robaba en todos los episodios).
+            if (h.learned) LaunchedEffect(Unit) { kotlinx.coroutines.delay(150); runCatching { skipFocus.requestFocus() } }
             androidx.compose.runtime.DisposableEffect(Unit) {
-                vm.skipIntroAction = { player?.seekTo((player.currentPosition) + 85_000); introSkipped = true }
+                vm.skipIntroAction = { player?.let { vm.skipIntro(it.currentPosition) } }
                 onDispose { vm.skipIntroAction = null }
             }
-            EmbyButton(stringResource(R.string.player_skip_intro), { player?.seekTo(pos + 85_000); introSkipped = true },
+            EmbyButton(stringResource(R.string.player_skip_intro), { player?.let { vm.skipIntro(it.currentPosition) } },
                 icon = Icons.Rounded.SkipNext, modifier = Modifier.focusRequester(skipFocus).testTag("skip_intro"))
         }
         val n = upNext

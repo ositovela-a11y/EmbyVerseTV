@@ -144,20 +144,25 @@ fun FocusableSurface(
     val lift = t.focusStyle == com.embyverse.core.config.FocusStyle.LIFT
     val target = if (!focused) 1f else if (lift && focusScale > 1f) focusScale + 0.04f else focusScale
     val scale by animateFloatAsState(target, tween(120), label = "focusScale")
-    // Foco MUY visible (mando de TV): borde grueso del color de foco + ligero aumento. Sin sombras
-    // difuminadas: en TV Box modestos hacían que el desplazamiento se viera lento y borroso.
+    // Foco MUY visible (mando de TV), en todos los temas: borde grueso + línea oscura por dentro (se distingue
+    // aunque el póster sea del mismo color) + resplandor del color del foco solo en el elemento enfocado.
+    // Antes el estilo «elevar» no tenía borde y en fondos oscuros el selector se perdía.
+    val ring = when (t.focusStyle) { com.embyverse.core.config.FocusStyle.RING -> t.focusRing; else -> Color.White }
+    val ringW = if (lift) 3.dp else 4.dp
+    val lite = LocalLite.current
     Box(
         modifier
             .graphicsLayer {
                 scaleX = scale; scaleY = scale
-                if (lift && focused) { shadowElevation = 18.dp.toPx(); this.shape = shape; clip = false }
+                if (focused && !lite) {
+                    shadowElevation = (if (lift) 22 else 16).dp.toPx(); this.shape = shape; clip = false
+                    ambientShadowColor = ring; spotShadowColor = ring
+                }
             }
             .clip(shape)
-            .then(when {
-                !focused || lift -> Modifier
-                t.focusStyle == com.embyverse.core.config.FocusStyle.WHITE -> Modifier.border(BorderStroke(2.5.dp, Color.White), shape)
-                else -> Modifier.border(BorderStroke(3.dp, t.focusRing), shape)
-            })
+            .then(if (!focused) Modifier else Modifier
+                .border(BorderStroke(ringW + 2.dp, Color.Black.copy(alpha = 0.6f)), shape)
+                .border(BorderStroke(ringW, ring), shape))
             .then(
                 if (onLongClick != null) Modifier.combinedClickable(interactionSource = interaction, indication = androidx.compose.material3.ripple(), role = Role.Button, onClick = onClick, onLongClick = onLongClick)
                 else Modifier.clickable(interactionSource = interaction, indication = androidx.compose.material3.ripple(), role = Role.Button, onClick = onClick)
@@ -304,10 +309,17 @@ fun EmbyButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
         }
     }
     val style = if (secondary) ButtonStyle.OUTLINED else t.buttonStyle
+    // Botón enfocado con el control: se agranda y lleva el mismo borde de foco que las tarjetas.
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val scale by animateFloatAsState(if (focused) 1.07f else 1f, tween(120), label = "btnFocus")
+    val ring = if (t.focusStyle == com.embyverse.core.config.FocusStyle.RING) t.focusRing else Color.White
+    val m = modifier.graphicsLayer { scaleX = scale; scaleY = scale }
+        .then(if (focused) Modifier.border(BorderStroke(5.dp, Color.Black.copy(alpha = 0.6f)), shape).border(BorderStroke(3.dp, ring), shape) else Modifier)
     when (style) {
-        ButtonStyle.FILLED -> Button(onClick, modifier, enabled, shape, ButtonDefaults.buttonColors(containerColor = t.buttonBackground, contentColor = t.buttonText)) { content() }
-        ButtonStyle.TONAL -> FilledTonalButton(onClick, modifier, enabled, shape, ButtonDefaults.filledTonalButtonColors(containerColor = t.buttonBackground.copy(alpha = 0.22f), contentColor = t.buttonBackground)) { content() }
-        ButtonStyle.OUTLINED -> OutlinedButton(onClick, modifier, enabled, shape, ButtonDefaults.outlinedButtonColors(contentColor = t.onBackground), border = BorderStroke(1.5.dp, t.buttonBackground.copy(alpha = 0.8f))) { content() }
+        ButtonStyle.FILLED -> Button(onClick, m, enabled, shape, ButtonDefaults.buttonColors(containerColor = t.buttonBackground, contentColor = t.buttonText), interactionSource = interaction) { content() }
+        ButtonStyle.TONAL -> FilledTonalButton(onClick, m, enabled, shape, ButtonDefaults.filledTonalButtonColors(containerColor = t.buttonBackground.copy(alpha = 0.22f), contentColor = t.buttonBackground), interactionSource = interaction) { content() }
+        ButtonStyle.OUTLINED -> OutlinedButton(onClick, m, enabled, shape, ButtonDefaults.outlinedButtonColors(contentColor = t.onBackground), border = BorderStroke(1.5.dp, t.buttonBackground.copy(alpha = 0.8f)), interactionSource = interaction) { content() }
     }
 }
 

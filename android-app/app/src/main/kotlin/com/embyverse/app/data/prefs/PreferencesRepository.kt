@@ -21,12 +21,20 @@ import kotlinx.coroutines.flow.map
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "embyverse_prefs")
 
 data class PlaybackPrefs(
-    val liveFormat: LiveFormat = LiveFormat.TS,
+    /** TV en vivo en HLS (.m3u8) por defecto: arranca más rápido y aguanta mejor los cortes. */
+    val liveFormat: LiveFormat = LiveFormat.HLS,
     val lockLandscape: Boolean = true,
     val autoplayNextEpisode: Boolean = true,
     val preferredAudioLanguage: String? = null,
     val preferredSubtitleLanguage: String? = null,
     val subtitlesEnabled: Boolean = false,
+    /** Subtítulos forzados: con los subtítulos apagados, se muestran solos los letreros y diálogos en otro idioma. */
+    val forcedSubtitles: Boolean = true,
+    /** Botón «Saltar intro» en series (aprende dónde está la intro de cada serie). */
+    val skipIntroButton: Boolean = true,
+    /** VPN: conectar sola al abrir la app, y aplicarla solo a esta app (no a todo el equipo). */
+    val vpnAuto: Boolean = false,
+    val vpnAppOnly: Boolean = true,
     val autoReconnect: Boolean = true,
     /** Sonido corto al abrir la app. */
     val introSound: Boolean = true,
@@ -119,7 +127,12 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun resetAppearance(profile: Long) = updateAppearance(profile) { UserAppearance.ORIGINAL }
 
-    private val LIVE_FORMAT = stringPreferencesKey("play.liveFormat")
+    // «2»: desde 1.15.4 el valor por defecto es HLS; la clave nueva hace que todos arranquen en HLS una vez.
+    private val LIVE_FORMAT = stringPreferencesKey("play.liveFormat2")
+    private val FORCED_SUBS = booleanPreferencesKey("play.forcedSubs")
+    private val SKIP_INTRO = booleanPreferencesKey("play.skipIntro")
+    private val VPN_AUTO = booleanPreferencesKey("vpn.auto")
+    private val VPN_APP_ONLY = booleanPreferencesKey("vpn.appOnly")
     private val LOCK_LANDSCAPE = booleanPreferencesKey("play.lockLandscape")
     private val AUTOPLAY_NEXT = booleanPreferencesKey("play.autoplayNext")
     private val AUDIO_LANG = stringPreferencesKey("play.audioLang")
@@ -144,12 +157,16 @@ class PreferencesRepository(private val context: Context) {
 
     val playback: Flow<PlaybackPrefs> = ds.data.map { p ->
         PlaybackPrefs(
-            liveFormat = p[LIVE_FORMAT]?.let { runCatching { LiveFormat.valueOf(it) }.getOrNull() } ?: LiveFormat.TS,
+            liveFormat = p[LIVE_FORMAT]?.let { runCatching { LiveFormat.valueOf(it) }.getOrNull() } ?: LiveFormat.HLS,
             lockLandscape = p[LOCK_LANDSCAPE] ?: true,
             autoplayNextEpisode = p[AUTOPLAY_NEXT] ?: true,
             preferredAudioLanguage = p[AUDIO_LANG],
             preferredSubtitleLanguage = p[SUB_LANG],
             subtitlesEnabled = p[SUBS_ON] ?: false,
+            forcedSubtitles = p[FORCED_SUBS] ?: true,
+            skipIntroButton = p[SKIP_INTRO] ?: true,
+            vpnAuto = p[VPN_AUTO] ?: false,
+            vpnAppOnly = p[VPN_APP_ONLY] ?: true,
             autoReconnect = p[RECONNECT] ?: true,
             introSound = p[INTRO_SOUND] ?: true,
             menuAwakeMinutes = p[MENU_AWAKE] ?: 120,
@@ -178,6 +195,10 @@ class PreferencesRepository(private val context: Context) {
             if (n.preferredAudioLanguage == null) p.remove(AUDIO_LANG) else p[AUDIO_LANG] = n.preferredAudioLanguage
             if (n.preferredSubtitleLanguage == null) p.remove(SUB_LANG) else p[SUB_LANG] = n.preferredSubtitleLanguage
             p[SUBS_ON] = n.subtitlesEnabled
+            p[FORCED_SUBS] = n.forcedSubtitles
+            p[SKIP_INTRO] = n.skipIntroButton
+            p[VPN_AUTO] = n.vpnAuto
+            p[VPN_APP_ONLY] = n.vpnAppOnly
             p[RECONNECT] = n.autoReconnect
             p[INTRO_SOUND] = n.introSound
             p[MENU_AWAKE] = n.menuAwakeMinutes
@@ -229,6 +250,11 @@ class PreferencesRepository(private val context: Context) {
     private fun usageKey(profile: Long) = intPreferencesKey(k(profile, "used." + java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).format(java.util.Date())))
     suspend fun minutesUsedToday(profile: Long): Int = ds.data.first()[usageKey(profile)] ?: 0
     suspend fun addMinuteUsed(profile: Long) { ds.edit { it[usageKey(profile)] = (it[usageKey(profile)] ?: 0) + 1 } }
+
+    /** Intro de cada serie, aprendida en el equipo: «inicio,fin» en ms, «none» (no tiene) o «?n» (n episodios sin usarlo). */
+    private fun introKey(series: String) = stringPreferencesKey("intro." + series)
+    suspend fun intro(series: String): String? = ds.data.first()[introKey(series)]
+    suspend fun setIntro(series: String, value: String) { ds.edit { it[introKey(series)] = value } }
 
     private val RECENT_SEARCHES = stringPreferencesKey("app.recentSearches")
     /** Búsquedas recientes (las últimas 8). */

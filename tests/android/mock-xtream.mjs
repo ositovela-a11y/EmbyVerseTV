@@ -71,6 +71,7 @@ function sendFile(req, res, file, type) {
 // solo a la siguiente conexión): «freeze» manda unos segundos y luego deja de mandar sin cerrar,
 // «end» manda unos segundos y corta, «hang» responde pero nunca manda video.
 let stallNext = null;
+let vodFile = null;
 const licenses = { v: 1, devices: {} };
 function liveTs(res) {
   const data = readFileSync(join(MEDIA, 'live.ts'));
@@ -101,6 +102,7 @@ createServer((req, res) => {
     theme: { palette: { primary: '#FF8A00', accent: '#FFD000', background: '#120A02' } }, texts: { 'provider.askHost': '1', 'license.whatsapp': '5215512345678' }, messages: [], banners: [] }));
   if (u.pathname === '/licenses.json') return json(JSON.stringify(licenses));
   if (u.pathname === '/__license') { licenses.devices[u.searchParams.get('h')] = { exp: u.searchParams.get('exp') || null }; return json('{"ok":true}'); }
+  if (u.pathname === '/__vod') { vodFile = u.searchParams.get('file') || null; return json('{"ok":true}'); }
   if (u.pathname === '/__stall') { stallNext = u.searchParams.get('mode') || 'freeze'; return json('{"ok":true}'); }
   if (u.pathname === '/player_api.php') {
     if (u.searchParams.get('username') !== USER || u.searchParams.get('password') !== PASS) return json('{"user_info":{"auth":0}}');
@@ -178,9 +180,13 @@ createServer((req, res) => {
   const m = /^\/(live|movie|series)\/([^/]+)\/([^/]+)\/([^/.]+)\.(\w+)$/.exec(u.pathname);
   if (m) {
     if (m[2] !== USER || m[3] !== PASS) { res.writeHead(403); return res.end(); }
+    // TV en vivo en HLS: lista EN VIVO real (sin fin), ventana de 3 pedazos que avanza cada 10 s.
     if (m[1] === 'live' && m[5] === 'm3u8') {
-      res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl' });
-      return res.end(readFileSync(join(MEDIA, 'hls/live.m3u8'), 'utf8').replace(/^(seg\d+\.ts)$/gm, '/hls/$1'));
+      res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl', 'cache-control': 'no-cache' });
+      const seq = Math.floor(Date.now() / 10_000);
+      const lines = ['#EXTM3U', '#EXT-X-VERSION:3', '#EXT-X-TARGETDURATION:10', `#EXT-X-MEDIA-SEQUENCE:${seq}`, `#EXT-X-DISCONTINUITY-SEQUENCE:${seq}`];
+      for (let k = 0; k < 3; k++) lines.push('#EXT-X-DISCONTINUITY', '#EXTINF:10.000000,', `/hls/seg${(seq + k) % 2}.ts`);
+      return res.end(lines.join('\n') + '\n');
     }
     // Canal 2: se pide .ts pero el proveedor responde una lista HLS (caso real que daba
     // ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED). La app debe rescatarlo sola.
@@ -189,6 +195,10 @@ createServer((req, res) => {
       return res.end(readFileSync(join(MEDIA, 'hls/live.m3u8'), 'utf8').replace(/^(seg\d+\.ts)$/gm, '/hls/$1'));
     }
     if (m[1] === 'live') return liveTs(res);
+    // Película con doble audio (inglés y «Latino» sin idioma marcado) y subtítulos «Forzados» (se arma con /__vod?file=dual).
+    if (vodFile === 'dual' && m[1] === 'movie') return sendFile(req, res, join(MEDIA, 'dual.mkv'), 'video/x-matroska');
+    // Episodios largos (11 min) para probar «Saltar intro» (/__vod?file=long).
+    if (vodFile === 'long' && m[1] === 'series') return sendFile(req, res, join(MEDIA, 'long.mp4'), 'video/mp4');
     return sendFile(req, res, join(MEDIA, 'clip.mp4'), 'video/mp4'); // mkv/avi del catálogo también entregan el clip
   }
   if (u.pathname.startsWith('/hls/')) return sendFile(req, res, join(MEDIA, u.pathname.slice(1)), u.pathname.endsWith('.m3u8') ? 'application/vnd.apple.mpegurl' : 'video/mp2t');

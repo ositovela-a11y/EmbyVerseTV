@@ -35,8 +35,8 @@ android {
         applicationId = if (vendor != null) "com.embyverse.app.v.$vendor" else "com.embyverse.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 30
-        versionName = "1.15.3"
+        versionCode = 31
+        versionName = "1.15.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testProguardFiles("test-proguard-rules.pro")
         buildConfigField("String", "CONFIG_BASE_URL", "\"${configBaseUrl.replace("\"", "")}\"")
@@ -92,7 +92,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-        isCoreLibraryDesugaringEnabled = false
+        isCoreLibraryDesugaringEnabled = true
     }
 
     buildFeatures {
@@ -175,6 +175,9 @@ dependencies {
     implementation(libs.media3.ui)
 
     implementation(libs.okhttp)
+    // VPN integrada (WireGuard oficial). Necesita «desugaring» de Java para Android 7–7.1.
+    implementation("com.wireguard.android:tunnel:1.0.20250531")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     implementation(libs.jsch) // instalador de EmbyVerse en TVs LG (SSH del modo desarrollador)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)

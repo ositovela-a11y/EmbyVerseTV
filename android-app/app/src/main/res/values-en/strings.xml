@@ -472,4 +472,9 @@
     <string name="player_reconnecting">Reconnecting the channel…</string>
     <string name="player_reconnecting_n">Reconnecting the channel… (attempt %1$d)</string>
     <string name="player_still_trying">Still retrying by itself (attempt %1$d). You can wait or go to the next channel.</string>
+    <string name="forced_subs">Automatic forced subtitles</string>
+    <string name="forced_subs_sub">With subtitles off, if the movie is in Spanish and they speak another language, the subtitles for those parts turn on by themselves (“Forced” track).</string>
+    <string name="skip_intro_setting">“Skip intro” button</string>
+    <string name="skip_intro_setting_sub">Learns where each series’ intro is. If you don’t use it in two episodes, it stops showing for that series.</string>
+    <string name="vpn_sub">Protect your connection with your WireGuard VPN</string>
 </resources>

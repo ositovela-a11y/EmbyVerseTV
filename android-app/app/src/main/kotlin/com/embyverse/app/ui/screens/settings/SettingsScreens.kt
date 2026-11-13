@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material.icons.rounded.TextFields
@@ -156,6 +157,7 @@ fun SettingsScreen(nav: Navigator) {
             item { SettingsItem(Icons.Rounded.Lock, stringResource(R.string.parental_title), stringResource(R.string.parental_sub)) { nav.go(Routes.PARENTAL) } }
             item { SettingsItem(Icons.Rounded.Palette, stringResource(R.string.appearance_title), stringResource(R.string.settings_appearance_sub)) { nav.go(Routes.APPEARANCE) } }
             item { SettingsItem(Icons.Rounded.PlayCircle, stringResource(R.string.playback_title), stringResource(R.string.settings_playback_sub)) { nav.go(Routes.PLAYBACK) } }
+            item { SettingsItem(Icons.Rounded.Shield, "VPN", stringResource(R.string.vpn_sub)) { nav.go(Routes.VPN) } }
             item { SettingsItem(Icons.Rounded.Favorite, stringResource(R.string.favorites_title), stringResource(R.string.settings_favorites_sub)) { nav.go(Routes.FAVORITES) } }
             item { SettingsItem(Icons.Rounded.Language, stringResource(R.string.language_title), currentLanguageLabel()) { langDialog = true } }
             // La app de TV Samsung/LG es la de EmbyVerse: en las apps de vendedores no se ofrece.
@@ -388,8 +390,10 @@ fun PlaybackSettingsScreen(nav: Navigator) {
             item { Text(stringResource(R.string.playback_live_format_hint), style = MaterialTheme.typography.bodySmall, color = t.textSecondary) }
             item { SwitchRow(stringResource(R.string.playback_lock_landscape), null, p.lockLandscape) { v -> vm.update { it.copy(lockLandscape = v) } } }
             item { SwitchRow(stringResource(R.string.playback_autoplay_next), null, p.autoplayNextEpisode) { v -> vm.update { it.copy(autoplayNextEpisode = v) } } }
+            item { SwitchRow(stringResource(R.string.skip_intro_setting), stringResource(R.string.skip_intro_setting_sub), p.skipIntroButton) { v -> vm.update { it.copy(skipIntroButton = v) } } }
             item { SwitchRow(stringResource(R.string.playback_reconnect), stringResource(R.string.playback_reconnect_sub), p.autoReconnect) { v -> vm.update { it.copy(autoReconnect = v) } } }
             item { SwitchRow(stringResource(R.string.playback_subtitles), null, p.subtitlesEnabled) { v -> vm.update { it.copy(subtitlesEnabled = v) } } }
+            if (!p.subtitlesEnabled) item { SwitchRow(stringResource(R.string.forced_subs), stringResource(R.string.forced_subs_sub), p.forcedSubtitles) { v -> vm.update { it.copy(forcedSubtitles = v) } } }
             item { ProfileLanguageRows() }
             item { SwitchRow(stringResource(R.string.lite_mode), stringResource(R.string.lite_mode_sub), p.liteMode) { v -> vm.update { it.copy(liteMode = v) } } }
             item { com.embyverse.app.ui.components.SpeedTestRow() }
@@ -436,20 +440,6 @@ fun PlaybackSettingsScreen(nav: Navigator) {
                     }
                 }
             }
-            item { Text(stringResource(R.string.playback_audio_lang), style = MaterialTheme.typography.titleMedium, color = t.onBackground) }
-            item { LangChips(p.preferredAudioLanguage) { l -> vm.update { it.copy(preferredAudioLanguage = l) } } }
-            item { Text(stringResource(R.string.playback_sub_lang), style = MaterialTheme.typography.titleMedium, color = t.onBackground) }
-            item { LangChips(p.preferredSubtitleLanguage) { l -> vm.update { it.copy(preferredSubtitleLanguage = l) } } }
-        }
-    }
-}
-
-@Composable
-private fun LangChips(selected: String?, onSelect: (String?) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        CategoryChip(stringResource(R.string.language_auto), selected == null) { onSelect(null) }
-        listOf("es" to "Español", "en" to "English", "pt" to "Português", "fr" to "Français").forEach { (code, name) ->
-            CategoryChip(name, selected == code) { onSelect(code) }
         }
     }
 }

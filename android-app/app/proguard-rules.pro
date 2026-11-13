@@ -24,3 +24,9 @@
 -dontwarn com.sun.jna.**
 -dontwarn org.newsclub.**
 -dontwarn javax.security.auth.**
+
+# VPN WireGuard: el motor nativo (libwg-go) llama a estas clases por JNI.
+-keep class com.wireguard.android.backend.** { *; }
+-keep class com.wireguard.crypto.** { *; }
+-keep class com.wireguard.config.** { *; }
+-dontwarn com.wireguard.**

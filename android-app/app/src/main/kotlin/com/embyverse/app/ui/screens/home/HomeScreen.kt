@@ -253,7 +253,7 @@ private fun HomeHeaderRow(s: HomeUiState, nav: Navigator) {
         Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = t.screenPadding, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        BrandLogo(s.config.brand.logoVariant, s.config.brand.logoUrl, Modifier.height(if (t.device.isTv) 64.dp else 48.dp).width(if (t.device.isTv) 140.dp else 104.dp))
+        BrandLogo(s.config.brand.logoVariant, s.config.brand.logoUrl, Modifier.height(if (t.device.isTv) 64.dp else 44.dp).width(if (t.device.isTv) 140.dp else 88.dp))
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
             Text("${s.config.text("home.greeting", stringResource(R.string.home_greeting))}${s.profileName?.let { ", $it" } ?: ""}",
@@ -261,8 +261,8 @@ private fun HomeHeaderRow(s: HomeUiState, nav: Navigator) {
             s.config.brand.tagline?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = t.textSecondary, maxLines = 1) }
         }
         com.embyverse.app.ui.components.RefreshListsButton(compact = !t.device.isTv)
-        // En celular el reloj es pequeño para no recortar el saludo.
-        com.embyverse.app.ui.components.Clock(Modifier.padding(horizontal = if (t.device.isTv) 8.dp else 2.dp), small = !t.device.isTv)
+        // En celular la hora ya está en la barra de arriba: sin reloj aquí para que el saludo se lea completo.
+        if (t.device.isTv) com.embyverse.app.ui.components.Clock(Modifier.padding(horizontal = 8.dp), small = false)
         IconButton(onClick = { nav.goTop(Routes.SEARCH) }) { Icon(Icons.Rounded.Search, stringResource(R.string.nav_search), tint = t.onBackground) }
         FocusableSurface(onClick = { nav.go(Routes.PROFILES) }, shape = CircleShape) { _ ->
             Box(Modifier.size(36.dp).background(t.primary), contentAlignment = Alignment.Center) {

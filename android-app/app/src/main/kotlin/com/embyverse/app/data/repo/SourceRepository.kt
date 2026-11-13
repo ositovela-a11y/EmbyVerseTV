@@ -225,7 +225,14 @@ class SourceRepository(
         if (!stored.contains("/{u}/{p}/")) return stored
         val src = db.sources().get(sourceId) ?: return stored
         val pw = credentials.get(sourceId) ?: return stored
-        return stored.replace("/{u}/{p}/", "/${enc(src.username.orEmpty())}/${enc(pw)}/")
+        var url = stored.replace("/{u}/{p}/", "/${enc(src.username.orEmpty())}/${enc(pw)}/")
+        // TV en vivo de cuentas Xtream: el formato elegido en Ajustes (HLS por defecto) se aplica al momento,
+        // sin tener que volver a cargar la lista.
+        if ("/live/" in url) {
+            val ext = if (prefs.playback.first().liveFormat == com.embyverse.core.xtream.LiveFormat.HLS) "m3u8" else "ts"
+            url = url.replace(Regex("\\.(ts|m3u8)$"), ".$ext")
+        }
+        return url
     }
 
     /** Aplica una sección a la base local sin duplicar (altas, cambios y bajas) y sus categorías. */

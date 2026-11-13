@@ -473,4 +473,9 @@
     <string name="player_reconnecting">Reconectando el canal…</string>
     <string name="player_reconnecting_n">Reconectando el canal… (intento %1$d)</string>
     <string name="player_still_trying">Seguimos intentando solos (intento %1$d). Puedes esperar o pasar al siguiente canal.</string>
+    <string name="forced_subs">Subtítulos forzados automáticos</string>
+    <string name="forced_subs_sub">Con los subtítulos apagados, si la película está en español y hablan en otro idioma, se ponen solos los subtítulos de esas partes (pista «Forzados»).</string>
+    <string name="skip_intro_setting">Botón «Saltar intro»</string>
+    <string name="skip_intro_setting_sub">Aprende dónde está la intro de cada serie. Si en dos episodios no lo usas, deja de aparecer en esa serie.</string>
+    <string name="vpn_sub">Protege tu conexión con tu VPN WireGuard</string>
 </resources>

@@ -149,6 +149,14 @@ class MainActivity : AppCompatActivity() {
         val container = (application as EmbyVerseApp).container
         startAwakeWatcher(container)
         setupNavSounds(container)
+        // VPN: si el cliente pidió conectarla al abrir la app (y ya dio el permiso), se conecta sola.
+        if (savedInstanceState == null) lifecycleScope.launch {
+            runCatching {
+                val p = container.prefs.playback.first()
+                if (p.vpnAuto && container.vpn.hasConfig() && container.vpn.permissionIntent() == null &&
+                    container.vpn.state.value != com.embyverse.app.data.vpn.VpnManager.State.ON) container.vpn.connect(p.vpnAppOnly)
+            }
+        }
         if (savedInstanceState == null) handlePlayIntent(intent)
         setContent {
             CompositionLocalProvider(LocalAppContainer provides container) {

@@ -1,5 +1,25 @@
 {
   "_info": "Notas de cada versión. Se muestran al ofrecer la actualización (update.json) y en «Novedades» después de actualizar. Escribir SIN el nombre de la app (las ven también las apps de vendedores). Agregar una entrada en cada versión nueva.",
+  "1.15.4": {
+    "es": [
+      "Audio en español por defecto, aunque la pista no diga su idioma (por ejemplo «Latino»).",
+      "Subtítulos forzados automáticos: si la película está en español y hablan en otro idioma, se ponen solos.",
+      "TV en vivo en HLS por defecto.",
+      "Las carpetas muestran lo más reciente primero.",
+      "VPN integrada (WireGuard): conéctala desde Ajustes › VPN.",
+      "«Saltar intro» aprende la intro de cada serie y ya no aparece donde no hay intro.",
+      "Selector más visible con el control en todos los temas y arreglos de diseño."
+    ],
+    "en": [
+      "Spanish audio by default, even when the track doesn't say its language (e.g. “Latino”).",
+      "Automatic forced subtitles: if the movie is in Spanish and they speak another language, they turn on by themselves.",
+      "Live TV in HLS by default.",
+      "Folders show the newest first.",
+      "Built-in VPN (WireGuard): connect it from Settings › VPN.",
+      "“Skip intro” learns each series' intro and no longer shows where there is none.",
+      "More visible remote-control selector in every theme and layout fixes."
+    ]
+  },
   "1.15.3": {
     "es": [
       "Los canales en vivo que se congelan, se quedan cargando o se cortan se reconectan solos, sin tener que cambiar de canal y regresar.",

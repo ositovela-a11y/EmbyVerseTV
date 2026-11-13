@@ -87,7 +87,7 @@ object Routes {
     const val SEARCH = "search"; const val SETTINGS = "settings"; const val SOURCES = "sources"; const val FAVORITES = "favorites"
     const val SOURCE_EDIT = "source_edit?id={id}&first={first}"
     const val MOVIE = "movie/{sid}/{id}"; const val SERIES_DETAIL = "series_detail/{sid}/{id}"
-    const val APPEARANCE = "appearance"; const val PLAYBACK = "playback"; const val ABOUT = "about"; const val PRIVACY = "privacy"; const val PROFILES = "profiles"; const val PARENTAL = "parental"; const val GUIDE = "guide"; const val SAGA = "saga/{key}"; const val TV_INSTALL = "tv_install"; const val HELP = "help"; const val TERMS = "terms"
+    const val APPEARANCE = "appearance"; const val PLAYBACK = "playback"; const val ABOUT = "about"; const val PRIVACY = "privacy"; const val PROFILES = "profiles"; const val PARENTAL = "parental"; const val GUIDE = "guide"; const val SAGA = "saga/{key}"; const val TV_INSTALL = "tv_install"; const val HELP = "help"; const val TERMS = "terms"; const val VPN = "vpn"
 
     fun sourceEdit(id: String? = null, first: Boolean = false) = "source_edit?id=${id?.let(Uri::encode) ?: ""}&first=$first"
     fun movie(sid: String, id: String) = "movie/${Uri.encode(sid)}/${Uri.encode(id)}"
@@ -191,6 +191,7 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
                 androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(420)) { it / 12 } }) { SeriesDetailScreen(navigator, Uri.decode(it.arguments?.getString("sid")!!), Uri.decode(it.arguments?.getString("id")!!)) }
             composable(Routes.APPEARANCE) { AppearanceScreen(navigator) }
             composable(Routes.PLAYBACK) { PlaybackSettingsScreen(navigator) }
+            composable(Routes.VPN) { com.embyverse.app.ui.screens.settings.VpnScreen(navigator) }
             composable(Routes.ABOUT) { AboutScreen(navigator) }
             composable(Routes.PRIVACY) { PrivacyScreen(navigator) }
             composable(Routes.PROFILES) { ProfilesScreen(navigator) }
@@ -392,13 +393,13 @@ private fun ExpandingRail(current: String?, logoVariant: LogoVariant, logoUrl: S
 
 /** Elemento de menú en texto, reutilizado por las barras de estilo de plataforma. */
 @Composable
-private fun NavTextItem(d: TopDest, selected: Boolean, go: (String) -> Unit, light: Boolean = false) {
+private fun NavTextItem(d: TopDest, selected: Boolean, go: (String) -> Unit, light: Boolean = false, compact: Boolean = false) {
     val t = LocalEmby.current
     com.embyverse.app.ui.components.FocusableSurface(onClick = { go(d.route) }, focusScale = 1.06f,
         shape = androidx.compose.foundation.shape.RoundedCornerShape(50), modifier = Modifier.testTag("nav_${d.route}")) { focused ->
         Box(Modifier.background(when { selected && light -> t.onBackground; focused -> t.onBackground.copy(alpha = 0.18f); else -> androidx.compose.ui.graphics.Color.Transparent })
-            .padding(horizontal = if (t.device.isTv) 18.dp else 11.dp, vertical = if (t.device.isTv) 8.dp else 6.dp)) {
-            Text(stringResource(d.label), maxLines = 1, style = MaterialTheme.typography.titleSmall,
+            .padding(horizontal = if (t.device.isTv) 18.dp else if (compact) 6.dp else 11.dp, vertical = if (t.device.isTv) 8.dp else 6.dp)) {
+            Text(stringResource(d.label), maxLines = 1, softWrap = false, style = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleSmall,
                 color = when { selected && light -> t.background; selected || focused -> t.onBackground; else -> t.textSecondary },
                 fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Medium)
         }
@@ -438,8 +439,9 @@ private fun CenterLogoBar(current: String?, logoVariant: LogoVariant, logoUrl: S
         }
     } else Column(Modifier.fillMaxWidth().statusBarsPadding().padding(top = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         BrandLogo(logoVariant, logoUrl, Modifier.height(38.dp).width(96.dp))
-        androidx.compose.foundation.lazy.LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)) {
-            items(TOP.size) { i -> NavTextItem(TOP[i], current == TOP[i].route, go) }
+        // En celular las 6 secciones caben completas en una fila (antes «Ajustes» quedaba cortado a la derecha).
+        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+            TOP.forEach { NavTextItem(it, current == it.route, go, compact = true) }
         }
     }
 }

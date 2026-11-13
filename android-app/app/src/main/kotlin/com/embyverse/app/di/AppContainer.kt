@@ -23,6 +23,7 @@ class AppContainer(val app: Application) {
     val database by lazy { EmbyDatabase.build(app) }
     val prefs by lazy { PreferencesRepository(app) }
     val credentials by lazy { CredentialStore(app) }
+    val vpn by lazy { com.embyverse.app.data.vpn.VpnManager(app, credentials) }
     val sources by lazy { SourceRepository(app, database, credentials, OkHttpFetcher(okHttp), prefs) }
     val parental by lazy { com.embyverse.app.data.repo.ParentalControl(prefs, database) }
     val catalog by lazy { CatalogRepository(database, parental.hidden) }

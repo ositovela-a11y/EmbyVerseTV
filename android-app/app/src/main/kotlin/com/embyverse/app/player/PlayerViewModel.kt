@@ -50,8 +50,10 @@ object PlaybackProbe {
     @Volatile var lastKey: String? = null
     /** Reconexiones automáticas de canales en vivo (congelado, cargando sin fin o error). */
     @Volatile var reconnects = 0
+    /** Última pista elegida sola (audio en español o subtítulos forzados), para las pruebas. */
+    @Volatile var lastAutoTrack: String? = null
     @Volatile var lastReconnectReason: String? = null
-    fun reset() { readyCount = 0; lastError = null; reconnects = 0; lastReconnectReason = null }
+    fun reset() { readyCount = 0; lastError = null; reconnects = 0; lastReconnectReason = null; lastAutoTrack = null }
 }
 
 /** Pista de audio o subtítulos que se puede elegir en el panel de opciones. */
@@ -82,10 +84,66 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     private fun applyLanguages(p: ExoPlayer) = runCatching {
         val (audio, subs) = langs
         val b = p.trackSelectionParameters.buildUpon()
-        when (audio) { "es" -> b.setPreferredAudioLanguages("es-419", "es-MX", "es", "spa"); "en" -> b.setPreferredAudioLanguages("en", "eng"); else -> Unit }
-        if (subs.isNotEmpty()) b.setPreferredTextLanguages(*(if (subs == "es") arrayOf("es-419", "es", "spa") else arrayOf("en", "eng")))
-            .setSelectUndeterminedTextLanguage(true)
+        when (audio) { "es" -> b.setPreferredAudioLanguages("es-419", "es-MX", "es", "spa"); "en" -> b.setPreferredAudioLanguages("en", "eng"); else -> b.setPreferredAudioLanguages() }
+        when {
+            prefs.subtitlesEnabled -> {
+                b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).setIgnoredTextSelectionFlags(0)
+                if (subs.isNotEmpty()) b.setPreferredTextLanguages(*(if (subs == "es") arrayOf("es-419", "es", "spa") else arrayOf("en", "eng")))
+                    .setSelectUndeterminedTextLanguage(true)
+            }
+            // Subtítulos apagados pero «forzados» activos: solo se eligen pistas marcadas como forzadas
+            // (letreros y diálogos en otro idioma). Las que no traen la marca se buscan por nombre en autoPickTracks().
+            prefs.forcedSubtitles -> b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).setPreferredTextLanguages()
+                .setSelectUndeterminedTextLanguage(false).setIgnoredTextSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+            else -> b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+        }
         p.trackSelectionParameters = b.build()
+    }
+
+    /** El cliente eligió audio o subtítulos a mano en este video: ya no se cambian solos. */
+    private var userPickedTracks = false
+    private val SPANISH = Regex("(?i)espa[ñn]ol|latino|latam|castellano|spanish|\\b(spa|esp|es|lat)\\b")
+    private val FORCED = Regex("(?i)forz|forced|\\bforc\\b|solo carteles|letreros|signs")
+    private fun isSpanishLang(l: String?) = l != null && (l.startsWith("es", true) || l.equals("spa", true))
+    private fun isSpanish(f: androidx.media3.common.Format) = isSpanishLang(f.language) || (f.label?.let { SPANISH.containsMatchIn(it) } ?: false)
+
+    /**
+     * Muchos archivos de IPTV no marcan bien sus pistas: el audio «Latino» viene sin idioma y los subtítulos
+     * «Forzados» sin la marca de forzados. Si el perfil prefiere español y quedó otro audio, se busca el
+     * español por nombre; y si el audio es español y no hay subtítulos, se ponen los forzados por nombre.
+     */
+    private fun autoPickTracks(p: ExoPlayer) {
+        if (userPickedTracks) return
+        val groups = p.currentTracks.groups
+        fun selected(type: Int) = groups.firstNotNullOfOrNull { g -> if (g.type != type) null else (0 until g.length).firstOrNull { g.isTrackSelected(it) }?.let { g.getTrackFormat(it) } }
+        var audioNow = selected(C.TRACK_TYPE_AUDIO)
+        if (langs.first == "es" && audioNow != null && !isSpanish(audioNow)) {
+            for (g in groups) if (g.type == C.TRACK_TYPE_AUDIO) for (i in 0 until g.length) {
+                val f = g.getTrackFormat(i)
+                if (g.isTrackSupported(i) && isSpanish(f)) {
+                    p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().setOverrideForType(TrackSelectionOverride(g.mediaTrackGroup, i)).build()
+                    audioNow = f; PlaybackProbe.lastAutoTrack = "audio:${f.label ?: f.language}"
+                    return // se vuelve a llamar con las pistas nuevas (para los forzados)
+                }
+            }
+        }
+        if (prefs.subtitlesEnabled || !prefs.forcedSubtitles || selected(C.TRACK_TYPE_TEXT) != null) return
+        val audioEs = audioNow?.let { isSpanish(it) } ?: (langs.first == "es")
+        if (!audioEs) return
+        var best: Pair<androidx.media3.common.Tracks.Group, Int>? = null
+        for (g in groups) if (g.type == C.TRACK_TYPE_TEXT) for (i in 0 until g.length) {
+            val f = g.getTrackFormat(i)
+            val forced = (f.selectionFlags and C.SELECTION_FLAG_FORCED) != 0 || (f.label?.let { FORCED.containsMatchIn(it) } ?: false)
+            if (!g.isTrackSupported(i) || !forced) continue
+            val lang = f.language?.takeIf { it != C.LANGUAGE_UNDETERMINED }
+            if (lang != null && !isSpanishLang(lang) && !(f.label?.let { SPANISH.containsMatchIn(it) } ?: false)) continue // forzados de otro idioma
+            if (best == null || isSpanish(f)) best = g to i
+        }
+        best?.let { (g, i) ->
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                .setOverrideForType(TrackSelectionOverride(g.mediaTrackGroup, i)).build()
+            PlaybackProbe.lastAutoTrack = (PlaybackProbe.lastAutoTrack?.let { "$it · " } ?: "") + "forzados:${g.getTrackFormat(i).label ?: g.getTrackFormat(i).language}"
+        }
     }
 
     fun cycleAspect() {
@@ -95,6 +153,57 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     }
     /** Nombre del Chromecast al que se está enviando (null = se ve en el equipo). */
     val castingTo = MutableStateFlow<String?>(null)
+    /**
+     * «Saltar intro». Las listas IPTV no dicen dónde está la intro, así que se aprende por serie en el equipo:
+     *  · Serie conocida: el botón sale solo durante su intro y salta justo a su final.
+     *  · Serie nueva: el botón sale unos segundos al principio (sin tomar el foco). Si el cliente lo usa o
+     *    adelanta a mano en los primeros minutos, se guarda dónde empieza y termina la intro.
+     *  · Si en 2 episodios no lo usa, se entiende que la serie no tiene intro y el botón ya no aparece.
+     */
+    data class IntroHint(val start: Long, val end: Long, val learned: Boolean)
+    val intro = MutableStateFlow<IntroHint?>(null)
+    private var introSeries: String? = null
+    private var introStatus: String? = null
+
+    private suspend fun loadIntro(np: NowPlaying) {
+        intro.value = null
+        introSeries = np.seriesId?.takeIf { np.ref.kind == ContentKind.EPISODE }?.let { "${np.ref.sourceId}:$it" } ?: return
+        if (!prefs.skipIntroButton) return
+        introStatus = c.prefs.intro(introSeries!!)
+        val v = introStatus
+        intro.value = when {
+            v == "none" -> null
+            v != null && v.contains(',') -> v.split(',').let { (a, b) -> IntroHint(a.toLong(), b.toLong(), true) }
+            else -> IntroHint(10_000, 22_000, false)
+        }
+    }
+
+    /** Pulsó «Saltar intro» en la posición [pos]. */
+    fun skipIntro(pos: Long) {
+        val p = player.value ?: return
+        val h = intro.value ?: return
+        val target = if (h.learned) h.end else pos + 85_000
+        p.seekTo(target)
+        intro.value = null
+        if (!h.learned) learnIntro(maxOf(0, pos - 3_000), target)
+    }
+
+    /** La ventana del botón pasó sin usarlo. */
+    fun introIgnored() {
+        val s = introSeries ?: return
+        val h = intro.value ?: return
+        intro.value = null
+        if (h.learned) return
+        val n = (introStatus?.removePrefix("?")?.toIntOrNull() ?: 0) + 1
+        viewModelScope.launch { c.prefs.setIntro(s, if (n >= 2) "none" else "?$n") }
+    }
+
+    private fun learnIntro(start: Long, end: Long) {
+        val s = introSeries ?: return
+        introStatus = "$start,$end"
+        viewModelScope.launch { c.prefs.setIntro(s, "$start,$end") }
+    }
+
     /** «Saltar intro» visible: OK del control lo activa directamente. */
     @Volatile var skipIntroAction: (() -> Unit)? = null
     /** Canal actual en favoritos (botón ★ del reproductor). */
@@ -173,10 +282,9 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
             val p = StreamSource.player(ctx, quickStart = false).apply {
                 addListener(listener)
                 playWhenReady = true
+                // Idiomas: los del perfil (audio en español por defecto) en applyLanguages().
                 trackSelectionParameters = trackSelectionParameters.buildUpon()
-                    .setPreferredAudioLanguage(prefs.preferredAudioLanguage)
-                    .setPreferredTextLanguage(prefs.preferredSubtitleLanguage)
-                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !prefs.subtitlesEnabled)
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !prefs.subtitlesEnabled && !prefs.forcedSubtitles)
                     .build()
             }
             // Ahorro de datos: con red medida (datos móviles) se limita la calidad si el video trae varias.
@@ -220,7 +328,10 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         nowPlaying.value = np
         favorite.value = c.library.isFavorite(np.ref).first()
         computeUpNext(np)
+        loadIntro(np)
         retries = 0; altIndex = -1; forcedMime = null; originalUrl = null
+        userPickedTracks = false
+        player.value?.let { p -> p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().clearOverrides().build(); applyLanguages(p) }
         reconnectJob?.cancel(); attempts = 0; reconnecting.value = 0
         resumeFrom = when {
             np.ref.kind == ContentKind.LIVE -> null
@@ -459,6 +570,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     }
 
     fun selectTrack(option: TrackOption) {
+        userPickedTracks = true
         val p = player.value ?: return
         val g = option.group ?: return
         p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
@@ -468,6 +580,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     }
 
     fun subtitlesOff() {
+        userPickedTracks = true
         val p = player.value ?: return
         p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
             .clearOverridesOfType(C.TRACK_TYPE_TEXT).setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
@@ -601,7 +714,15 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
 
     // ---------------------------------------------------------------- errores y reconexión
     private val listener = object : Player.Listener {
-        override fun onTracksChanged(tracks: Tracks) { refreshTracks() }
+        // Adelantar a mano en los primeros minutos de un episodio (20 s a 2½ min) = saltar la intro: se aprende.
+        override fun onPositionDiscontinuity(old: Player.PositionInfo, new: Player.PositionInfo, reason: Int) {
+            if (reason != Player.DISCONTINUITY_REASON_SEEK || introSeries == null || !prefs.skipIntroButton) return
+            val a = old.positionMs; val b = new.positionMs
+            if (a in 3_000..300_000 && (b - a) in 20_000..150_000 && introStatus?.contains(',') != true) {
+                learnIntro(a, b); intro.value = null
+            }
+        }
+        override fun onTracksChanged(tracks: Tracks) { player.value?.let { runCatching { autoPickTracks(it) } }; refreshTracks() }
         override fun onTrackSelectionParametersChanged(parameters: androidx.media3.common.TrackSelectionParameters) { refreshTracks() }
         override fun onPlaybackStateChanged(state: Int) {
             buffering.value = state == Player.STATE_BUFFERING || state == Player.STATE_IDLE && error.value == null

@@ -114,14 +114,15 @@ interface MovieDao {
     @Query("SELECT * FROM movies WHERE category = :category ORDER BY sourceId, position LIMIT :limit")
     fun observeIn(category: String, limit: Int): Flow<List<MovieEntity>>
 
-    /** Solo lo que necesita la cuadrícula (sin sinopsis ni URLs): carga y desplazamiento más rápidos. */
+    /** Solo lo que necesita la cuadrícula (sin sinopsis ni URLs): carga y desplazamiento más rápidos.
+     *  Carpetas: lo más reciente primero (fecha en que el proveedor lo agregó; sin fecha, al final). */
     @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category, addedAt FROM movies WHERE (:category IS NULL OR category = :category) ORDER BY sourceId, position LIMIT :limit")
     fun observeCards(category: String?, limit: Int): Flow<List<CardRow>>
 
-    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category, addedAt FROM movies ORDER BY sourceId, position LIMIT :limit")
+    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category, addedAt FROM movies ORDER BY addedAt DESC, sourceId, position LIMIT :limit")
     fun observeCardsAll(limit: Int): Flow<List<CardRow>>
 
-    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category, addedAt FROM movies WHERE category = :category ORDER BY sourceId, position LIMIT :limit")
+    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category, addedAt FROM movies WHERE category = :category ORDER BY addedAt DESC, sourceId, position LIMIT :limit")
     fun observeCardsIn(category: String, limit: Int): Flow<List<CardRow>>
 
     /** «Más como esta»: de la misma carpeta, las mejor calificadas primero. */
@@ -198,10 +199,10 @@ interface SeriesDao {
     @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category, addedAt FROM series WHERE (:category IS NULL OR category = :category) ORDER BY sourceId, position LIMIT :limit")
     fun observeCards(category: String?, limit: Int): Flow<List<CardRow>>
 
-    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category, addedAt FROM series ORDER BY sourceId, position LIMIT :limit")
+    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category, addedAt FROM series ORDER BY addedAt DESC, sourceId, position LIMIT :limit")
     fun observeCardsAll(limit: Int): Flow<List<CardRow>>
 
-    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category, addedAt FROM series WHERE category = :category ORDER BY sourceId, position LIMIT :limit")
+    @Query("SELECT sourceId, providerId, title, searchKey, posterUrl, backdropUrl, year, rating, category, addedAt FROM series WHERE category = :category ORDER BY addedAt DESC, sourceId, position LIMIT :limit")
     fun observeCardsIn(category: String, limit: Int): Flow<List<CardRow>>
 
     /** «Más como esta»: de la misma carpeta, las mejor calificadas primero. */

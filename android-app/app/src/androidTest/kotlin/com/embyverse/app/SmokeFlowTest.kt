@@ -626,6 +626,12 @@ class SmokeFlowTest {
      */
     @Test fun m_reconexionEnVivo() {
         val c = app.container
+        // Las fallas simuladas son de transmisiones .ts continuas: esta prueba usa ese formato.
+        runBlocking { c.prefs.updatePlayback { it.copy(liveFormat = com.embyverse.core.xtream.LiveFormat.TS) } }
+        try { reconexion(c) } finally { runBlocking { c.prefs.updatePlayback { it.copy(liveFormat = com.embyverse.core.xtream.LiveFormat.HLS) } } }
+    }
+
+    private fun reconexion(c: com.embyverse.app.di.AppContainer) {
         val ch = runBlocking {
             c.database.channels().listForZapping(null).first { it.providerId != "2" && c.sources.resolveStreamUrl(it.sourceId, it.streamUrl).contains("/live/user/pass/") }
         }
@@ -651,5 +657,177 @@ class SmokeFlowTest {
                 assertTrue("$label: no debe quedar el aviso de error", compose.onAllNodesWithTag("player_error", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
             }
         }
+    }
+
+    private fun mock(path: String) = app.container.okHttp.newCall(okhttp3.Request.Builder().url("$base$path").build()).execute().use { it.body.string() }
+    private fun playerIntent(kind: String, source: String, id: String, context: String? = null) =
+        android.content.Intent(app, com.embyverse.app.player.PlayerActivity::class.java)
+            .putExtra("kind", kind).putExtra("source", source).putExtra("id", id).apply { context?.let { putExtra("context", it) } }
+
+    /** Audio en español por defecto (aunque la pista «Latino» no diga su idioma) y subtítulos «Forzados» solos. */
+    @Test fun n_audioEspanolYForzados() {
+        val c = app.container
+        val p = runBlocking { c.prefs.playback.first() }
+        assertTrue("TV en vivo en HLS por defecto", p.liveFormat == com.embyverse.core.xtream.LiveFormat.HLS)
+        assertTrue("subtítulos forzados activos por defecto", p.forcedSubtitles && !p.subtitlesEnabled)
+        assertTrue("audio del perfil en español por defecto", runBlocking { c.prefs.profileLanguages(c.prefs.activeProfile()).first().first } == "es")
+        val movie = runBlocking { c.database.movies().observeAll(1).first().first() }
+        mock("/__vod?file=dual")
+        try {
+            PlaybackProbe.reset()
+            ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("MOVIE", movie.sourceId, movie.providerId, "restart")).use {
+                try { compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 && PlaybackProbe.lastAutoTrack?.contains("forzados") == true } }
+                catch (e: ComposeTimeoutException) { shot("fallo-forzados"); fail("no eligió solo audio en español y forzados: ${PlaybackProbe.lastAutoTrack} · error ${PlaybackProbe.lastError}") }
+                log("Idiomas: elegido solo «${PlaybackProbe.lastAutoTrack}» (audio inglés por defecto en el archivo, «Latino» sin idioma, «Forzados» sin marca)")
+                assertTrue("audio Latino elegido: ${PlaybackProbe.lastAutoTrack}", PlaybackProbe.lastAutoTrack!!.contains("audio:Latino"))
+                Thread.sleep(2_500); shot("30-forzados-y-latino")
+            }
+        } finally { mock("/__vod?file=") }
+        // Pantalla de Reproducción: opción de forzados y el idioma del perfil en «Español».
+        ActivityScenario.launch(MainActivity::class.java).use {
+            waitTag("nav_settings", 30_000)
+            compose.onNodeWithTag("nav_settings", useUnmergedTree = true).performClick()
+            compose.onNodeWithText(app.getString(R.string.playback_title), useUnmergedTree = true).performClick()
+            compose.waitUntil(15_000) { compose.onAllNodesWithText(app.getString(R.string.forced_subs), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+            Thread.sleep(800); shot("31-ajustes-reproduccion")
+        }
+    }
+
+    /** TV en vivo: HLS por defecto (en vivo real), y si se elige .ts el canal que entrega HLS se sigue rescatando. */
+    @Test fun o_tvEnVivoHls() {
+        val c = app.container
+        val ch = runBlocking { c.database.channels().listForZapping(null).first { it.providerId == "5" && c.sources.resolveStreamUrl(it.sourceId, it.streamUrl).contains("/live/user/pass/") } }
+        val url = runBlocking { c.sources.resolveStreamUrl(ch.sourceId, ch.streamUrl) }
+        assertTrue("el canal se pide en HLS: $url", url.endsWith(".m3u8"))
+        PlaybackProbe.reset()
+        val t0 = System.currentTimeMillis()
+        ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("LIVE", ch.sourceId, ch.providerId)).use {
+            try { compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 } } catch (e: ComposeTimeoutException) { shot("fallo-hls"); fail("HLS en vivo no arrancó: ${PlaybackProbe.lastError}") }
+            log("TV en vivo HLS: imagen en ${System.currentTimeMillis() - t0} ms")
+            Thread.sleep(12_000) // pasa a la siguiente ventana de la lista en vivo
+            assertTrue("HLS en vivo sigue reproduciendo sin error: ${PlaybackProbe.lastError}", PlaybackProbe.lastError == null && PlaybackProbe.reconnects == 0)
+            shot("32-tv-en-vivo-hls")
+        }
+        runBlocking { c.prefs.updatePlayback { it.copy(liveFormat = com.embyverse.core.xtream.LiveFormat.TS) } }
+        try {
+            val ch2 = runBlocking { c.database.channels().listForZapping(null).first { it.providerId == "2" } }
+            assertTrue("con .ts elegido se pide .ts", runBlocking { c.sources.resolveStreamUrl(ch2.sourceId, ch2.streamUrl) }.endsWith(".ts"))
+            PlaybackProbe.reset()
+            ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("LIVE", ch2.sourceId, ch2.providerId)).use {
+                try { compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 } } catch (e: ComposeTimeoutException) { fail("canal .ts que entrega HLS no se rescató: ${PlaybackProbe.lastError}") }
+                log("TV en vivo .ts: canal que entrega HLS rescatado")
+            }
+        } finally { runBlocking { c.prefs.updatePlayback { it.copy(liveFormat = com.embyverse.core.xtream.LiveFormat.HLS) } } }
+    }
+
+    /** «Saltar intro»: aprende la intro de la serie al usarlo; en una serie donde no se usa, deja de salir. */
+    @Test fun p_saltarIntro() {
+        val c = app.container
+        val all = runBlocking { c.catalog.series(null, 40).first() }
+        mock("/__vod?file=long")
+        fun episodes(s: com.embyverse.app.data.db.SeriesEntity) = runBlocking {
+            c.sources.loadEpisodes(s.sourceId, s.providerId); c.database.episodes().forSeries(s.sourceId, s.providerId)
+        }
+        val withEps = all.filter { episodes(it).size >= 3 }.take(2)
+        assertTrue("hay 2 series con 3 episodios", withEps.size == 2)
+        fun open(e: com.embyverse.app.data.db.EpisodeEntity, check: () -> Unit) {
+            PlaybackProbe.reset()
+            ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("EPISODE", e.sourceId, e.providerId, "restart")).use {
+                compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 }
+                check()
+            }
+        }
+        fun skipVisible() = compose.onAllNodesWithTag("skip_intro", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        try {
+            // Serie A: el cliente usa «Saltar intro» → se aprende y en el siguiente episodio salta exacto.
+            val a = withEps[0]; val ea = episodes(a)
+            open(ea[0]) {
+                compose.waitUntil(30_000) { skipVisible() }
+                shot("33-saltar-intro-aparece")
+                compose.onNodeWithTag("skip_intro", useUnmergedTree = true).performClick()
+                Thread.sleep(1_000)
+            }
+            val learned = runBlocking { c.prefs.intro("${a.sourceId}:${a.providerId}") }
+            assertTrue("intro aprendida: $learned", learned?.contains(',') == true)
+            log("Saltar intro: aprendida en la serie A ($learned)")
+            open(ea[1]) {
+                compose.waitUntil(30_000) { skipVisible() }
+                log("Saltar intro: en el episodio 2 de la serie A aparece durante su intro")
+            }
+            // Serie B: el botón sale y no se usa en 2 episodios → en el 3.º ya no aparece.
+            val b = withEps[1]; val eb = episodes(b)
+            for (k in 0..1) open(eb[k]) {
+                compose.waitUntil(30_000) { skipVisible() }
+                compose.waitUntil(40_000) { !skipVisible() } // pasa la ventana sin usarlo
+                Thread.sleep(1_500)
+            }
+            assertTrue("serie sin intro marcada", runBlocking { c.prefs.intro("${b.sourceId}:${b.providerId}") } == "none")
+            open(eb[2]) {
+                Thread.sleep(26_000)
+                assertTrue("en una serie sin intro el botón ya no aparece", !skipVisible())
+                shot("34-serie-sin-intro")
+            }
+            log("Saltar intro: tras 2 episodios sin usarlo, la serie B ya no muestra el botón")
+        } finally { mock("/__vod?file=") }
+    }
+
+    /** VPN WireGuard real: servidor en la máquina de pruebas; la app se conecta y su tráfico llega por el túnel. */
+    @Test fun q_vpn() {
+        val c = app.container
+        val conf = runCatching { app.container.okHttp.newCall(okhttp3.Request.Builder().url("http://10.0.2.2:9991/wg-client.conf").build()).execute().use { it.body.string() } }.getOrNull()
+        if (conf == null || !conf.contains("[Interface]")) { log("VPN: sin servidor de prueba, se omite"); return }
+        val probe = okhttp3.Request.Builder().url("http://10.77.0.1:8099/").build()
+        val quick = c.okHttp.newBuilder().callTimeout(6, java.util.concurrent.TimeUnit.SECONDS).build()
+        val before = runCatching { quick.newCall(probe).execute().use { it.body.string() } }.getOrDefault("sin respuesta")
+        log("VPN: sin conectar, el servidor ve: $before")
+        assertTrue("sin VPN no debe llegar por el túnel", !before.contains("10.77.0.2"))
+        assertTrue("configuración inválida rechazada", c.vpn.save("hola") != null)
+        assertTrue("configuración guardada: ${c.vpn.save(conf)}", c.vpn.save(conf) == null)
+        // Permiso de VPN concedido como lo haría el cliente en la ventana de Android.
+        InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("appops set ${app.packageName} ACTIVATE_VPN allow").close()
+        Thread.sleep(800)
+        ActivityScenario.launch(MainActivity::class.java).use {
+            waitTag("nav_settings", 30_000)
+            compose.onNodeWithTag("nav_settings", useUnmergedTree = true).performClick()
+            compose.onNodeWithText("VPN", useUnmergedTree = true).performClick()
+            waitTag("vpn_on", 15_000)
+            compose.onNodeWithTag("vpn_on", useUnmergedTree = true).performClick()
+            compose.waitUntil(30_000) { c.vpn.state.value == com.embyverse.app.data.vpn.VpnManager.State.ON || c.vpn.state.value == com.embyverse.app.data.vpn.VpnManager.State.ERROR }
+            Thread.sleep(2_000); shot("35-vpn-conectada")
+            assertTrue("VPN conectada: ${c.vpn.message.value}", c.vpn.state.value == com.embyverse.app.data.vpn.VpnManager.State.ON)
+            var seen = ""
+            for (i in 0..9) { seen = runCatching { quick.newCall(probe).execute().use { r -> r.body.string() } }.getOrDefault("sin respuesta"); if (seen.contains("10.77.0.2")) break; Thread.sleep(1_000) }
+            log("VPN: conectada, el servidor ve: $seen · recibido por el túnel ${c.vpn.receivedBytes()} bytes")
+            assertTrue("el tráfico de la app pasa por la VPN: $seen", seen.contains("10.77.0.2"))
+            // El proveedor de IPTV sigue funcionando con la VPN puesta (solo esta app pasa por el túnel).
+            assertTrue("proveedor alcanzable con VPN", mock("/player_api.php?username=user&password=pass").contains("user_info"))
+            compose.onNodeWithTag("vpn_off", useUnmergedTree = true).performClick()
+            compose.waitUntil(15_000) { c.vpn.state.value == com.embyverse.app.data.vpn.VpnManager.State.OFF }
+            log("VPN: desconectada")
+        }
+        c.vpn.forget()
+    }
+
+    /** Todos los temas: inicio, películas y el selector (foco) visible al moverse con el control. */
+    @Test fun r_todosLosTemas() {
+        val c = app.container
+        val profile = runBlocking { c.prefs.activeProfile() }
+        val ids = listOf(null, "style_cristal", "style_cine_rojo", "style_purpura", "style_azul_magico", "style_oceano", "style_estelar", "style_verde_neon", "style_naranja", "style_oro")
+        val inst = InstrumentationRegistry.getInstrumentation()
+        try {
+            for (id in ids) {
+                runBlocking { c.prefs.updateAppearance(profile) { it.copy(themeId = id) } }
+                ActivityScenario.launch(MainActivity::class.java).use {
+                    runCatching { compose.waitUntil(60_000) { compose.onAllNodes(hasTagPrefix("card:"), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() } }
+                    Thread.sleep(1_500)
+                    val name = id ?: "original"
+                    shot("tema-$name-inicio")
+                    // Modo control remoto: el selector debe verse claro.
+                    for (k in listOf(20, 20, 22)) { inst.sendKeyDownUpSync(k); Thread.sleep(350) }
+                    Thread.sleep(600); shot("tema-$name-foco")
+                    log("Tema $name: inicio y selector sin cierres")
+                }
+            }
+        } finally { runBlocking { c.prefs.updateAppearance(profile) { it.copy(themeId = null) } } }
     }
 }
