@@ -328,6 +328,14 @@ private fun PillTabs(current: String?, go: (String) -> Unit) {
 @Composable
 private fun TextTabs(current: String?, logoVariant: LogoVariant, logoUrl: String?, go: (String) -> Unit) {
     val t = LocalEmby.current
+    // Celular: las 6 secciones completas en una fila (antes «Buscar» y «Ajustes» quedaban fuera de la pantalla).
+    if (!t.device.isTv && t.device.width == com.embyverse.app.ui.theme.WidthClass.COMPACT) {
+        Row(Modifier.fillMaxWidth().statusBarsPadding().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(t.background, t.background.copy(alpha = 0.6f))))
+            .padding(horizontal = 4.dp, vertical = 6.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+            TOP.forEach { NavTextItem(it, current == it.route, go, compact = true) }
+        }
+        return
+    }
     Row(Modifier.fillMaxWidth().statusBarsPadding().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(t.background, t.background.copy(alpha = 0.6f))))
         .padding(horizontal = t.screenPadding, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         BrandLogo(logoVariant, logoUrl, Modifier.height(if (t.device.isTv) 40.dp else 32.dp).width(if (t.device.isTv) 110.dp else 84.dp))

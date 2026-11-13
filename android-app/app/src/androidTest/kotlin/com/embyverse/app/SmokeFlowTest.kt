@@ -11,6 +11,8 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.printToLog
@@ -823,8 +825,13 @@ class SmokeFlowTest {
                     val name = id ?: "original"
                     shot("tema-$name-inicio")
                     // Modo control remoto: el selector debe verse claro.
-                    for (k in listOf(20, 20, 22)) { inst.sendKeyDownUpSync(k); Thread.sleep(350) }
-                    Thread.sleep(600); shot("tema-$name-foco")
+                    // Como con el control remoto: una tecla saca del modo táctil y se enfoca una tarjeta.
+                    inst.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_DOWN); Thread.sleep(400)
+                    runCatching {
+                        val card = compose.onAllNodes(hasTagPrefix("card:"), useUnmergedTree = false)[0]
+                        runCatching { card.performScrollTo() }; card.performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus)
+                    }.onFailure { log("Tema $name: no se pudo enfocar una tarjeta (${it.message})") }
+                    Thread.sleep(900); shot("tema-$name-foco")
                     log("Tema $name: inicio y selector sin cierres")
                 }
             }

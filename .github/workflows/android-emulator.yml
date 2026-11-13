@@ -65,12 +65,12 @@ jobs:
         continue-on-error: true
         run: |
           sudo apt-get install -y wireguard-tools > /dev/null 2>&1
-          mkdir -p /tmp/wg && cd /tmp/wg && umask 077
-          wg genkey | tee srv.key | wg pubkey > srv.pub; wg genkey | tee cli.key | wg pubkey > cli.pub
+          SK=$(wg genkey); SP=$(echo "$SK" | wg pubkey); CK=$(wg genkey); CP=$(echo "$CK" | wg pubkey)
+          sudo mkdir -p /etc/wireguard && echo "$SK" | sudo tee /etc/wireguard/srv.key > /dev/null && sudo chmod 600 /etc/wireguard/srv.key
           sudo ip link add wg0 type wireguard
-          sudo wg set wg0 listen-port 51820 private-key /tmp/wg/srv.key peer "$(cat cli.pub)" allowed-ips 10.77.0.2/32
+          sudo wg set wg0 listen-port 51820 private-key /etc/wireguard/srv.key peer "$CP" allowed-ips 10.77.0.2/32
           sudo ip addr add 10.77.0.1/24 dev wg0 && sudo ip link set wg0 up
-          printf '[Interface]\nPrivateKey = %s\nAddress = 10.77.0.2/32\n\n[Peer]\nPublicKey = %s\nEndpoint = 10.0.2.2:51820\nAllowedIPs = 10.77.0.0/24\nPersistentKeepalive = 15\n' "$(cat cli.key)" "$(cat srv.pub)" > /tmp/lgkey/wg-client.conf
+          printf '[Interface]\nPrivateKey = %s\nAddress = 10.77.0.2/32\n\n[Peer]\nPublicKey = %s\nEndpoint = 10.0.2.2:51820\nAllowedIPs = 10.77.0.0/24\nPersistentKeepalive = 15\n' "$CK" "$SP" > /tmp/lgkey/wg-client.conf
           chmod 644 /tmp/lgkey/wg-client.conf
           nohup node -e "require('http').createServer((q,s)=>s.end('VPN-OK desde '+q.socket.remoteAddress)).listen(8099,'10.77.0.1')" > /tmp/wgweb.log 2>&1 &
           sleep 1; sudo wg show wg0 | head -5; curl -s http://10.77.0.1:8099/
