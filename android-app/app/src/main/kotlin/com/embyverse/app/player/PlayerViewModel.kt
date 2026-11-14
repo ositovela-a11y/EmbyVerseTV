@@ -128,6 +128,24 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
             }
         }
         if (prefs.subtitlesEnabled || !prefs.forcedSubtitles || selected(C.TRACK_TYPE_TEXT) != null) return
+        // No hay audio en español y la pista dice claramente otro idioma (todo se habla en otro idioma):
+        // subtítulos completos en español. Si el idioma del audio no viene marcado, no se adivina.
+        val foreign = audioNow?.let { f -> f.language?.takeIf { it != C.LANGUAGE_UNDETERMINED } != null && !isSpanish(f) } ?: false
+        if (foreign && langs.first == "es") {
+            var full: Pair<androidx.media3.common.Tracks.Group, Int>? = null
+            for (g in groups) if (g.type == C.TRACK_TYPE_TEXT) for (i in 0 until g.length) {
+                val f = g.getTrackFormat(i)
+                if (!g.isTrackSupported(i) || !isSpanish(f)) continue
+                val forced = (f.selectionFlags and C.SELECTION_FLAG_FORCED) != 0 || (f.label?.let { FORCED.containsMatchIn(it) } ?: false)
+                if (full == null || !forced) full = g to i
+            }
+            full?.let { (g, i) ->
+                p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                    .setOverrideForType(TrackSelectionOverride(g.mediaTrackGroup, i)).build()
+                PlaybackProbe.lastAutoTrack = (PlaybackProbe.lastAutoTrack?.let { "$it · " } ?: "") + "subtitulos:${g.getTrackFormat(i).label ?: g.getTrackFormat(i).language}"
+            }
+            return
+        }
         val audioEs = audioNow?.let { isSpanish(it) } ?: (langs.first == "es")
         if (!audioEs) return
         var best: Pair<androidx.media3.common.Tracks.Group, Int>? = null
@@ -644,10 +662,11 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         if (want != nightMode.value) { nightMode.value = want; applyNight() }
     }
 
+    /** Modo noche desde el reproductor: solo para lo que se está viendo; la próxima vez el audio vuelve a normal
+     *  (para dejarlo siempre encendido está el interruptor de Ajustes › Reproducción). */
     fun setNightMode(on: Boolean) {
         nightManual = true
         nightMode.value = on
-        viewModelScope.launch { c.prefs.updatePlayback { it.copy(nightMode = on) } }
         applyNight()
     }
 

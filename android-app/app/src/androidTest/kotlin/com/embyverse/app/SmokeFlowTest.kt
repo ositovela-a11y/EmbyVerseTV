@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
@@ -843,5 +844,64 @@ class SmokeFlowTest {
                 }
             }
         } finally { runBlocking { c.prefs.updateAppearance(profile) { it.copy(themeId = null) } } }
+    }
+
+    /** Textos de la pantalla actual que se cortan: recortados (sin «…»), con «…», o tapados por su contenedor. */
+    private fun textosCortados(pantalla: String, config: String, out: MutableList<String>) {
+        val root = compose.onRoot(useUnmergedTree = true).fetchSemanticsNode()
+        val sw = root.size.width
+        val nodes = compose.onAllNodes(androidx.compose.ui.test.SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult), useUnmergedTree = true).fetchSemanticsNodes()
+        for (n in nodes) {
+            val txt = n.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.Text)?.joinToString(" ") { it.text }?.trim().orEmpty()
+            if (txt.isBlank() || n.config.contains(androidx.compose.ui.semantics.SemanticsActions.SetText)) continue
+            val pos = n.positionInRoot; val clip = n.boundsInRoot
+            if (pos.y < 0 || pos.y > root.size.height || clip.width <= 0f) continue // fuera de la vista (listas que se desplazan)
+            val res = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+            runCatching { n.config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action?.invoke(res) }
+            val r = res.firstOrNull() ?: continue
+            val unclippedRight = pos.x + n.size.width
+            val kind = when {
+                r.hasVisualOverflow && r.didOverflowWidth -> "recortado"
+                r.lineCount > 0 && r.isLineEllipsized(r.lineCount - 1) -> "con «…»"
+                // Tapado por el contenedor a lo ancho, estando dentro de la pantalla (no es una fila que se desplaza).
+                pos.x >= 0 && unclippedRight <= sw && clip.width < n.size.width - 2 -> "tapado por su contenedor"
+                else -> null
+            } ?: continue
+            out += "$config | $pantalla | $kind | «${txt.take(60)}»"
+        }
+    }
+
+    /** Pantallas principales en varios tamaños y tamaños de letra: ningún texto debe quedar cortado. */
+    @Test fun s_textosCompletos() {
+        val inst = InstrumentationRegistry.getInstrumentation()
+        fun sh(cmd: String) { inst.uiAutomation.executeShellCommand(cmd).close(); Thread.sleep(400) }
+        val configs = listOf(
+            Triple("celular", null, 1f), Triple("celular-letra-grande", null, 1.3f),
+            Triple("celular-chico", "720x1280:320", 1f), Triple("pantalla-horizontal", "1920x1080:240", 1f),
+        )
+        val found = mutableListOf<String>()
+        try {
+            for ((name, size, font) in configs) {
+                if (size != null) { val (wh, dpi) = size.split(':'); sh("wm size $wh"); sh("wm density $dpi") } else { sh("wm size reset"); sh("wm density reset") }
+                com.embyverse.app.data.prefs.UiPrefs.setFontScale(app, font)
+                ActivityScenario.launch(MainActivity::class.java).use {
+                    waitTag("nav_settings", 40_000); Thread.sleep(2_500)
+                    for ((tag, label) in listOf("nav_home" to "inicio", "nav_live" to "tv-en-vivo", "nav_movies" to "peliculas", "nav_series" to "series", "nav_settings" to "ajustes")) {
+                        runCatching { compose.onNodeWithTag(tag, useUnmergedTree = true).performClick() }
+                        Thread.sleep(2_200)
+                        textosCortados(label, name, found)
+                        shot("textos-$name-$label")
+                    }
+                    // Ajustes › Reproducción (la pantalla con más textos largos).
+                    runCatching { compose.onNodeWithText(app.getString(R.string.playback_title), useUnmergedTree = true).performClick(); Thread.sleep(1_500); textosCortados("reproduccion", name, found); shot("textos-$name-reproduccion") }
+                }
+            }
+        } finally {
+            sh("wm size reset"); sh("wm density reset"); com.embyverse.app.data.prefs.UiPrefs.setFontScale(app, 1f)
+        }
+        found.distinct().forEach { log("CORTADO: $it") }
+        log("Textos cortados: ${found.distinct().size}")
+        val hard = found.distinct().filter { "recortado" in it || "tapado" in it }
+        assertTrue("textos recortados o tapados (${hard.size}):\n" + hard.joinToString("\n"), hard.isEmpty())
     }
 }

@@ -137,7 +137,8 @@ class PreferencesRepository(private val context: Context) {
     private val AUTOPLAY_NEXT = booleanPreferencesKey("play.autoplayNext")
     private val AUDIO_LANG = stringPreferencesKey("play.audioLang")
     private val SUB_LANG = stringPreferencesKey("play.subLang")
-    private val SUBS_ON = booleanPreferencesKey("play.subsOn")
+    // «2» (1.15.5): todos arrancan con subtítulos apagados + forzados automáticos.
+    private val SUBS_ON = booleanPreferencesKey("play.subsOn2")
     private val RECONNECT = booleanPreferencesKey("play.reconnect")
     private val INTRO_SOUND = booleanPreferencesKey("app.introSound")
     private val MENU_AWAKE = intPreferencesKey("app.menuAwake")
@@ -147,7 +148,8 @@ class PreferencesRepository(private val context: Context) {
     private val SUB_SIZE = intPreferencesKey("play.subSize")
     private val SUB_YELLOW = booleanPreferencesKey("play.subYellow")
     private val SUB_BG = intPreferencesKey("play.subBg")
-    private val NIGHT = booleanPreferencesKey("play.night")
+    // «2» (1.15.5): el audio arranca siempre en modo normal; el modo noche solo si el cliente lo elige de nuevo.
+    private val NIGHT = booleanPreferencesKey("play.night2")
     private val DATA_SAVER = booleanPreferencesKey("play.dataSaver")
     private val ASPECT = intPreferencesKey("play.aspect")
     private val LITE = booleanPreferencesKey("app.lite")
@@ -240,10 +242,11 @@ class PreferencesRepository(private val context: Context) {
 
     /** Idioma preferido del perfil: audio («es», «en», «» = original) y subtítulos («es», «en», «» = apagados). */
     fun profileLanguages(profile: Long): Flow<Pair<String, String>> = ds.data.map { p ->
-        (p[stringPreferencesKey(k(profile, "audioLang"))] ?: "es") to (p[stringPreferencesKey(k(profile, "subLang"))] ?: "")
+        // «2» (1.15.5): todos los perfiles vuelven a arrancar con audio en español y subtítulos solo forzados.
+        (p[stringPreferencesKey(k(profile, "audioLang2"))] ?: "es") to (p[stringPreferencesKey(k(profile, "subLang2"))] ?: "")
     }.distinctUntilChanged()
     suspend fun setProfileLanguages(profile: Long, audio: String, subs: String) {
-        ds.edit { it[stringPreferencesKey(k(profile, "audioLang"))] = audio; it[stringPreferencesKey(k(profile, "subLang"))] = subs }
+        ds.edit { it[stringPreferencesKey(k(profile, "audioLang2"))] = audio; it[stringPreferencesKey(k(profile, "subLang2"))] = subs }
     }
 
     /** Minutos de video vistos HOY por el perfil (para el límite del perfil infantil). */

@@ -150,6 +150,11 @@ fun FocusableSurface(
     val ring = when (t.focusStyle) { com.embyverse.core.config.FocusStyle.RING -> t.focusRing; else -> Color.White }
     val ringW = if (lift) 3.dp else 4.dp
     val lite = LocalLite.current
+    // La tarjeta ya lleva su borde de foco: su efecto de toque va sin tinte de foco; lo de adentro conserva el normal.
+    val strongRipple = androidx.compose.material3.LocalRippleConfiguration.current
+    @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalRippleConfiguration provides
+        androidx.compose.material3.RippleConfiguration(color = ring, rippleAlpha = com.embyverse.app.ui.theme.SOFT_FOCUS)) {
     Box(
         modifier
             .graphicsLayer {
@@ -167,7 +172,8 @@ fun FocusableSurface(
                 if (onLongClick != null) Modifier.combinedClickable(interactionSource = interaction, indication = androidx.compose.material3.ripple(), role = Role.Button, onClick = onClick, onLongClick = onLongClick)
                 else Modifier.clickable(interactionSource = interaction, indication = androidx.compose.material3.ripple(), role = Role.Button, onClick = onClick)
             ),
-    ) { content(focused) }
+    ) { androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalRippleConfiguration provides strongRipple) { content(focused) } }
+    }
 }
 
 fun cardWidth(aspect: CardAspect, size: CardSize, tv: Boolean): Dp {

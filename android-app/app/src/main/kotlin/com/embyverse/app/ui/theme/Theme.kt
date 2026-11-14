@@ -193,7 +193,20 @@ fun EmbyTheme(spec: ThemeSpec, content: @Composable () -> Unit) {
             extraLarge = RoundedCornerShape(spec.bannerRadius.dp),
         )
     }
-    CompositionLocalProvider(LocalEmby provides tokens) {
+    // Foco con el control en TODA la app: los botones, íconos, casillas y opciones de Material (que no usan
+    // nuestras tarjetas) se marcan con un fondo fuerte del color del foco, no con el gris casi invisible de fábrica.
+    val focusTint = if (tokens.focusStyle == com.embyverse.core.config.FocusStyle.RING) tokens.focusRing else androidx.compose.ui.graphics.Color.White
+    @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+    CompositionLocalProvider(
+        LocalEmby provides tokens,
+        androidx.compose.material3.LocalRippleConfiguration provides androidx.compose.material3.RippleConfiguration(
+            color = focusTint, rippleAlpha = STRONG_FOCUS),
+    ) {
         MaterialTheme(colorScheme = scheme, typography = typography, shapes = shapes, content = content)
     }
 }
+
+/** Opacidades del efecto al tocar o enfocar: foco muy marcado (40 %) para verse desde el sillón. */
+val STRONG_FOCUS = androidx.compose.material.ripple.RippleAlpha(draggedAlpha = 0.16f, focusedAlpha = 0.40f, hoveredAlpha = 0.08f, pressedAlpha = 0.20f)
+/** En tarjetas y filas con borde de foco propio: sin tinte de foco (el borde ya lo marca y la imagen se ve limpia). */
+val SOFT_FOCUS = androidx.compose.material.ripple.RippleAlpha(draggedAlpha = 0.16f, focusedAlpha = 0f, hoveredAlpha = 0.04f, pressedAlpha = 0.12f)
