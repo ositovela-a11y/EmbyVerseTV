@@ -698,7 +698,9 @@ class SmokeFlowTest {
     /** TV en vivo: HLS por defecto (en vivo real), y si se elige .ts el canal que entrega HLS se sigue rescatando. */
     @Test fun o_tvEnVivoHls() {
         val c = app.container
-        val ch = runBlocking { c.database.channels().listForZapping(null).first { it.providerId == "5" && c.sources.resolveStreamUrl(it.sourceId, it.streamUrl).contains("/live/user/pass/") } }
+        // Canal 5 de la cuenta Xtream (la lista de zapping mezcla fuentes y su orden cambia entre corridas).
+        val xtream = runBlocking { c.sources.sources.first().first { it.type == "XTREAM" } }
+        val ch = runBlocking { c.database.channels().get(xtream.id, "5")!! }
         val url = runBlocking { c.sources.resolveStreamUrl(ch.sourceId, ch.streamUrl) }
         assertTrue("el canal se pide en HLS: $url", url.endsWith(".m3u8"))
         PlaybackProbe.reset()
@@ -712,7 +714,7 @@ class SmokeFlowTest {
         }
         runBlocking { c.prefs.updatePlayback { it.copy(liveFormat = com.embyverse.core.xtream.LiveFormat.TS) } }
         try {
-            val ch2 = runBlocking { c.database.channels().listForZapping(null).first { it.providerId == "2" } }
+            val ch2 = runBlocking { c.database.channels().get(xtream.id, "2")!! }
             assertTrue("con .ts elegido se pide .ts", runBlocking { c.sources.resolveStreamUrl(ch2.sourceId, ch2.streamUrl) }.endsWith(".ts"))
             PlaybackProbe.reset()
             ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("LIVE", ch2.sourceId, ch2.providerId)).use {
