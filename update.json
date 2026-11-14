@@ -1,0 +1,25 @@
+{
+ "apps": {
+  "EmbyVerse.apk": {
+   "versionCode": 32,
+   "versionName": "1.15.5",
+   "path": "apk/EmbyVerse.apk?v=32",
+   "notes": {
+    "es": [
+     "Textos que se ajustan a tu pantalla y tama\u00f1o de letra: men\u00fas, botones y saludos ya no se cortan.",
+     "Audio siempre en espa\u00f1ol cuando la pel\u00edcula lo trae.",
+     "Subt\u00edtulos solo cuando hablan otro idioma: forzados en pel\u00edculas en espa\u00f1ol y completos si todo el audio es de otro idioma.",
+     "El audio arranca siempre en modo normal; el modo noche solo cuando lo eliges.",
+     "Selector del control m\u00e1s marcado en toda la app (botones, \u00edconos y opciones)."
+    ],
+    "en": [
+     "Text adapts to your screen and font size: menus, buttons and greetings no longer get cut off.",
+     "Audio always in Spanish when the movie has it.",
+     "Subtitles only when another language is spoken: forced in Spanish movies, full if the whole audio is another language.",
+     "Audio always starts in normal mode; night mode only when you choose it.",
+     "Stronger remote-control selector across the whole app (buttons, icons and options)."
+    ]
+   }
+  }
+ }
+}

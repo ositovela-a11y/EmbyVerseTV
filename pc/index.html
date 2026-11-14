@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Descargar para PC</title>
+<style>body{background:#02050C;color:#E6EEF8;font:18px system-ui,sans-serif;display:grid;place-content:center;min-height:100vh;text-align:center;padding:16px}a{color:#7BE52F}</style>
+<script>
+  // Enlace corto de la app para PC (Windows): /pc/ baja la principal; /pc/?v=<vendedor> la de ese vendedor.
+  // «&portable=1» baja la versión que no se instala. Siempre la última publicada.
+  (function () {
+    var q = new URLSearchParams(location.search);
+    var v = (q.get('v') || '').toLowerCase();
+    var name = /^[a-z][a-z0-9]{1,30}$/.test(v) ? v : 'EmbyVerse';
+    var kind = q.get('portable') ? 'Portable' : 'Instalador';
+    window.PC_URL = 'https://github.com/ositovela-a11y/EmbyVerseTV/releases/download/pc-latest/' + name + '-PC-' + kind + '.exe';
+    location.replace(window.PC_URL);
+  })();
+</script>
+</head><body><p>Descargando la app para PC…</p><p>Si no empieza, <a id="l" href="#">pulsa aquí</a>.</p>
+<p style="opacity:.7;font-size:15px">Windows puede avisar «Windows protegió su PC»: pulsa «Más información» → «Ejecutar de todas formas».</p>
+<script>document.getElementById('l').href = window.PC_URL;</script></body></html>
