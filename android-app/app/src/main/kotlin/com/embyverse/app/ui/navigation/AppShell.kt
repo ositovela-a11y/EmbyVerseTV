@@ -227,7 +227,9 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
         // Tipo Apple TV: barra de cristal flotando sobre el contenido; el banner del inicio pasa por debajo.
         com.embyverse.core.config.NavVariant.GLASS -> {
             Box(Modifier.fillMaxSize()) {
-                Box(Modifier.fillMaxSize().padding(top = if (showNav && !isHome) (if (t.device.isTv) 76.dp else 64.dp) else 0.dp)) { host(Modifier.fillMaxSize()) }
+                // Fuera del inicio el contenido empieza debajo de la barra (contando la barra de estado del celular):
+                // antes el título «Películas» quedaba tapado por la barra de cristal.
+                Box(Modifier.fillMaxSize().then(if (showNav && !isHome) Modifier.statusBarsPadding().padding(top = if (t.device.isTv) 76.dp else 62.dp) else Modifier)) { host(Modifier.fillMaxSize()) }
                 if (showNav) GlassBar(current, goTop, Modifier.align(Alignment.TopCenter))
             }
             return
