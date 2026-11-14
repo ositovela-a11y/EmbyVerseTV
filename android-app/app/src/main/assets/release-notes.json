@@ -1,5 +1,21 @@
 {
   "_info": "Notas de cada versión. Se muestran al ofrecer la actualización (update.json) y en «Novedades» después de actualizar. Escribir SIN el nombre de la app (las ven también las apps de vendedores). Agregar una entrada en cada versión nueva.",
+  "1.15.5": {
+    "es": [
+      "Textos que se ajustan a tu pantalla y tamaño de letra: menús, botones y saludos ya no se cortan.",
+      "Audio siempre en español cuando la película lo trae.",
+      "Subtítulos solo cuando hablan otro idioma: forzados en películas en español y completos si todo el audio es de otro idioma.",
+      "El audio arranca siempre en modo normal; el modo noche solo cuando lo eliges.",
+      "Selector del control más marcado en toda la app (botones, íconos y opciones)."
+    ],
+    "en": [
+      "Text adapts to your screen and font size: menus, buttons and greetings no longer get cut off.",
+      "Audio always in Spanish when the movie has it.",
+      "Subtitles only when another language is spoken: forced in Spanish movies, full if the whole audio is another language.",
+      "Audio always starts in normal mode; night mode only when you choose it.",
+      "Stronger remote-control selector across the whole app (buttons, icons and options)."
+    ]
+  },
   "1.15.4": {
     "es": [
       "Audio en español por defecto, aunque la pista no diga su idioma (por ejemplo «Latino»).",

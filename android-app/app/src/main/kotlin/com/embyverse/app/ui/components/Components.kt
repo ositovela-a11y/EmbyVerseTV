@@ -311,7 +311,7 @@ fun EmbyButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
     val content: @Composable () -> Unit = {
         Row(verticalAlignment = Alignment.CenterVertically) {
             icon?.let { Icon(it, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)) }
-            Text(text, style = MaterialTheme.typography.labelLarge)
+            FitText(text, style = MaterialTheme.typography.labelLarge, color = androidx.compose.material3.LocalContentColor.current, minSize = 10.sp)
         }
     }
     val style = if (secondary) ButtonStyle.OUTLINED else t.buttonStyle
@@ -360,7 +360,7 @@ fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) {
     FocusableSurface(onClick = onClick, shape = RoundedCornerShape(50), focusScale = 1.04f) { _ ->
         Box(
             Modifier.background(if (selected) t.primary else t.surfaceVariant).padding(horizontal = 14.dp, vertical = 8.dp),
-        ) { Text(label, style = MaterialTheme.typography.labelLarge, color = if (selected) t.buttonText else t.onSurface, maxLines = 1) }
+        ) { FitText(label, style = MaterialTheme.typography.labelLarge, color = if (selected) t.buttonText else t.onSurface, minSize = 10.sp) }
     }
 }
 
@@ -404,4 +404,31 @@ fun RefreshListsButton(modifier: Modifier = Modifier, compact: Boolean = false) 
             }
         }
     }
+}
+
+/**
+ * Texto que se ajusta a su espacio: si no cabe, baja el tamaño de letra poco a poco (hasta [minSize]) en vez
+ * de cortarse. Para etiquetas de menú, pestañas, botones y encabezados en pantallas chicas o con letra grande.
+ */
+@Composable
+fun FitText(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+    style: androidx.compose.ui.text.TextStyle = androidx.compose.material3.LocalTextStyle.current,
+    maxLines: Int = 1,
+    softWrap: Boolean = maxLines > 1,
+    fontWeight: androidx.compose.ui.text.font.FontWeight? = null,
+    textAlign: androidx.compose.ui.text.style.TextAlign? = null,
+    minSize: androidx.compose.ui.unit.TextUnit = 9.sp,
+    @Suppress("UNUSED_PARAMETER") overflow: androidx.compose.ui.text.style.TextOverflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+) {
+    val c = if (color != Color.Unspecified) color else style.color.takeIf { it != Color.Unspecified } ?: androidx.compose.material3.LocalContentColor.current
+    val s = style.copy(color = c, fontWeight = fontWeight ?: style.fontWeight, textAlign = textAlign ?: style.textAlign)
+    val max = if (style.fontSize != androidx.compose.ui.unit.TextUnit.Unspecified) style.fontSize else 14.sp
+    androidx.compose.foundation.text.BasicText(
+        text, modifier, style = s, maxLines = maxLines, softWrap = softWrap,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = minOf(minSize.value, max.value).sp, maxFontSize = max, stepSize = 0.5.sp),
+    )
 }

@@ -860,10 +860,14 @@ class SmokeFlowTest {
             runCatching { n.config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action?.invoke(res) }
             val r = res.firstOrNull() ?: continue
             val unclippedRight = pos.x + n.size.width
+            val last = r.lineCount - 1
+            val shown = if (last >= 0) r.getLineEnd(last, visibleEnd = true) else 0
             val kind = when {
-                r.hasVisualOverflow && r.didOverflowWidth -> "recortado"
-                r.lineCount > 0 && r.isLineEllipsized(r.lineCount - 1) -> "con «…»"
-                // Tapado por el contenedor a lo ancho, estando dentro de la pantalla (no es una fila que se desplaza).
+                last < 0 -> null
+                r.isLineEllipsized(last) -> "con «…»"
+                // Se dejó de mostrar parte del texto (límite de renglones sin «…») o un renglón sale del ancho del texto.
+                shown < r.layoutInput.text.text.trimEnd().length -> "recortado"
+                (0..last).any { r.getLineRight(it) > r.size.width + 1.5f } -> "recortado"
                 pos.x >= 0 && unclippedRight <= sw && clip.width < n.size.width - 2 -> "tapado por su contenedor"
                 else -> null
             } ?: continue

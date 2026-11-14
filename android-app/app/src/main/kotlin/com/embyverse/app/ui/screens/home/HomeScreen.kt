@@ -256,9 +256,10 @@ private fun HomeHeaderRow(s: HomeUiState, nav: Navigator) {
         BrandLogo(s.config.brand.logoVariant, s.config.brand.logoUrl, Modifier.height(if (t.device.isTv) 64.dp else 44.dp).width(if (t.device.isTv) 140.dp else 88.dp))
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
-            Text("${s.config.text("home.greeting", stringResource(R.string.home_greeting))}${s.profileName?.let { ", $it" } ?: ""}",
-                style = MaterialTheme.typography.titleMedium, color = t.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            s.config.brand.tagline?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = t.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            // Saludo y lema se ajustan al espacio (letra un poco menor) en vez de cortarse; si aun así no cabe, 2 renglones.
+            com.embyverse.app.ui.components.FitText("${s.config.text("home.greeting", stringResource(R.string.home_greeting))}${s.profileName?.let { ", $it" } ?: ""}",
+                style = MaterialTheme.typography.titleMedium, color = t.onBackground, maxLines = 2, minSize = 12.sp)
+            s.config.brand.tagline?.let { com.embyverse.app.ui.components.FitText(it, style = MaterialTheme.typography.bodySmall, color = t.textSecondary, maxLines = 2, minSize = 9.sp) }
         }
         com.embyverse.app.ui.components.RefreshListsButton(compact = !t.device.isTv)
         // En celular la hora ya está en la barra de arriba: sin reloj aquí para que el saludo se lea completo.

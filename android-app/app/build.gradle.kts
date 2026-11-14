@@ -35,8 +35,8 @@ android {
         applicationId = if (vendor != null) "com.embyverse.app.v.$vendor" else "com.embyverse.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 31
-        versionName = "1.15.4"
+        versionCode = 32
+        versionName = "1.15.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testProguardFiles("test-proguard-rules.pro")
         buildConfigField("String", "CONFIG_BASE_URL", "\"${configBaseUrl.replace("\"", "")}\"")

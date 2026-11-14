@@ -263,7 +263,7 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
                 NavigationRailItem(
                     modifier = Modifier.testTag("nav_${d.route}").focusHighlight(t.focusRing, t.primary),
                     selected = current == d.route, onClick = { navigator.goTop(d.route) },
-                    icon = { Icon(d.icon, null) }, label = if (t.navShowLabels) ({ Text(stringResource(d.label)) }) else null,
+                    icon = { Icon(d.icon, null) }, label = if (t.navShowLabels) ({ com.embyverse.app.ui.components.FitText(stringResource(d.label)) }) else null,
                     colors = NavigationRailItemDefaults.colors(selectedIconColor = t.buttonText, indicatorColor = t.primary,
                         unselectedIconColor = t.textSecondary, selectedTextColor = t.onBackground, unselectedTextColor = t.textSecondary),
                 )
@@ -287,7 +287,7 @@ fun AppShell(startOnboarding: Boolean, logoVariant: LogoVariant, logoUrl: String
                         NavigationBarItem(
                             modifier = Modifier.testTag("nav_${d.route}").focusHighlight(t.focusRing, t.primary),
                             selected = current == d.route, onClick = { navigator.goTop(d.route) },
-                            icon = { Icon(d.icon, null) }, label = if (t.navShowLabels) ({ Text(stringResource(d.label), maxLines = 1) }) else null,
+                            icon = { Icon(d.icon, null) }, label = if (t.navShowLabels) ({ com.embyverse.app.ui.components.FitText(stringResource(d.label)) }) else null,
                             alwaysShowLabel = platform,
                             colors = if (platform) NavigationBarItemDefaults.colors(selectedIconColor = t.onBackground, indicatorColor = androidx.compose.ui.graphics.Color.Transparent,
                                 unselectedIconColor = t.textSecondary, selectedTextColor = t.onBackground, unselectedTextColor = t.textSecondary)
@@ -317,7 +317,7 @@ private fun PillTabs(current: String?, go: (String) -> Unit) {
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(50), modifier = Modifier.testTag("nav_${d.route}")) { focused ->
                     Box(Modifier.background(when { sel -> t.onBackground; focused -> t.onBackground.copy(alpha = 0.22f); else -> androidx.compose.ui.graphics.Color.Transparent })
                         .padding(horizontal = if (t.device.isTv) 20.dp else 10.dp, vertical = if (t.device.isTv) 9.dp else 6.dp)) {
-                        Text(stringResource(d.label), maxLines = 1, style = MaterialTheme.typography.titleSmall,
+                        com.embyverse.app.ui.components.FitText(stringResource(d.label), maxLines = 1, style = MaterialTheme.typography.titleSmall,
                             color = if (sel) t.background else t.onBackground, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                     }
                 }
@@ -350,7 +350,7 @@ private fun TextTabs(current: String?, logoVariant: LogoVariant, logoUrl: String
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(50), modifier = Modifier.testTag("nav_${d.route}")) { focused ->
                     Column(Modifier.background(if (focused) t.onBackground.copy(alpha = 0.12f) else androidx.compose.ui.graphics.Color.Transparent)
                         .padding(horizontal = 12.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(stringResource(d.label), maxLines = 1, style = MaterialTheme.typography.titleSmall,
+                        com.embyverse.app.ui.components.FitText(stringResource(d.label), maxLines = 1, style = MaterialTheme.typography.titleSmall,
                             color = if (sel || focused) t.onBackground else t.textSecondary,
                             fontWeight = if (sel) androidx.compose.ui.text.font.FontWeight.Bold else null)
                         Box(Modifier.padding(top = 3.dp).width(if (sel) 18.dp else 0.dp).height(3.dp)
@@ -391,7 +391,7 @@ private fun ExpandingRail(current: String?, logoVariant: LogoVariant, logoUrl: S
                     Icon(d.icon, null, tint = if (sel || focused) t.onBackground else t.textSecondary)
                     if (open) {
                         Spacer(Modifier.width(16.dp))
-                        Text(stringResource(d.label), maxLines = 1, style = MaterialTheme.typography.titleMedium,
+                        com.embyverse.app.ui.components.FitText(stringResource(d.label), maxLines = 1, style = MaterialTheme.typography.titleMedium,
                             color = if (sel || focused) t.onBackground else t.textSecondary,
                             fontWeight = if (sel) androidx.compose.ui.text.font.FontWeight.Bold else null)
                     }
@@ -409,7 +409,7 @@ private fun NavTextItem(d: TopDest, selected: Boolean, go: (String) -> Unit, lig
         shape = androidx.compose.foundation.shape.RoundedCornerShape(50), modifier = Modifier.testTag("nav_${d.route}")) { focused ->
         Box(Modifier.background(when { selected && light -> t.onBackground; focused -> t.onBackground.copy(alpha = 0.18f); else -> androidx.compose.ui.graphics.Color.Transparent })
             .padding(horizontal = if (t.device.isTv) 18.dp else if (compact) 6.dp else 11.dp, vertical = if (t.device.isTv) 8.dp else 6.dp)) {
-            Text(stringResource(d.label), maxLines = 1, softWrap = false, style = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleSmall,
+            com.embyverse.app.ui.components.FitText(stringResource(d.label), maxLines = 1, softWrap = false, style = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleSmall,
                 color = when { selected && light -> t.background; selected || focused -> t.onBackground; else -> t.textSecondary },
                 fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Medium)
         }
@@ -471,7 +471,7 @@ private fun Dock(current: String?, go: (String) -> Unit, modifier: Modifier) {
                 Row(Modifier.background(when { sel -> t.primary; focused -> t.onBackground.copy(alpha = 0.16f); else -> androidx.compose.ui.graphics.Color.Transparent })
                     .padding(horizontal = if (sel) 16.dp else 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(d.icon, null, tint = if (sel) t.buttonText else t.onBackground, modifier = Modifier.size(22.dp))
-                    if (sel) { Spacer(Modifier.width(8.dp)); Text(stringResource(d.label), color = t.buttonText, style = MaterialTheme.typography.labelLarge, maxLines = 1) }
+                    if (sel) { Spacer(Modifier.width(8.dp)); com.embyverse.app.ui.components.FitText(stringResource(d.label), color = t.buttonText, style = MaterialTheme.typography.labelLarge, maxLines = 1) }
                 }
             }
         }
@@ -492,7 +492,7 @@ private fun Sidebar(current: String?, logoVariant: LogoVariant, logoUrl: String?
                     .padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(d.icon, null, tint = if (sel) t.primary else t.onBackground)
                     Spacer(Modifier.width(14.dp))
-                    Text(stringResource(d.label), style = MaterialTheme.typography.titleMedium, color = if (sel || focused) t.onBackground else t.textSecondary, maxLines = 1,
+                    com.embyverse.app.ui.components.FitText(stringResource(d.label), style = MaterialTheme.typography.titleMedium, color = if (sel || focused) t.onBackground else t.textSecondary, maxLines = 1,
                         fontWeight = if (sel) androidx.compose.ui.text.font.FontWeight.Bold else null)
                 }
             }
