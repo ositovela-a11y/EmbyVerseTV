@@ -1,5 +1,15 @@
 {
   "_info": "Notas de cada versión. Se muestran al ofrecer la actualización (update.json) y en «Novedades» después de actualizar. Escribir SIN el nombre de la app (las ven también las apps de vendedores). Agregar una entrada en cada versión nueva.",
+  "1.15.7": {
+    "es": [
+      "Al entrar puedes elegir: tu cuenta, otro servidor Xtream o una lista M3U.",
+      "Si el usuario o la contraseña están mal, ahora te lo dice claramente."
+    ],
+    "en": [
+      "When signing in you can choose: your account, another Xtream server or an M3U playlist.",
+      "A wrong username or password now shows a clear message."
+    ]
+  },
   "1.15.6": {
     "es": [
       "Protector de pantalla con imágenes completas que se adaptan a tu TV o celular, sin cortes.",

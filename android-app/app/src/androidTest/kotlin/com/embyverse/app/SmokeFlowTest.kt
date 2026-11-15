@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -968,6 +969,29 @@ class SmokeFlowTest {
             Thread.sleep(6_000); shot("37-protector-pantalla")
             assertTrue("protector visible", compose.onAllNodesWithTag("screensaver", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
             log("Protector de pantalla: visible con imagen ajustada (${if (compose.onAllNodesWithTag("screensaver_fit", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()) "completa, con fondo difuminado" else "horizontal a pantalla completa"})")
+        }
+    }
+
+    /** Iniciar sesión: un «404» (así responden los paneles XUI a un usuario que no existe) da un mensaje claro,
+     *  y con servidor ya puesto el cliente puede elegir su cuenta, otro servidor Xtream o una lista M3U. */
+    @Test fun w_entrarXtreamOM3u() {
+        val c = app.container
+        val r = runBlocking { c.sources.test(com.embyverse.app.data.repo.SourceDraft(null, "x", SourceType.XTREAM, "$base/sin-xtream", "nadie", "mala", null, null)) }
+        assertTrue("404 al entrar → usuario o contraseña: $r", r is com.embyverse.core.net.Outcome.Fail && r.error == com.embyverse.core.net.SourceError.AuthOrNotFound)
+        ActivityScenario.launch(MainActivity::class.java).use {
+            waitTag("nav_settings", 40_000)
+            compose.onNodeWithTag("nav_settings", useUnmergedTree = true).performClick()
+            waitText("Fuentes"); compose.onNodeWithText("Fuentes", useUnmergedTree = true).performClick()
+            waitFor("botón añadir", 10_000) { compose.onAllNodesWithContentDescription("Añadir fuente", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+            compose.onAllNodesWithContentDescription("Añadir fuente", useUnmergedTree = true)[0].performClick()
+            waitTag("login_mode_account")
+            assertTrue("modo cuenta: sin campo de servidor", compose.onAllNodesWithText("Servidor", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+            Thread.sleep(600); shot("37-entrar-mi-cuenta")
+            compose.onNodeWithTag("login_mode_m3u", useUnmergedTree = true).performClick()
+            waitText("URL de la lista M3U"); Thread.sleep(400); shot("38-entrar-lista-m3u")
+            compose.onNodeWithTag("login_mode_xtream", useUnmergedTree = true).performClick()
+            waitText("Servidor"); Thread.sleep(400); shot("39-entrar-otro-servidor")
+            log("Entrar: «Mi cuenta», «Otro servidor (Xtream)» y «Lista M3U» funcionan")
         }
     }
 }

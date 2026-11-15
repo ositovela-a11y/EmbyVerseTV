@@ -126,8 +126,8 @@ class SourceAdaptersTest {
             assertEquals(SourceError.AuthFailed, fail(a2.test(spec(SourceType.XTREAM, s2.base, user), pass)))
             s2.route("/player_api.php") { Triple(200, "{}", 3_000L) }
             assertEquals(SourceError.Timeout, fail(a2.test(spec(SourceType.XTREAM, s2.base, user), pass)))
-            // Servidor sin player_api.php (404): no es Xtream
-            assertEquals(SourceError.NotXtream, fail(a2.test(spec(SourceType.XTREAM, s2.base + "/otro", user), pass)))
+            // 404 al iniciar sesión (así responden los paneles XUI a un usuario que no existe, o una dirección equivocada)
+            assertEquals(SourceError.AuthOrNotFound, fail(a2.test(spec(SourceType.XTREAM, s2.base + "/otro", user), pass)))
         } finally { s2.close() }
     }
 

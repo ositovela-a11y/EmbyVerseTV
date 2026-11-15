@@ -22,6 +22,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Box
+import com.embyverse.core.net.SourceError
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -212,6 +215,22 @@ class SourceEditViewModel(private val c: AppContainer, private val id: String?) 
     val existing = c.sources.sources
     /** Servidor ya puesto (APK o panel): al añadir una cuenta solo se piden usuario y contraseña. */
     val lockedHost: String? = if (id == null) com.embyverse.app.data.repo.ProviderHost.of(c.config.config.value) else null
+    /** Con servidor ya puesto, el cliente igual puede elegir: su cuenta (servidor de la app), otro servidor Xtream o una lista M3U. */
+    enum class Mode { PROVIDER, XTREAM, M3U }
+    val mode = MutableStateFlow(if (lockedHost != null) Mode.PROVIDER else Mode.XTREAM)
+    fun setMode(m: Mode) {
+        mode.value = m
+        val user = form.value.username
+        form.value = when (m) {
+            Mode.PROVIDER -> SourceForm(SourceType.XTREAM, server = lockedHost.orEmpty(), username = user)
+            Mode.XTREAM -> SourceForm(SourceType.XTREAM, username = user)
+            Mode.M3U -> SourceForm(SourceType.M3U_URL)
+        }
+        test.value = TestState.Idle
+    }
+    private fun message(e: SourceError): String =
+        if (mode.value == Mode.PROVIDER && lockedHost != null && (e == SourceError.AuthOrNotFound || e == SourceError.AuthFailed)) c.app.getString(R.string.login_auth_failed_locked)
+        else e.userMessage
 
     init {
         lockedHost?.let { h -> form.value = SourceForm(SourceType.XTREAM, server = h) }
@@ -254,7 +273,7 @@ class SourceEditViewModel(private val c: AppContainer, private val id: String?) 
         viewModelScope.launch {
             test.value = when (val r = c.sources.test(d)) {
                 is Outcome.Ok -> TestState.Ok(r.value)
-                is Outcome.Fail -> TestState.Error(r.error.userMessage)
+                is Outcome.Fail -> TestState.Error(message(r.error))
             }
         }
     }
@@ -271,7 +290,7 @@ class SourceEditViewModel(private val c: AppContainer, private val id: String?) 
                 }
                 test.value = TestState.Running
                 when (val r = c.sources.test(d)) {
-                    is Outcome.Fail -> { test.value = TestState.Error(r.error.userMessage); saving.value = false; return@launch }
+                    is Outcome.Fail -> { test.value = TestState.Error(message(r.error)); saving.value = false; return@launch }
                     is Outcome.Ok -> test.value = TestState.Ok(r.value)
                 }
             }
@@ -315,9 +334,19 @@ fun SourceEditScreen(nav: Navigator, id: String?, firstRun: Boolean, onDone: () 
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(t.screenPadding).widthIn(max = 720.dp).align(Alignment.CenterHorizontally),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            val locked = vm.lockedHost != null
-            if (!locked) Text(stringResource(R.string.source_type), style = MaterialTheme.typography.titleSmall, color = t.textSecondary)
-            if (!locked) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val mode by vm.mode.collectAsStateWithLifecycle()
+            val locked = vm.lockedHost != null && mode == SourceEditViewModel.Mode.PROVIDER
+            if (vm.lockedHost != null) {
+                Text(stringResource(R.string.login_how), style = MaterialTheme.typography.titleSmall, color = t.textSecondary)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(SourceEditViewModel.Mode.PROVIDER to R.string.login_mode_account, SourceEditViewModel.Mode.XTREAM to R.string.login_mode_xtream,
+                        SourceEditViewModel.Mode.M3U to R.string.login_mode_m3u).forEach { (m, label) ->
+                        Box(Modifier.testTag("login_mode_${m.name.lowercase()}")) { CategoryChip(stringResource(label), mode == m) { vm.setMode(m) } }
+                    }
+                }
+            }
+            if (!locked && vm.lockedHost == null) Text(stringResource(R.string.source_type), style = MaterialTheme.typography.titleSmall, color = t.textSecondary)
+            if (!locked && vm.lockedHost == null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SourceType.entries.forEach { type -> CategoryChip(stringResource(typeLabel(type)), f.type == type) { vm.update { it.copy(type = type) } } }
             }
             if (!locked) Field(f.name, { v -> vm.update { it.copy(name = v) } }, stringResource(R.string.source_name), stringResource(R.string.source_name_hint))

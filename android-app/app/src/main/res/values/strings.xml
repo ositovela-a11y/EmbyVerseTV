@@ -483,4 +483,9 @@
     <string name="tv_margin_1">Normal</string>
     <string name="tv_margin_2">Grande (si tu TV corta los bordes)</string>
     <string name="player_back_to_video">Volver a la película</string>
+    <string name="login_how">¿Cómo quieres entrar?</string>
+    <string name="login_mode_account">Mi cuenta</string>
+    <string name="login_mode_xtream">Otro servidor (Xtream)</string>
+    <string name="login_mode_m3u">Lista M3U</string>
+    <string name="login_auth_failed_locked">Usuario o contraseña incorrectos. Revisa que estén bien escritos (las mayúsculas y minúsculas cuentan) y que tu cuenta siga activa.</string>
 </resources>

@@ -64,6 +64,8 @@ sealed class SourceError(val userMessage: String) {
     data object Timeout : SourceError("El servidor tardó demasiado en responder. Revisa tu conexión o inténtalo más tarde.")
     data class Network(val detail: String?) : SourceError("No se pudo conectar con el servidor. Revisa que tengas internet e inténtalo de nuevo.")
     data object NotM3u : SourceError("El contenido descargado no es una lista M3U/M3U8 válida.")
+    /** Muchos paneles Xtream (XUI, nginx) responden «404» cuando el usuario o la contraseña no existen. */
+    data object AuthOrNotFound : SourceError("Usuario o contraseña incorrectos, o la cuenta no existe en este servidor. Revisa que estén bien escritos (las mayúsculas y minúsculas cuentan). Si están bien, revisa la dirección del servidor o pide ayuda a tu proveedor.")
     data object NotXtream : SourceError("El servidor no respondió como una API compatible con Xtream Codes. Prueba a añadirlo como lista M3U.")
     data class InvalidResponse(val detail: String) : SourceError("El proveedor devolvió datos con un formato no reconocido.")
     data object Empty : SourceError("La fuente es válida pero no contiene canales ni contenido.")
