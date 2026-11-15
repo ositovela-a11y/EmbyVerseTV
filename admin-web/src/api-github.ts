@@ -48,6 +48,7 @@ export function linksFor(slug: string) {
 const API = `https://api.github.com/repos/${GH.owner}/${GH.repo}`;
 const LICENSES = 'web-player/config/licenses.json';
 const REGISTRY = 'admin/registro.enc.json';
+const DL_CODES = 'web-player/config/downloader-codes.json';
 export interface Licenses { v: number; updated?: string; devices: Record<string, { exp: string | null }> }
 
 const token = () => { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; } };
@@ -279,6 +280,14 @@ export const githubApi = {
     change(cur.data); cur.data.updated = new Date().toISOString();
     await gh('PUT', `/contents/${LICENSES}`, { message: `Activaciones: ${message}`, content: utf8b64(JSON.stringify(cur.data, null, 1) + '\n'), branch: GH.branch, ...(cur.sha ? { sha: cur.sha } : {}) });
     return cur.data;
+  },
+  /** Códigos numéricos de Downloader (AFTVnews) de cada app: '' = principal, si no el vendedor. Son públicos. */
+  async downloaderCodes(): Promise<Record<string, string>> { return (await readJsonFile<Record<string, string>>(DL_CODES))?.data ?? {}; },
+  async setDownloaderCode(slug: string, code: string | null) {
+    const f = await readJsonFile<Record<string, string>>(DL_CODES);
+    const d = { ...(f?.data ?? {}) };
+    if (code) d[slug] = code; else delete d[slug];
+    await gh('PUT', `/contents/${DL_CODES}`, { message: `Downloader: código de ${slug || 'la app principal'}`, content: utf8b64(JSON.stringify(d, null, 2) + '\n'), branch: GH.branch, ...(f ? { sha: f.sha } : {}) });
   },
   /** Dirección del servidor de estadísticas (la escribe el flujo «Servidor de estadísticas»). */
   async statsUrl(): Promise<string | null> { const f = await readJsonFile<{ url?: string }>('web-player/config/stats.json'); return f?.data.url?.replace(/\/$/, '') || null; },
