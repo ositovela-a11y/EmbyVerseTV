@@ -1117,6 +1117,10 @@ class SmokeFlowTest {
         }
         // Opción «Usar otro reproductor» en Ajustes › Reproducción y en el panel del reproductor.
         ActivityScenario.launch(MainActivity::class.java).use {
+            // Si quedaron varios perfiles de otras pruebas, primero sale «¿Quién está viendo?».
+            waitFor("inicio o perfiles", 30_000) { listOf("nav_settings", "profile").any { t -> compose.onAllNodesWithTag(t, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() } }
+            if (compose.onAllNodesWithTag("nav_settings", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+                compose.onAllNodesWithTag("profile", useUnmergedTree = true)[0].performClick()
             waitTag("nav_settings", 30_000)
             compose.onNodeWithTag("nav_settings", useUnmergedTree = true).performClick()
             compose.onNodeWithText(app.getString(R.string.playback_title), useUnmergedTree = true).performClick()
