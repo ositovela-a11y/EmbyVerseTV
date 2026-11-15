@@ -29,7 +29,7 @@ export const VENDORS_INDEX = 'web-player/config/vendors/index.json';
 export function currentTarget(): string { try { return localStorage.getItem(TARGET_KEY) || ''; } catch { return ''; } }
 export function setTarget(slug: string) { try { localStorage.setItem(TARGET_KEY, slug); } catch { /* */ } }
 const cfgPath = (t = currentTarget()) => (t ? `web-player/config/vendors/${t}.json` : GH.configPath);
-const draftKey = () => `ev.studio.draft:${currentTarget() || 'principal'}`;
+const draftKey = (t = currentTarget()) => `ev.studio.draft:${t || 'principal'}`;
 const DRAFT_KEY_LEGACY = 'ev.studio.draft';
 /** Enlaces públicos de una app (principal si slug = ''). */
 /** Tu dominio propio (servidor site-worker en Cloudflare). */
@@ -260,6 +260,49 @@ export const githubApi = {
     const v: Vendor = { slug, name: clean, createdAt: new Date().toISOString() };
     await gh('PUT', `/contents/${VENDORS_INDEX}`, { message: `Design Studio: nuevo vendedor ${clean}`, content: utf8b64(JSON.stringify([...list, v], null, 2) + '\n'), branch: GH.branch, ...(idx ? { sha: idx.sha } : {}) });
     return v;
+  },
+  /** Cómo se ve hoy una app (para el editor rápido de tema y logotipo). */
+  async appLook(slug: string): Promise<{ logo: string | null; style: string; colors: { primary: string; accent: string; background: string }; themeId: string | null }> {
+    const r = await readConfig(GH.branch, cfgPath(slug));
+    if (!r) throw new ApiError(404, 'github', 'No se encontró el diseño de esa app.');
+    const c = r.config; const p = c.theme.palette as unknown as Record<string, string>;
+    const logo = c.brand.logo?.variant === 'asset' ? (c.brand.logo as { url?: string }).url ?? null : null;
+    const style = c.texts?.['style.default'] ?? '';
+    const themeName = (c as unknown as { themes?: { id?: string; name?: string }[] }).themes?.find((t) => t.id === 'vendor')?.name;
+    const th = VENDOR_THEMES.find((t) => t.name === themeName) ?? VENDOR_THEMES.find((t) => t.style === style && t.palette.primary === p.primary) ?? VENDOR_THEMES.find((t) => t.style === style) ?? null;
+    return { logo, style, colors: { primary: p.primary!, accent: p.accent!, background: p.background! }, themeId: th?.id ?? null };
+  },
+  /**
+   * Cambia el tema (colores, fondo, letra, bordes, botones y distribución), los colores y/o el logotipo de
+   * una app ya creada (la principal o la de un vendedor) y lo publica. Si había cambios sin publicar de
+   * esa app en el estudio, también se les aplica, para que no regresen el tema anterior.
+   */
+  async restyleApp(slug: string, opts: { themeId?: string | null; colors?: { primary: string; accent: string; background: string }; logo?: File | null }) {
+    const path = cfgPath(slug);
+    const pub = await readConfig(GH.branch, path);
+    if (!pub) throw new ApiError(404, 'github', 'No se encontró el diseño de esa app.');
+    let logoUrl: string | null = null;
+    if (opts.logo) logoUrl = (await githubApi.upload(opts.logo, 'logo')).asset.url;
+    const th = VENDOR_THEMES.find((x) => x.id === opts.themeId);
+    const change = (c: RemoteConfig) => {
+      c.texts = { ...(c.texts ?? {}) };
+      if (logoUrl) c.brand.logo = { variant: 'asset', url: logoUrl };
+      if (th) {
+        applyVendorTheme(c as unknown as { theme: Record<string, unknown>; texts: Record<string, string> }, th, opts.colors);
+        // En las apps de vendedores el tema guardado es el suyo; en la principal se respetan tus temas.
+        if (slug) (c as unknown as { themes?: unknown[] }).themes = [{ id: 'vendor', name: th.name, palette: { ...(c.theme.palette as unknown as Record<string, string>) } }];
+      }
+    };
+    const next = structuredClone(pub.config); change(next);
+    const version = (pub.config.version ?? 0) + 1;
+    Object.assign(next, { version, publishedAt: new Date().toISOString().replace(/\.\d+Z$/, 'Z') });
+    const what = [th && `tema ${th.name}`, logoUrl && 'logotipo'].filter(Boolean).join(' y ') || 'colores';
+    await gh('PUT', `/contents/${path}`, { message: `Diseño v${version}: ${what} (editor rápido)`, content: utf8b64(JSON.stringify(next, null, 2) + '\n'), branch: GH.branch, sha: pub.sha });
+    try {
+      const k = draftKey(slug); const dr = JSON.parse(localStorage.getItem(k) || 'null') as { config: RemoteConfig } | null;
+      if (dr?.config) { change(dr.config); dr.config.version = version; localStorage.setItem(k, JSON.stringify(dr)); }
+    } catch { /* */ }
+    return { version };
   },
   async renameVendor(slug: string, name: string) {
     const idx = await readJsonFile<Vendor[]>(VENDORS_INDEX); if (!idx) return;
