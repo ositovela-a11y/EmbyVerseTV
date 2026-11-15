@@ -12,7 +12,9 @@ on:
 permissions:
   contents: write
   actions: write
-concurrency: { group: stats-worker-${{ github.ref }}, cancel-in-progress: false }
+concurrency:
+  group: stats-worker-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   prueba:
     runs-on: ubuntu-latest
@@ -58,7 +60,8 @@ jobs:
           echo "URL=$URL" >> $GITHUB_ENV
       - name: Guardar la dirección en config/stats.json (la usan las apps y el panel)
         if: steps.ready.outputs.ok == '1'
-        env: { GH_TOKEN: '${{ github.token }}' }
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           printf '{\n  "url": "%s"\n}\n' "$URL" > web-player/config/stats.json
           if ! git diff --quiet -- web-player/config/stats.json 2>/dev/null || [ -z "$(git ls-files web-player/config/stats.json)" ]; then
