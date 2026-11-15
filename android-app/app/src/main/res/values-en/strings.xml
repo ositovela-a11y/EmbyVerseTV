@@ -477,4 +477,9 @@
     <string name="skip_intro_setting">“Skip intro” button</string>
     <string name="skip_intro_setting_sub">Learns where each series’ intro is. If you don’t use it in two episodes, it stops showing for that series.</string>
     <string name="vpn_sub">Protect your connection with your WireGuard VPN</string>
+    <string name="tv_margin_title">Screen margin</string>
+    <string name="tv_margin_0">None (image fills the TV)</string>
+    <string name="tv_margin_1">Normal</string>
+    <string name="tv_margin_2">Large (if your TV crops the edges)</string>
+    <string name="player_back_to_video">Back to the video</string>
 </resources>

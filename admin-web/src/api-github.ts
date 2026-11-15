@@ -203,7 +203,7 @@ export const githubApi = {
   },
   // ---- vendedores
   async vendors(): Promise<Vendor[]> { return (await readJsonFile<Vendor[]>(VENDORS_INDEX))?.data ?? []; },
-  async createVendor(name: string, opts: { askHost?: boolean; logo?: File | null; colors?: { primary: string; accent: string; background: string }; themeId?: string } = {}): Promise<Vendor> {
+  async createVendor(name: string, opts: { askHost?: boolean; logo?: File | null; colors?: { primary: string; accent: string; background: string }; themeId?: string; welcome?: string } = {}): Promise<Vendor> {
     const clean = name.trim().slice(0, 30);
     if (clean.length < 2) throw new ApiError(400, 'github', 'Escribe el nombre del vendedor o de su marca.');
     let base = clean.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20);
@@ -248,6 +248,8 @@ export const githubApi = {
       p.background = opts.colors.background;
       for (const t2 of (start as unknown as { themes?: { palette?: Record<string, string> }[] }).themes ?? []) if (t2.palette) Object.assign(t2.palette, { primary: p.primary, buttonBackground: p.buttonBackground, onPrimary: p.onPrimary, buttonText: p.buttonText, accent: p.accent, focusRing: p.focusRing, background: p.background });
     }
+    // Mensaje de bienvenida propio (al abrir la app); vacío = «Bienvenido a <nombre>».
+    if (opts.welcome?.trim()) start.texts['splash.welcome'] = opts.welcome.trim().slice(0, 80); else delete start.texts['splash.welcome'];
     start.brand.appName = clean; start.version = 1; start.publishedAt = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
     await gh('PUT', `/contents/${cfgPath(slug)}`, { message: `Diseño v1: app del vendedor ${clean}`, content: utf8b64(JSON.stringify(start, null, 2) + '\n'), branch: GH.branch });
     const v: Vendor = { slug, name: clean, createdAt: new Date().toISOString() };

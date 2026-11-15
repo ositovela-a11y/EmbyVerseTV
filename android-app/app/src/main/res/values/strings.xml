@@ -478,4 +478,9 @@
     <string name="skip_intro_setting">Botón «Saltar intro»</string>
     <string name="skip_intro_setting_sub">Aprende dónde está la intro de cada serie. Si en dos episodios no lo usas, deja de aparecer en esa serie.</string>
     <string name="vpn_sub">Protege tu conexión con tu VPN WireGuard</string>
+    <string name="tv_margin_title">Margen de pantalla</string>
+    <string name="tv_margin_0">Sin margen (la imagen llena el TV)</string>
+    <string name="tv_margin_1">Normal</string>
+    <string name="tv_margin_2">Grande (si tu TV corta los bordes)</string>
+    <string name="player_back_to_video">Volver a la película</string>
 </resources>

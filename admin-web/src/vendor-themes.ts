@@ -43,6 +43,16 @@ export const VENDOR_THEMES: VendorTheme[] = [
   { id: 'estelar', name: 'Estelar', desc: 'Azul noche con tablero de mosaicos, sin barras', style: 'style_estelar',
     palette: pal('#6366F1', '#22D3EE', '#070A18', '#10152B', '#1A2140', '#98A2C8', '#4338CA'),
     background: { style: 'nebula', gradientStart: '#070A18', gradientEnd: '#16124A' }, family: 'poppins', radius: { card: 14, button: 18, banner: 20 }, button: 'tonal', nav: 'bottom_bar' },
+  // Temas hechos para marcas de vendedores (a partir de sus logotipos).
+  { id: 'allinone', name: 'All in One', desc: 'Naranja y magenta sobre negro, como su logo; menú lateral', style: 'style_naranja',
+    palette: pal('#FF8A00', '#FF4FD8', '#0A0604', '#1A0F08', '#26170D', '#C9A68A', '#E2531B', '#1A0B00'),
+    background: { style: 'gradient', gradientStart: '#0A0604', gradientEnd: '#2A0E1E' }, family: 'inter', radius: { card: 14, button: 12, banner: 18 }, button: 'filled', nav: 'side_rail' },
+  { id: 'planeta', name: 'Planeta TV', desc: 'Verde neón y morado espacial con estrellas, divertido', style: 'style_estelar',
+    palette: pal('#5BEA2C', '#B57BFF', '#07041A', '#130C2E', '#1E1442', '#A79FC9', '#7C3AED', '#062400'),
+    background: { style: 'nebula', gradientStart: '#07041A', gradientEnd: '#1F0B4A' }, family: 'poppins', radius: { card: 20, button: 28, banner: 24 }, button: 'filled', nav: 'bottom_bar' },
+  { id: 'streampro', name: 'Stream Pro', desc: 'Magenta y cian brillante con detalle dorado, estilo premium', style: 'style_purpura',
+    palette: pal('#C531E8', '#22D3EE', '#050409', '#120C1C', '#1D132C', '#B2A3C8', '#0EA5E9'),
+    background: { style: 'gradient', gradientStart: '#050409', gradientEnd: '#1A0830' }, family: 'poppins', radius: { card: 16, button: 24, banner: 20 }, button: 'filled', nav: 'top_tabs' },
 ];
 
 /** Aplica un tema (y los colores que el usuario haya ajustado) a un diseño. */

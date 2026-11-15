@@ -1,5 +1,6 @@
 package com.embyverse.app.ui.components
 
+import androidx.compose.ui.draw.blur
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -276,12 +277,32 @@ fun Screensaver(modifier: Modifier = Modifier) {
     val withArt = movies.filter { it.backdropUrl != null || it.posterUrl != null }
     var index by remember { mutableIntStateOf(0) }
     LaunchedEffect(withArt.size) { while (withArt.isNotEmpty()) { delay(9_000); index = (index + 1) % withArt.size } }
+    // Imagen horizontal de la película (la que entrega el proveedor desde la base de datos de cine, sin letreros
+    // como «IDIOMA: LATINO»): se pide la ficha de la que se muestra y de la siguiente si aún no la tiene.
+    val asked = remember { mutableSetOf<String>() }
+    LaunchedEffect(index, withArt.size) {
+        if (withArt.isEmpty()) return@LaunchedEffect
+        for (k in 0..1) {
+            val mv = withArt[(index + k) % withArt.size]
+            if (mv.backdropUrl == null && asked.add(mv.sourceId + mv.providerId)) runCatching { c.sources.loadMovieDetails(mv.sourceId, mv.providerId) }
+        }
+    }
     Box(modifier.fillMaxSize().background(Color.Black).testTag("screensaver")) {
         if (withArt.isNotEmpty()) {
             val m = withArt[index % withArt.size]
             AnimatedContent(m, transitionSpec = { fadeIn(tween(1200)) togetherWith fadeOut(tween(1200)) }, label = "ss") { mv ->
                 Box(Modifier.fillMaxSize()) {
-                    MediaImage(mv.backdropUrl ?: mv.posterUrl, ContentKind.MOVIE, Modifier.fillMaxSize().kenBurns())
+                    // Se adapta a cada pantalla sin cortar la imagen: fondo con la misma imagen difuminada y la imagen
+                    // completa encima. Solo una imagen horizontal en una pantalla horizontal llena todo (casi sin recorte).
+                    val url = mv.backdropUrl ?: mv.posterUrl
+                    val cfg = androidx.compose.ui.platform.LocalConfiguration.current
+                    val wideScreen = cfg.screenWidthDp > cfg.screenHeightDp
+                    if (mv.backdropUrl != null && wideScreen) MediaImage(url, ContentKind.MOVIE, Modifier.fillMaxSize().kenBurns())
+                    else {
+                        MediaImage(url, ContentKind.MOVIE, Modifier.fillMaxSize().graphicsLayer { scaleX = 1.15f; scaleY = 1.15f; alpha = 0.45f }.blur(28.dp))
+                        MediaImage(url, ContentKind.MOVIE, Modifier.fillMaxSize().padding(vertical = if (wideScreen) 24.dp else 90.dp).testTag("screensaver_fit"),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Fit)
+                    }
                     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f)))))
                     Text(mv.title, style = MaterialTheme.typography.headlineMedium, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 2,
                         modifier = Modifier.align(Alignment.BottomStart).padding(48.dp))

@@ -922,4 +922,52 @@ class SmokeFlowTest {
         assertTrue("app principal", dev.getString("app") == "")
         assertTrue("nunca la contraseña", !body.contains("\"pass\""))
     }
+
+    /** Celular: el panel de audio y subtítulos se cierra con la flecha o tocando fuera, y la película sigue. */
+    @Test fun u_panelAudioCelular() {
+        val c = app.container
+        val movie = runBlocking { c.database.movies().observeAll(1).first().first() }
+        mock("/__vod?file=dual")
+        try {
+            PlaybackProbe.reset()
+            ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("MOVIE", movie.sourceId, movie.providerId, "restart")).use { sc ->
+                compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 }
+                val inst = InstrumentationRegistry.getInstrumentation()
+                fun open() { inst.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_MENU); compose.waitUntil(8_000) { compose.onAllNodesWithTag("player_options_panel", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() } }
+                fun closed() = compose.onAllNodesWithTag("player_options_panel", useUnmergedTree = true).fetchSemanticsNodes().isEmpty()
+                open()
+                // Cambiar de audio desde el panel (pista en inglés) y volver a la película con la flecha.
+                runCatching { compose.onNodeWithText("English", substring = true, useUnmergedTree = true).performClick() }
+                Thread.sleep(800); shot("36-panel-audio-celular")
+                compose.onNodeWithTag("player_options_close", useUnmergedTree = true).performClick()
+                compose.waitUntil(5_000) { closed() }
+                assertTrue("la película sigue abierta tras cerrar el panel", sc.state.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED))
+                // Tocar fuera del panel también lo cierra.
+                open()
+                compose.onNodeWithTag("player_options_scrim", useUnmergedTree = true).performClick()
+                compose.waitUntil(5_000) { closed() }
+                // «Atrás» con el panel abierto lo cierra sin salir de la película.
+                open(); inst.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+                compose.waitUntil(5_000) { closed() }
+                Thread.sleep(500)
+                assertTrue("Atrás cerró el panel y no la película", sc.state.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED))
+                log("Panel de audio (celular): se cierra con la flecha, tocando fuera y con Atrás; la película sigue")
+            }
+        } finally { mock("/__vod?file=") }
+    }
+
+    /** Protector de pantalla: imagen completa adaptada a la pantalla (sin recortar), con la ficha de la película. */
+    @Test fun v_protectorDePantalla() {
+        ActivityScenario.launch(MainActivity::class.java).use { sc ->
+            waitTag("nav_settings", 40_000)
+            sc.onActivity { a ->
+                val f = MainActivity::class.java.getDeclaredField("screensaverOn"); f.isAccessible = true
+                (f.get(a) as kotlinx.coroutines.flow.MutableStateFlow<Boolean>).value = true
+            }
+            waitTag("screensaver", 10_000)
+            Thread.sleep(6_000); shot("37-protector-pantalla")
+            assertTrue("protector visible", compose.onAllNodesWithTag("screensaver", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
+            log("Protector de pantalla: visible con imagen ajustada (${if (compose.onAllNodesWithTag("screensaver_fit", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()) "completa, con fondo difuminado" else "horizontal a pantalla completa"})")
+        }
+    }
 }

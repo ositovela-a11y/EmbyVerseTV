@@ -76,7 +76,8 @@ private val WarpEasing = CubicBezierEasing(0.6f, 0f, 0.8f, 1f)
  * El sonido se puede apagar en Ajustes › Reproducción › Sonido de entrada.
  */
 @Composable
-fun SplashScreen(brand: Brand, onFinished: () -> Unit) {
+/** [welcome]: mensaje de bienvenida del panel (texto «splash.welcome», «{app}» = nombre de la app); vacío = el de fábrica. */
+fun SplashScreen(brand: Brand, welcome: String = "", onFinished: () -> Unit) {
     val t = LocalEmby.current
     val context = LocalContext.current
     val container = LocalAppContainer.current
@@ -216,7 +217,8 @@ fun SplashScreen(brand: Brand, onFinished: () -> Unit) {
                         start = Offset(x - size.width * 0.3f, 0f), end = Offset(x + size.width * 0.3f, size.height)), blendMode = BlendMode.SrcAtop)
                 })
             Spacer(Modifier.height(18.dp))
-            Text(stringResource(R.string.splash_welcome, brand.appName), style = MaterialTheme.typography.headlineSmall.copy(letterSpacing = 1.sp),
+            com.embyverse.app.ui.components.FitText(welcome.trim().replace("{app}", brand.appName).ifEmpty { stringResource(R.string.splash_welcome, brand.appName) },
+                style = MaterialTheme.typography.headlineSmall.copy(letterSpacing = 1.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center), maxLines = 2, minSize = 14.sp,
                 fontWeight = FontWeight.Bold, color = t.onBackground,
                 modifier = Modifier.graphicsLayer { alpha = text.value; translationY = (1f - text.value) * 14.dp.toPx() })
             Spacer(Modifier.height(6.dp))

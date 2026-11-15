@@ -124,6 +124,7 @@ function Links({ slug }: { slug: string }) {
 export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: () => void }) {
   const [name, setName] = useState('');
   const [mode, setMode] = useState<'mine' | 'ask'>('mine');
+  const [welcome, setWelcome] = useState('');
   const [logo, setLogo] = useState<File | null>(null);
   const [logoPrev, setLogoPrev] = useState('');
   const [logoNote, setLogoNote] = useState('');
@@ -150,7 +151,7 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
   };
   const create = (e: FormEvent) => {
     e.preventDefault();
-    void run(async () => { const v = await githubApi.createVendor(name, { askHost: mode === 'ask', logo, colors, themeId }); setName(''); setLogo(null); setLogoPrev(''); setLogoNote(''); return v; },
+    void run(async () => { const v = await githubApi.createVendor(name, { askHost: mode === 'ask', logo, colors, themeId, welcome }); setName(''); setWelcome(''); setLogo(null); setLogoPrev(''); setLogoNote(''); return v; },
       `Vendedor creado ${mode === 'ask' ? '(sus clientes escribirán URL, usuario y contraseña)' : '(con tu servidor: sus clientes solo escriben usuario y contraseña)'}. Su APK estará lista en unos 5–15 minutos: abajo verás cuando esté lista. Elige «Editar su app» para cambiar su logotipo y colores.`);
   };
   return (
@@ -201,6 +202,12 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
           <label><input type="radio" name="vmode" checked={mode === 'ask'} onChange={() => setMode('ask')} /><span><b>Sin servidor</b> — la app no trae URL: sus clientes escriben URL, usuario y contraseña (para vendedores con otro servicio).</span></label>
           <span className="hint">Puedes cambiarlo después: «Editar su app» → Identidad → «Cómo entra el cliente».</span>
         </fieldset>
+        <label className="vendor-welcome">
+          <b>4. Mensaje de bienvenida (opcional)</b>
+          <input className="input" value={welcome} onChange={(e) => setWelcome(e.target.value)} maxLength={80} aria-label="Mensaje de bienvenida"
+            placeholder={`Bienvenido a ${name.trim() || 'su app'}`} />
+          <span className="hint">Aparece al abrir la app. Escribe {'{app}'} para poner el nombre de la app. Después se cambia en «Editar su app» → Textos.</span>
+        </label>
       </Group>
       <Group title="Tus apps" hint="«Editar su app» abre su diseño en el estudio; al publicar solo cambia esa app.">
         <div className={`vendor ${cur === '' ? 'on' : ''}`}>

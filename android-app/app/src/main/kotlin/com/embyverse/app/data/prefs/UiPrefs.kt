@@ -17,7 +17,12 @@ object UiPrefs {
     /** La bienvenida está en pantalla (las «Novedades» esperan a que termine). */
     val tourVisible = MutableStateFlow(false)
 
-    fun init(ctx: Context) { _fontScale.value = sp(ctx).getFloat("font_scale", 1f) }
+    /** Margen de pantalla en TV (algunos TV recortan los bordes, «overscan»): 0 = sin margen, 1 = normal, 2 = grande. */
+    private val _tvMargin = MutableStateFlow(1)
+    val tvMargin: StateFlow<Int> = _tvMargin
+    fun setTvMargin(ctx: Context, v: Int) { sp(ctx).edit().putInt("tv_margin", v).apply(); _tvMargin.value = v }
+
+    fun init(ctx: Context) { _fontScale.value = sp(ctx).getFloat("font_scale", 1f); _tvMargin.value = sp(ctx).getInt("tv_margin", 1) }
     private fun sp(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
     fun setFontScale(ctx: Context, v: Float) { sp(ctx).edit().putFloat("font_scale", v).apply(); _fontScale.value = v }

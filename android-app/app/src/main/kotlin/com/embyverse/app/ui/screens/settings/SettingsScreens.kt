@@ -163,6 +163,13 @@ fun SettingsScreen(nav: Navigator) {
             // La app de TV Samsung/LG es la de EmbyVerse: en las apps de vendedores no se ofrece.
             if (BuildConfig.VENDOR.isBlank()) item { SettingsItem(Icons.Rounded.Tv, stringResource(R.string.tv_install_title), stringResource(R.string.tv_install_sub)) { nav.go(Routes.TV_INSTALL) } }
             item { SettingsItem(Icons.Rounded.TextFields, stringResource(R.string.font_size_title), stringResource(fontLabel())) { fontDialog = true } }
+            // TV que recortan los bordes de la imagen: más margen para que se vea todo el menú.
+            if (context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)) item {
+                val m by com.embyverse.app.data.prefs.UiPrefs.tvMargin.collectAsStateWithLifecycle()
+                SettingsItem(Icons.Rounded.Tv, stringResource(R.string.tv_margin_title), stringResource(listOf(R.string.tv_margin_0, R.string.tv_margin_1, R.string.tv_margin_2)[m.coerceIn(0, 2)])) {
+                    com.embyverse.app.data.prefs.UiPrefs.setTvMargin(context, (m + 1) % 3)
+                }
+            }
             item { SettingsItem(Icons.Rounded.HelpOutline, stringResource(R.string.help_title), stringResource(R.string.help_sub)) { nav.go(Routes.HELP) } }
             item { SettingsItem(Icons.Rounded.NewReleases, stringResource(R.string.wn_menu), stringResource(R.string.wn_menu_sub, BuildConfig.VERSION_NAME)) { whatsNew = true } }
             item { SettingsItem(Icons.Rounded.Policy, stringResource(R.string.privacy_title), null) { nav.go(Routes.PRIVACY) } }

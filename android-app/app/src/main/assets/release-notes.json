@@ -2,11 +2,17 @@
   "_info": "Notas de cada versión. Se muestran al ofrecer la actualización (update.json) y en «Novedades» después de actualizar. Escribir SIN el nombre de la app (las ven también las apps de vendedores). Agregar una entrada en cada versión nueva.",
   "1.15.6": {
     "es": [
-      "Mejoras internas de estabilidad y soporte.",
+      "Protector de pantalla con imágenes completas que se adaptan a tu TV o celular, sin cortes.",
+      "Opción «Margen de pantalla» en TV para televisores que cortan los bordes; menú lateral sin textos cortados.",
+      "En celular, el panel de audio y subtítulos se cierra con una flecha o tocando fuera, sin salir de la película.",
+      "Mensaje de bienvenida personalizable.",
       "Aviso de privacidad actualizado: qué datos de uso se envían (nunca contraseñas)."
     ],
     "en": [
-      "Internal stability and support improvements.",
+      "Screensaver with full images that adapt to your TV or phone, without cropping.",
+      "“Screen margin” option on TV for sets that crop the edges; side menu without cut-off text.",
+      "On phones, the audio and subtitles panel closes with an arrow or by tapping outside, without leaving the movie.",
+      "Customizable welcome message.",
       "Updated privacy notice: which usage data is sent (never passwords)."
     ]
   },

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.List
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -108,10 +109,20 @@ internal fun PlayerOptions(vm: PlayerViewModel) {
     val textOn by vm.textEnabled.collectAsStateWithLifecycle()
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { delay(60); runCatching { first.requestFocus() } }
-    LazyColumn(Modifier.fillMaxHeight().width(if (t.device.isTv) 380.dp else 320.dp).testTag("player_options_panel")
+    val cfg = androidx.compose.ui.platform.LocalConfiguration.current
+    val w = if (t.device.isTv) 380.dp else minOf(400, (cfg.screenWidthDp * 0.62f).toInt().coerceAtLeast(300)).dp
+    LazyColumn(Modifier.fillMaxHeight().width(w).testTag("player_options_panel")
         .background(t.surface.copy(alpha = 0.96f)),
         contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        item { Text(stringResource(R.string.player_options), style = MaterialTheme.typography.titleLarge, color = t.onBackground, modifier = Modifier.padding(6.dp)) }
+        item {
+            // Flecha para volver a la película (cierra el panel; la película sigue reproduciéndose).
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (!t.device.isTv) androidx.compose.material3.IconButton(onClick = { vm.showOptions(false) }, modifier = Modifier.testTag("player_options_close")) {
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.player_back_to_video), tint = t.onBackground)
+                }
+                Text(stringResource(R.string.player_options), style = MaterialTheme.typography.titleLarge, color = t.onBackground, modifier = Modifier.padding(6.dp).weight(1f))
+            }
+        }
         var firstUsed = false
         fun claim(): Modifier = if (!firstUsed) { firstUsed = true; Modifier.focusRequester(first) } else Modifier
 
@@ -174,7 +185,7 @@ private fun OptionRow(label: String, selected: Boolean, modifier: Modifier = Mod
                 }
             }
             Spacer(Modifier.width(10.dp))
-            Text(label, style = MaterialTheme.typography.bodyLarge, color = if (selected) t.primary else t.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            Text(label, style = MaterialTheme.typography.bodyLarge, color = if (selected) t.primary else t.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 fontWeight = if (selected || focused) FontWeight.Bold else null)
         }
     }

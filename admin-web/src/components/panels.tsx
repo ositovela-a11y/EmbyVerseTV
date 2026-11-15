@@ -446,7 +446,7 @@ export function UserOptionsPanel({ ed, canEdit }: PanelProps) {
 
 // ---------------------------------------------------------------- TEXTOS
 const KNOWN_TEXTS: [string, string][] = [
-  ['home.greeting', 'Saludo del inicio'], ['home.emptySources', 'Mensaje cuando no hay fuentes'], ['support.contact', 'Contacto de soporte (Ajustes › Información)'],
+  ['splash.welcome', 'Mensaje de bienvenida (al abrir la app; {app} = nombre de la app)'], ['home.greeting', 'Saludo del inicio'], ['home.emptySources', 'Mensaje cuando no hay fuentes'], ['support.contact', 'Contacto de soporte (Ajustes › Información)'],
 ];
 
 export function TextsPanel({ ed, canEdit }: PanelProps) {

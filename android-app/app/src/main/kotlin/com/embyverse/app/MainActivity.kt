@@ -205,7 +205,7 @@ class MainActivity : AppCompatActivity() {
                         }
                         when {
                             suspended -> com.embyverse.app.ui.components.SuspendedScreen(config)
-                            !splashDone -> SplashScreen(config.brand) { splashDone = true }
+                            !splashDone -> SplashScreen(config.brand, config.text("splash.welcome", "")) { splashDone = true }
                             hasSources == null -> LoadingBox()
                             // Varios perfiles: se elige quién ve, así favoritos e historial no se mezclan.
                             !profileChosen && hasSources == true && (profiles?.size ?: 0) > 1 ->
@@ -217,7 +217,13 @@ class MainActivity : AppCompatActivity() {
                                 var tour by rememberSaveable { mutableStateOf((startOnboarding && !com.embyverse.app.data.prefs.UiPrefs.onboardingDone(this@MainActivity)) ||
                                     com.embyverse.app.data.prefs.UiPrefs.forceTour(this@MainActivity)) }
                                 if (tour) { com.embyverse.app.ui.components.WelcomeTour { tour = false }; return@NebulaBackground }
-                                AppShell(startOnboarding, config.brand.logoVariant, config.brand.logoUrl)
+                                // TV: margen seguro para que nada quede fuera en TV que recortan los bordes (el fondo sí llena todo).
+                                val margin by com.embyverse.app.data.prefs.UiPrefs.tvMargin.collectAsStateWithLifecycle()
+                                val tvDevice = remember { packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK) }
+                                val (mh, mv) = if (!tvDevice) 0 to 0 else when (margin) { 0 -> 0 to 0; 2 -> 48 to 27; else -> 28 to 16 }
+                                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.padding(horizontal = mh.dp, vertical = mv.dp)) {
+                                    AppShell(startOnboarding, config.brand.logoVariant, config.brand.logoUrl)
+                                }
                                 // «Abrir en el último canal»: una vez por sesión, al entrar a la app.
                                 var autoChannelDone by rememberSaveable { mutableStateOf(false) }
                                 androidx.compose.runtime.LaunchedEffect(Unit) {

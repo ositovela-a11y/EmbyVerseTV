@@ -21,7 +21,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
       <div className="galaxy" />
       <div className="orbit o1"><i /></div><div className="orbit o2"><i /></div>
       <Logo className="splash-logo" />
-      <h1>Bienvenido a {config.brand.appName}</h1>
+      <h1>{(config.texts['splash.welcome'] || '').trim().replace('{app}', config.brand.appName) || `Bienvenido a ${config.brand.appName}`}</h1>
       <p key={i} className="splash-msg">{msgs[i]}</p>
       {isVendorApp(config) && <p className="splash-credit" style={{ position: 'absolute', bottom: 48, width: '100%', textAlign: 'center', opacity: 0.6, fontSize: 22 }}>App diseñada por el equipo de EmbyVerse</p>}
     </div>

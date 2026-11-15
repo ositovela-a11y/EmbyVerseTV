@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -263,6 +264,10 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
             PlayerChannelList(vm, channels, listCategory, np?.ref)
         }
 
+        // Celular: tocar fuera del panel lo cierra y la película sigue (antes había que salir del reproductor).
+        if (optionsVisible && !t.device.isTv) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f))
+            .clickable(interactionSource = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { vm.showOptions(false) }
+            .testTag("player_options_scrim"))
         // Opciones: audio, subtítulos y (en vivo) lista de canales. OK o MENÚ la abren.
         AnimatedVisibility(visible = optionsVisible, enter = slideInHorizontally(tween(160)) { it }, exit = slideOutHorizontally(tween(140)) { it }, modifier = Modifier.align(Alignment.CenterEnd)) {
             PlayerOptions(vm)
