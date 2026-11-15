@@ -107,6 +107,7 @@ internal fun PlayerOptions(vm: PlayerViewModel) {
     val audio by vm.audioTracks.collectAsStateWithLifecycle()
     val text by vm.textTracks.collectAsStateWithLifecycle()
     val textOn by vm.textEnabled.collectAsStateWithLifecycle()
+    val noAudio by vm.audioUnsupported.collectAsStateWithLifecycle()
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { delay(60); runCatching { first.requestFocus() } }
     val cfg = androidx.compose.ui.platform.LocalConfiguration.current
@@ -146,7 +147,6 @@ internal fun PlayerOptions(vm: PlayerViewModel) {
         }
         item { OptionRow(stringResource(R.string.player_open_external), false, icon = true, modifier = Modifier.testTag("player_external")) { vm.openExternal() } }
         item { SectionTitle(stringResource(R.string.options_audio)) }
-        val noAudio by vm.audioUnsupported.collectAsStateWithLifecycle()
         if (noAudio) item { Hint(stringResource(R.string.player_audio_unsupported)) }
         else if (audio.isEmpty()) item { Hint(stringResource(R.string.options_audio_default)) }
         else {
