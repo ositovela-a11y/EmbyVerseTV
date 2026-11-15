@@ -6,7 +6,7 @@
     <string name="about_design_status">Diseño remoto</string>
     <string name="about_design_version">Versión del diseño</string>
     <string name="about_disclaimer">EmbyVerse es un reproductor. No aloja, vende ni distribuye canales o contenidos. Los contenidos y su legalidad son responsabilidad del proveedor y del usuario.</string>
-    <string name="about_licenses">Software de código abierto: AndroidX, Jetpack Compose, Media3 (Apache 2.0), OkHttp (Apache 2.0), Coil (Apache 2.0), Kotlin (Apache 2.0). Tipografías Inter y Poppins (SIL OFL 1.1).</string>
+    <string name="about_licenses">Software de código abierto: AndroidX, Jetpack Compose, Media3 (Apache 2.0), OkHttp (Apache 2.0), Coil (Apache 2.0), Kotlin (Apache 2.0), FFmpeg para audio AC3/DTS (LGPL 2.1, código fuente en ffmpeg.org). Tipografías Inter y Poppins (SIL OFL 1.1).</string>
     <string name="about_rollback_design">Volver al diseño anterior</string>
     <string name="about_title">Información y soporte</string>
     <string name="about_version">Versión de la app</string>
@@ -490,4 +490,10 @@
     <string name="login_auth_failed_locked">Usuario o contraseña incorrectos. Revisa que estén bien escritos (las mayúsculas y minúsculas cuentan) y que tu cuenta siga activa.</string>
     <string name="sync_title">Perfiles en todos tus equipos</string>
     <string name="sync_sub">Los mismos perfiles, favoritos y «Seguir viendo» en tu celular, TV y PC donde entres con la misma cuenta.</string>
+    <string name="external_player">Usar otro reproductor</string>
+    <string name="external_player_sub">Abre películas, series y canales en otra app que tengas instalada (VLC, MX Player, Just Player…) en vez del reproductor de esta app.</string>
+    <string name="player_open_external">Abrir en otro reproductor</string>
+    <string name="player_external_choose">Abrir con…</string>
+    <string name="player_external_none">No tienes otro reproductor instalado. Instala uno (por ejemplo VLC) desde la tienda de tu equipo.</string>
+    <string name="player_audio_unsupported">Este equipo no puede reproducir el audio de este video. Prueba «Abrir en otro reproductor».</string>
 </resources>

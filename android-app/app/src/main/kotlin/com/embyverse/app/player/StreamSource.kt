@@ -25,7 +25,12 @@ object StreamSource {
             .setBufferDurationsMs(if (quickStart) 8_000 else 15_000, 50_000, 1_000, 2_000)
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
-        return ExoPlayer.Builder(context.applicationContext).setLoadControl(loadControl)
+        // Audio: primero los decodificadores del equipo y, si no puede (AC3/E-AC3/DTS/TrueHD en muchos
+        // celulares y TV), el de FFmpeg incluido en la app. Así se oyen todas las películas.
+        val renderers = androidx.media3.exoplayer.DefaultRenderersFactory(context.applicationContext)
+            .setExtensionRendererMode(androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            .setEnableDecoderFallback(true)
+        return ExoPlayer.Builder(context.applicationContext, renderers).setLoadControl(loadControl)
             // Mantiene CPU y Wi-Fi activos mientras se reproduce, aunque no se toque el control.
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()

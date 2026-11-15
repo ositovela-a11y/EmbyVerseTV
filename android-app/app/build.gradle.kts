@@ -35,8 +35,8 @@ android {
         applicationId = if (vendor != null) "com.embyverse.app.v.$vendor" else "com.embyverse.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 35
-        versionName = "1.15.8"
+        versionCode = 36
+        versionName = "1.15.9"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testProguardFiles("test-proguard-rules.pro")
         buildConfigField("String", "CONFIG_BASE_URL", "\"${configBaseUrl.replace("\"", "")}\"")
@@ -172,6 +172,13 @@ dependencies {
     implementation(libs.media3.exoplayer.hls)
     implementation(libs.media3.exoplayer.dash)
     implementation(libs.media3.datasource.okhttp)
+    // Audio AC3/E-AC3/DTS/TrueHD: decodificador FFmpeg (LGPL, solo audio) compilado por
+    // .github/workflows/ffmpeg-audio.yml; las compilaciones lo descargan a app/libs. Sin él, la app compila igual.
+    val ffmpegAar = file("libs/lib-decoder-ffmpeg-release.aar")
+    if (ffmpegAar.exists()) {
+        implementation(files(ffmpegAar))
+        implementation("androidx.media3:media3-decoder:${libs.versions.media3.get()}")
+    }
     implementation(libs.media3.ui)
 
     implementation(libs.okhttp)

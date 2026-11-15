@@ -144,8 +144,11 @@ internal fun PlayerOptions(vm: PlayerViewModel) {
             val night by vm.nightMode.collectAsStateWithLifecycle()
             OptionRow(stringResource(R.string.player_night), night, modifier = Modifier.testTag("player_night")) { vm.setNightMode(!night) }
         }
+        item { OptionRow(stringResource(R.string.player_open_external), false, icon = true, modifier = Modifier.testTag("player_external")) { vm.openExternal() } }
         item { SectionTitle(stringResource(R.string.options_audio)) }
-        if (audio.isEmpty()) item { Hint(stringResource(R.string.options_audio_default)) }
+        val noAudio by vm.audioUnsupported.collectAsStateWithLifecycle()
+        if (noAudio) item { Hint(stringResource(R.string.player_audio_unsupported)) }
+        else if (audio.isEmpty()) item { Hint(stringResource(R.string.options_audio_default)) }
         else {
             val m = claim()
             itemsIndexed(audio, key = { _, a -> a.key }) { i, a -> OptionRow(a.label, a.selected, modifier = if (i == 0) m else Modifier) { vm.selectTrack(a) } }

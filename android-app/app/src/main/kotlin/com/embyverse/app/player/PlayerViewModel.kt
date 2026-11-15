@@ -53,7 +53,10 @@ object PlaybackProbe {
     /** Última pista elegida sola (audio en español o subtítulos forzados), para las pruebas. */
     @Volatile var lastAutoTrack: String? = null
     @Volatile var lastReconnectReason: String? = null
-    fun reset() { readyCount = 0; lastError = null; reconnects = 0; lastReconnectReason = null; lastAutoTrack = null }
+    /** Decodificador de audio en uso (p. ej. el de FFmpeg para AC3/DTS) y si el audio no se pudo decodificar. */
+    @Volatile var audioDecoder: String? = null
+    @Volatile var audioUnsupported = false
+    fun reset() { readyCount = 0; lastError = null; reconnects = 0; lastReconnectReason = null; lastAutoTrack = null; audioDecoder = null; audioUnsupported = false }
 }
 
 /** Pista de audio o subtítulos que se puede elegir en el panel de opciones. */
@@ -256,6 +259,12 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     val zapBanner = MutableStateFlow(false)
     /** En vivo: número de intento de reconexión automática (0 = no está reconectando). */
     val reconnecting = MutableStateFlow(0)
+    /** Pedido de abrir lo que se está viendo en otro reproductor (VLC, MX Player…). */
+    val externalRequest = MutableStateFlow<NowPlaying?>(null)
+    /** true = el reproductor de la app está desactivado en Ajustes: al abrir en otro, se cierra esta pantalla. */
+    val externalOnly get() = prefs.externalPlayer
+    /** El video tiene audio, pero ninguna pista se puede decodificar en este equipo. */
+    val audioUnsupported = MutableStateFlow(false)
 
     private var ref = startRef
     private var prefs = PlaybackPrefs()
@@ -299,6 +308,11 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         if (player.value == null) {
             val p = StreamSource.player(ctx, quickStart = false).apply {
                 addListener(listener)
+                addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+                    override fun onAudioDecoderInitialized(e: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
+                        PlaybackProbe.audioDecoder = decoderName
+                    }
+                })
                 playWhenReady = true
                 // Idiomas: los del perfil (audio en español por defecto) en applyLanguages().
                 trackSelectionParameters = trackSelectionParameters.buildUpon()
@@ -360,8 +374,12 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
             c.library.saveProgress(target, np.title, np.imageUrl, 0, 0)
             updateProgram()
         }
+        if (prefs.externalPlayer) { externalRequest.value = np; buffering.value = false; return } // otro reproductor (Ajustes)
         player.value?.let { prepare(np, resumeFrom) }
     }
+
+    /** Abrir lo que se está viendo en otro reproductor (se pausa aquí). */
+    fun openExternal() { nowPlaying.value?.let { player.value?.pause(); showOptions(false); externalRequest.value = it } }
 
     private suspend fun resolve(r: ItemRef): NowPlaying? {
         val db = c.database
@@ -741,7 +759,13 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
                 learnIntro(a, b); intro.value = null
             }
         }
-        override fun onTracksChanged(tracks: Tracks) { player.value?.let { runCatching { autoPickTracks(it) } }; refreshTracks() }
+        override fun onTracksChanged(tracks: Tracks) {
+            player.value?.let { runCatching { autoPickTracks(it) } }; refreshTracks()
+            val audioGroups = tracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
+            audioUnsupported.value = audioGroups.isNotEmpty() && audioGroups.none { g -> (0 until g.length).any { g.isTrackSupported(it) } }
+            PlaybackProbe.audioUnsupported = audioUnsupported.value
+            if (audioUnsupported.value) PlaybackProbe.lastError = "AUDIO_SIN_DECODIFICADOR: " + audioGroups.joinToString { g -> g.getTrackFormat(0).sampleMimeType.orEmpty() }
+        }
         override fun onTrackSelectionParametersChanged(parameters: androidx.media3.common.TrackSelectionParameters) { refreshTracks() }
         override fun onPlaybackStateChanged(state: Int) {
             buffering.value = state == Player.STATE_BUFFERING || state == Player.STATE_IDLE && error.value == null

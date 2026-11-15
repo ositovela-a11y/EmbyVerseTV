@@ -1090,4 +1090,38 @@ class SmokeFlowTest {
         assertTrue("perfil borrado en todos los equipos", c.database.profiles().all().none { it.name == "Papá" })
         log("Perfiles de la cuenta: subir, recibir de la TV y borrar funcionan")
     }
+
+    /** Películas con audio AC3 (Dolby) y DTS: se oyen gracias al decodificador FFmpeg; y la opción de otro reproductor. */
+    @Test fun z_audioAc3DtsYOtroReproductor() {
+        val c = app.container
+        val movie = runBlocking { c.database.movies().observeAll(1).first().first() }
+        for (codec in listOf("ac3", "dts")) {
+            mock("/__vod?file=$codec")
+            try {
+                PlaybackProbe.reset()
+                ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("MOVIE", movie.sourceId, movie.providerId, "restart")).use {
+                    try { compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 && (PlaybackProbe.audioDecoder != null || PlaybackProbe.audioUnsupported) } }
+                    catch (e: ComposeTimeoutException) { shot("fallo-audio-$codec"); fail("$codec no arrancó: ${PlaybackProbe.lastError}") }
+                    Thread.sleep(1_500)
+                    log("Audio $codec: decodificador «${PlaybackProbe.audioDecoder}» · sin soporte=${PlaybackProbe.audioUnsupported}")
+                    if (PlaybackProbe.audioUnsupported) shot("audio-$codec-sin-soporte")
+                    assertTrue("$codec: el audio debe sonar (decodificador ${PlaybackProbe.audioDecoder})", !PlaybackProbe.audioUnsupported && PlaybackProbe.audioDecoder != null)
+                }
+            } finally { mock("/__vod?file=") }
+        }
+        // Opción «Usar otro reproductor» en Ajustes › Reproducción y en el panel del reproductor.
+        ActivityScenario.launch(MainActivity::class.java).use {
+            waitTag("nav_settings", 30_000)
+            compose.onNodeWithTag("nav_settings", useUnmergedTree = true).performClick()
+            compose.onNodeWithText(app.getString(R.string.playback_title), useUnmergedTree = true).performClick()
+            waitFor("opción otro reproductor", 15_000) { compose.onAllNodesWithText(app.getString(R.string.external_player), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+            runCatching { compose.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performScrollToNode(androidx.compose.ui.test.hasText(app.getString(R.string.external_player))) }
+            Thread.sleep(600); shot("40-ajustes-otro-reproductor")
+        }
+        val np = com.embyverse.app.player.NowPlaying(com.embyverse.app.data.repo.ItemRef(com.embyverse.core.model.ContentKind.MOVIE, movie.sourceId, movie.providerId), "Ajuste de cuentas", null, null, "http://10.0.2.2:8800/movie/u/p/1.mkv", null, null)
+        val i = com.embyverse.app.player.ExternalPlayer.intent(app, np)
+        val inner = i.getParcelableExtra<android.content.Intent>(android.content.Intent.EXTRA_INTENT)!!
+        assertTrue("se manda la película con su título a otro reproductor", inner.action == android.content.Intent.ACTION_VIEW && inner.type == "video/*" && inner.getStringExtra("title") == "Ajuste de cuentas")
+        log("Otro reproductor: opción en Ajustes y datos que se envían correctos")
+    }
 }

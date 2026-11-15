@@ -52,6 +52,13 @@ jobs:
           "$SDKM" --install "platforms;android-37.0" "build-tools;36.0.0" 2>&1 | tail -3 || true
           "$SDKM" --install "platforms;android-37" 2>&1 | tail -3 || true
           echo "::notice::Instaladas: $(ls "$ANDROID_HOME/platforms" | tr '\n' ' ')"
+      - name: Decodificador de audio FFmpeg (AC3/DTS)
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          mkdir -p android-app/app/libs
+          V=$(grep -oP '^media3 = "\K[^"]+' android-app/gradle/libs.versions.toml)
+          if gh release download "ffmpeg-media3-$V" -p 'lib-decoder-ffmpeg-release.aar' -D android-app/app/libs -R ${{ github.repository }} --clobber; then echo "::notice::Audio FFmpeg incluido (Media3 $V)"
+          else echo "::warning::Sin decodificador FFmpeg para Media3 $V: corre el flujo «Decodificador de audio (FFmpeg)»"; fi
       - uses: actions/setup-node@v5
         with: { node-version: 22 }
       - name: Aplicar nombre y logotipo del Design Studio

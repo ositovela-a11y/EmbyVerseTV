@@ -19,6 +19,8 @@
 
     <queries>
         <intent><action android:name="android.speech.action.RECOGNIZE_SPEECH" /></intent>
+        <!-- Otros reproductores de video instalados (opción «Abrir en otro reproductor»). -->
+        <intent><action android:name="android.intent.action.VIEW" /><data android:mimeType="video/*" /></intent>
         <intent><action android:name="android.speech.RecognitionService" /></intent>
     </queries>
 

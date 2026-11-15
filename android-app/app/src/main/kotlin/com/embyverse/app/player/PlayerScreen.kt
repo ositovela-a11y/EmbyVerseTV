@@ -91,6 +91,16 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
     val castingTo by vm.castingTo.collectAsStateWithLifecycle()
     val aspectMode by vm.aspect.collectAsStateWithLifecycle()
     val reconnecting by vm.reconnecting.collectAsStateWithLifecycle()
+    // Otro reproductor (VLC, MX Player…): se le pasa la dirección del video y su título.
+    val external by vm.externalRequest.collectAsStateWithLifecycle()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(external) {
+        val e = external ?: return@LaunchedEffect
+        vm.externalRequest.value = null
+        val ok = ExternalPlayer.open(ctx, e)
+        if (!ok) android.widget.Toast.makeText(ctx, R.string.player_external_none, android.widget.Toast.LENGTH_LONG).show()
+        if (vm.externalOnly) onClose()
+    }
     // Calidad real del video que se está viendo (ExoPlayer ya elige la mejor según la red).
     var videoHeight by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
     LaunchedEffect(player) {

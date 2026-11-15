@@ -6,7 +6,7 @@
     <string name="about_design_status">Remote design</string>
     <string name="about_design_version">Design version</string>
     <string name="about_disclaimer">EmbyVerse is a player. It does not host, sell or distribute channels or content. Content and its legality are the responsibility of the provider and the user.</string>
-    <string name="about_licenses">Open-source software: AndroidX, Jetpack Compose, Media3 (Apache 2.0), OkHttp (Apache 2.0), Coil (Apache 2.0), Kotlin (Apache 2.0). Inter and Poppins typefaces (SIL OFL 1.1).</string>
+    <string name="about_licenses">Open-source software: AndroidX, Jetpack Compose, Media3 (Apache 2.0), OkHttp (Apache 2.0), Coil (Apache 2.0), Kotlin (Apache 2.0), FFmpeg for AC3/DTS audio (LGPL 2.1, source code at ffmpeg.org). Inter and Poppins typefaces (SIL OFL 1.1).</string>
     <string name="about_rollback_design">Revert to previous design</string>
     <string name="about_title">About &amp; support</string>
     <string name="about_version">App version</string>
@@ -489,4 +489,10 @@
     <string name="login_auth_failed_locked">Wrong username or password. Check the spelling (it is case-sensitive) and that your account is still active.</string>
     <string name="sync_title">Profiles on all your devices</string>
     <string name="sync_sub">The same profiles, favorites and “Continue watching” on your phone, TV and PC with the same account.</string>
+    <string name="external_player">Use another player</string>
+    <string name="external_player_sub">Open movies, series and channels in another installed app (VLC, MX Player, Just Player…) instead of this app\'s player.</string>
+    <string name="player_open_external">Open in another player</string>
+    <string name="player_external_choose">Open with…</string>
+    <string name="player_external_none">You don\'t have another player installed. Install one (for example VLC) from your device\'s store.</string>
+    <string name="player_audio_unsupported">This device can\'t play this video\'s audio. Try “Open in another player”.</string>
 </resources>

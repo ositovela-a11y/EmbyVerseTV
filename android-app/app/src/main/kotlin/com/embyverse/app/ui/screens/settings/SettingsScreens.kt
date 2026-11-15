@@ -443,6 +443,7 @@ fun PlaybackSettingsScreen(nav: Navigator) {
             if (!t.device.isTv) item { SwitchRow(stringResource(R.string.data_saver), stringResource(R.string.data_saver_sub), p.dataSaver) { v -> vm.update { it.copy(dataSaver = v) } } }
             item { SwitchRow(stringResource(R.string.intro_sound), stringResource(R.string.intro_sound_sub), p.introSound) { v -> vm.update { it.copy(introSound = v) } } }
             if (t.device.isTv) item { SwitchRow(stringResource(R.string.nav_sounds), stringResource(R.string.nav_sounds_sub), p.navSounds) { v -> vm.update { it.copy(navSounds = v) } } }
+            item { Box(Modifier.testTag("external_player")) { SwitchRow(stringResource(R.string.external_player), stringResource(R.string.external_player_sub), p.externalPlayer) { v -> vm.update { it.copy(externalPlayer = v) } } } }
             item { SwitchRow(stringResource(R.string.start_last_channel), stringResource(R.string.start_last_channel_sub), p.startOnLastChannel) { v -> vm.update { it.copy(startOnLastChannel = v) } } }
             item { SwitchRow(stringResource(R.string.screensaver), stringResource(R.string.screensaver_sub), p.screensaver) { v -> vm.update { it.copy(screensaver = v) } } }
             item { Text(stringResource(R.string.menu_awake), style = MaterialTheme.typography.titleMedium, color = t.onBackground) }

@@ -46,6 +46,8 @@ data class PlaybackPrefs(
     val screensaver: Boolean = true,
     /** Al abrir la app, entrar directo al último canal que se vio (como una TV normal). */
     val startOnLastChannel: Boolean = false,
+    /** Abrir películas, series y canales en otro reproductor instalado (VLC, MX Player…) en vez del de la app. */
+    val externalPlayer: Boolean = false,
     /** Subtítulos: tamaño 0 (chico) – 3 (muy grande), color y fondo. */
     val subtitleSize: Int = 1,
     val subtitleYellow: Boolean = false,
@@ -145,6 +147,7 @@ class PreferencesRepository(private val context: Context) {
     private val NAV_SOUNDS = booleanPreferencesKey("app.navSounds")
     private val SCREENSAVER = booleanPreferencesKey("app.screensaver")
     private val LAST_CHANNEL = booleanPreferencesKey("app.startOnLastChannel")
+    private val EXTERNAL_PLAYER = booleanPreferencesKey("play.externalPlayer")
     private val SUB_SIZE = intPreferencesKey("play.subSize")
     private val SUB_YELLOW = booleanPreferencesKey("play.subYellow")
     private val SUB_BG = intPreferencesKey("play.subBg")
@@ -175,6 +178,7 @@ class PreferencesRepository(private val context: Context) {
             navSounds = p[NAV_SOUNDS] ?: true,
             screensaver = p[SCREENSAVER] ?: true,
             startOnLastChannel = p[LAST_CHANNEL] ?: false,
+            externalPlayer = p[EXTERNAL_PLAYER] ?: false,
             subtitleSize = p[SUB_SIZE] ?: 1,
             subtitleYellow = p[SUB_YELLOW] ?: false,
             subtitleBackground = p[SUB_BG] ?: 1,
@@ -207,6 +211,7 @@ class PreferencesRepository(private val context: Context) {
             p[NAV_SOUNDS] = n.navSounds
             p[SCREENSAVER] = n.screensaver
             p[LAST_CHANNEL] = n.startOnLastChannel
+            p[EXTERNAL_PLAYER] = n.externalPlayer
             p[SUB_SIZE] = n.subtitleSize; p[SUB_YELLOW] = n.subtitleYellow; p[SUB_BG] = n.subtitleBackground
             p[NIGHT] = n.nightMode; p[DATA_SAVER] = n.dataSaver
             p[ASPECT] = n.aspectMode; p[LITE] = n.liteMode
