@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": 4,
-  "publishedAt": "2026-11-15T17:55:47Z",
+  "version": 5,
+  "publishedAt": "2026-11-15T18:35:29Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "Planetatv",
@@ -13,25 +13,25 @@
   },
   "theme": {
     "palette": {
-      "primary": "#E50914",
-      "secondary": "#B20710",
-      "accent": "#FF4D57",
-      "background": "#0B0B0B",
-      "surface": "#161616",
-      "surfaceVariant": "#232323",
+      "primary": "#78F646",
+      "secondary": "#47E00B",
+      "accent": "#70ff0e",
+      "background": "#070812",
+      "surface": "#0E1024",
+      "surfaceVariant": "#151837",
       "onBackground": "#F2F4F8",
       "onSurface": "#E3E7EE",
-      "textSecondary": "#A3A3A3",
-      "onPrimary": "#FFFFFF",
-      "buttonBackground": "#E50914",
-      "buttonText": "#FFFFFF",
-      "focusRing": "#FF4D57",
+      "textSecondary": "#A2A4B9",
+      "onPrimary": "#0A0F18",
+      "buttonBackground": "#78F646",
+      "buttonText": "#0A0F18",
+      "focusRing": "#70ff0e",
       "error": "#FF5A6E"
     },
     "background": {
       "style": "solid",
-      "gradientStart": "#0B0B0B",
-      "gradientEnd": "#1A0405"
+      "gradientStart": "#070812",
+      "gradientEnd": "#17310C"
     },
     "typography": {
       "family": "inter",
@@ -62,19 +62,19 @@
       "id": "vendor",
       "name": "Cine Rojo",
       "palette": {
-        "primary": "#E50914",
-        "secondary": "#B20710",
-        "accent": "#FF4D57",
-        "background": "#0B0B0B",
-        "surface": "#161616",
-        "surfaceVariant": "#232323",
+        "primary": "#78F646",
+        "secondary": "#47E00B",
+        "accent": "#70ff0e",
+        "background": "#070812",
+        "surface": "#0E1024",
+        "surfaceVariant": "#151837",
         "onBackground": "#F2F4F8",
         "onSurface": "#E3E7EE",
-        "textSecondary": "#A3A3A3",
-        "onPrimary": "#FFFFFF",
-        "buttonBackground": "#E50914",
-        "buttonText": "#FFFFFF",
-        "focusRing": "#FF4D57",
+        "textSecondary": "#A2A4B9",
+        "onPrimary": "#0A0F18",
+        "buttonBackground": "#78F646",
+        "buttonText": "#0A0F18",
+        "focusRing": "#70ff0e",
         "error": "#FF5A6E"
       }
     }
