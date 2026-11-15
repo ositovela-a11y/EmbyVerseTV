@@ -4,7 +4,8 @@ import { currentTarget, githubApi, linksFor, setTarget, type Vendor } from '../a
 import { Group, Notice } from './ui';
 import { fixImage } from '../image-fix';
 import { VENDOR_THEMES } from '../vendor-themes';
-import { closestTheme, logoColors } from '../logo-colors';
+import { closestTheme, logoColors, type BrandColors } from '../logo-colors';
+import { removeLogoBackground } from '../logo-cutout';
 
 /**
  * Selector de la app que se está editando, separado en dos: «App de clientes» (la principal, la que usan
@@ -153,6 +154,111 @@ function Links({ slug }: { slug: string }) {
   );
 }
 
+/** Tarjetas de temas (con vista previa de colores, tarjetas y botón). */
+function ThemeGrid({ value, onPick }: { value: string | null; onPick: (id: string) => void }) {
+  return (
+    <div className="vt-grid">
+      {VENDOR_THEMES.map((th) => (
+        <button type="button" key={th.id} className={`vt ${value === th.id ? 'on' : ''}`} onClick={() => onPick(th.id)} aria-pressed={value === th.id}
+          style={{ background: th.background.style === 'solid' ? th.palette.background : `linear-gradient(150deg, ${th.background.gradientStart}, ${th.background.gradientEnd})`, borderRadius: Math.min(th.radius.card, 16) }}>
+          <span className="vt-name" style={{ color: th.palette.onBackground, fontFamily: th.family === 'poppins' ? 'Poppins, sans-serif' : th.family === 'inter' ? 'Inter, sans-serif' : 'system-ui' }}>{th.name}</span>
+          <span className="vt-cards">{[0, 1, 2].map((i) => <i key={i} style={{ background: th.palette.surfaceVariant, borderRadius: th.radius.card / 2, outline: i === 0 ? `2px solid ${th.palette.accent}` : 'none' }} />)}</span>
+          <span className="vt-btn" style={{ background: th.button === 'outlined' ? 'transparent' : th.palette.primary, color: th.button === 'outlined' ? th.palette.primary : th.palette.buttonText, border: `2px solid ${th.palette.primary}`, borderRadius: th.radius.button }}>Reproducir</span>
+          <span className="vt-desc" style={{ color: th.palette.textSecondary }}>{th.desc}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Editor rápido de una app ya creada (la tuya o la de un vendedor): cambiar el tema con el que arranca,
+ * sus colores y su logotipo (se le quita el fondo solo). Se publica al guardar y le llega a sus clientes.
+ */
+function AppLookEditor({ slug, name, onClose }: { slug: string; name: string; onClose: () => void }) {
+  const [loaded, setLoaded] = useState(false);
+  const [themeId, setThemeId] = useState<string | null>(null);
+  const [colors, setColors] = useState<BrandColors>({ primary: '#7BE52F', accent: '#22D3EE', background: '#02050C' });
+  const [curLogo, setCurLogo] = useState<string | null>(null);
+  const [orig, setOrig] = useState<File | null>(null);       // logotipo tal cual lo subió
+  const [cut, setCut] = useState<File | null>(null);         // logotipo sin fondo
+  const [useCut, setUseCut] = useState(true);
+  const [prev, setPrev] = useState(''); const [note, setNote] = useState('');
+  const [dirty, setDirty] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  useEffect(() => {
+    void githubApi.appLook(slug).then((l) => { setThemeId(l.themeId); setColors(l.colors); setCurLogo(l.logo); setLoaded(true); })
+      .catch((e) => setMsg({ kind: 'error', text: e instanceof Error ? e.message : 'No se pudo leer la app.' }));
+  }, [slug]);
+  const logoFile = orig ? (useCut && cut ? cut : orig) : null;
+  useEffect(() => {
+    if (!logoFile) return;
+    const u = URL.createObjectURL(logoFile); setPrev(u);
+    return () => URL.revokeObjectURL(u);
+  }, [logoFile]);
+  const pickTheme = (id: string) => { setThemeId(id); const p = VENDOR_THEMES.find((t) => t.id === id)!.palette; setColors({ primary: p.primary!, accent: p.accent!, background: p.background! }); setDirty(true); };
+  const pickLogo = async (f: File | undefined) => {
+    if (!f) return; setNote('Preparando el logotipo…'); setMsg(null);
+    try {
+      const r0 = await fixImage(f, 'logo');
+      const c = await removeLogoBackground(r0.file).catch(() => null);
+      setOrig(r0.file); setCut(c?.removed || (c && c.file !== r0.file) ? c.file : null); setUseCut(true);
+      const lc = await logoColors(c?.file ?? r0.file).catch(() => null);
+      if (lc) { setThemeId(closestTheme(VENDOR_THEMES, lc.primary).id); setColors(lc); }
+      setNote([c?.note, lc ? '🎨 Colores tomados del logotipo (puedes ajustarlos o elegir otro tema).' : ''].filter(Boolean).join(' '));
+      setDirty(true);
+    } catch (e) { setNote(e instanceof Error ? e.message : 'No se pudo abrir la imagen.'); }
+  };
+  const save = async () => {
+    setBusy(true); setMsg(null);
+    try {
+      const r = await githubApi.restyleApp(slug, { themeId, colors, logo: logoFile });
+      setMsg({ kind: 'ok', text: `✓ Publicado (versión ${r.version}). Sus clientes lo ven al abrir la app.${slug && logoFile ? ' El ícono de su APK se actualiza en unos 10 minutos.' : ''}` });
+      setDirty(false); setOrig(null); setCut(null);
+      if (currentTarget() === slug) setTimeout(() => location.reload(), 1500); // el estudio estaba abierto en esta app
+    } catch (e) { setMsg({ kind: 'error', text: e instanceof Error ? e.message : 'No se pudo publicar.' }); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="app-look" aria-label={`Tema y logotipo de ${name}`}>
+      {!loaded && !msg && <span className="hint">Cargando…</span>}
+      {loaded && <>
+        <b>Tema con el que arranca la app</b> <span className="hint">Colores, fondo, letra, bordes y forma del menú. Puedes cambiarlo cuando quieras.</span>
+        <ThemeGrid value={themeId} onPick={pickTheme} />
+        <div className="vendor-brand">
+          <div className="vendor-logo-pick">
+            <div className="vendor-logo-box checker" style={{ background: colors.background }}>
+              {prev && logoFile ? <img src={prev} alt="Logotipo nuevo" /> : curLogo ? <img src={curLogo} alt="Logotipo actual" /> : <span>Sin logotipo</span>}
+            </div>
+            <label className="btn-ghost">{curLogo || orig ? 'Cambiar logotipo' : 'Subir logotipo'}
+              <input type="file" accept="image/*" hidden aria-label="Logotipo" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; void pickLogo(f); }} />
+            </label>
+            {orig && cut && <label className="hint"><input type="checkbox" checked={useCut} onChange={(e) => setUseCut(e.target.checked)} /> Quitar el fondo (desmarca si prefieres la imagen original)</label>}
+            {note && <span className="hint">{note}</span>}
+          </div>
+          <div className="vendor-colors">
+            {([['primary', 'Color principal (botones)'], ['accent', 'Color de acento (foco y detalles)'], ['background', 'Fondo']] as const).map(([k, label]) => (
+              <label key={k}><input type="color" value={colors[k]} onChange={(e) => { setColors((c) => ({ ...c, [k]: e.target.value })); setDirty(true); }} /> <span>{label}</span></label>
+            ))}
+            <div className="vendor-preview" style={{ background: colors.background }}>
+              {(prev && logoFile) || curLogo ? <img src={prev && logoFile ? prev : curLogo!} alt="" style={{ height: 40 }} /> : null}
+              <b style={{ color: colors.accent }}>{name}</b>
+              <span style={{ background: colors.primary }} className="vp-btn">Reproducir</span>
+            </div>
+          </div>
+        </div>
+        <div className="dl-row">
+          <button className="btn" disabled={busy || !dirty || !themeId} onClick={() => void save()}>{busy ? 'Publicando…' : 'Guardar y publicar'}</button>
+          <button className="btn-ghost" onClick={onClose}>Cerrar</button>
+          {!themeId && <span className="hint">Elige un tema para poder guardar.</span>}
+        </div>
+      </>}
+      {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
+    </div>
+  );
+}
+
 export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: () => void }) {
   const [name, setName] = useState('');
   const [mode, setMode] = useState<'mine' | 'ask'>('mine');
@@ -167,7 +273,9 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
   const pickLogo = async (f: File | undefined) => {
     setLogoNote(''); if (!f) return;
     try {
-      const r = await fixImage(f, 'logo');
+      const r0 = await fixImage(f, 'logo');
+      const cut = await removeLogoBackground(r0.file).catch(() => null);
+      const r = cut ? { ...r0, file: cut.file, note: `${r0.changed ? r0.note + ' ' : ''}${cut.note}`, changed: true } : r0;
       setLogo(r.file);
       // Colores de la app tomados del logotipo (se pueden ajustar abajo).
       const lc = await logoColors(r.file).catch(() => null);
@@ -178,6 +286,7 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
       setLogoPrev((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(r.file); });
     } catch (e) { setLogo(null); setLogoPrev(''); setLogoNote(e instanceof Error ? e.message : 'No se pudo abrir la imagen.'); }
   };
+  const [look, setLook] = useState<string | null>(null); // app abierta en el editor rápido de tema y logotipo
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'error' | 'info'; text: string } | null>(null);
   const cur = currentTarget();
@@ -202,17 +311,7 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
         </form>
         <div className="vendor-themes" role="radiogroup" aria-label="Tema de la app">
           <b>1. Elige un tema</b> <span className="hint">Cambia colores, fondo, letra, bordes y la forma del menú: así su app no se ve igual a la tuya.</span>
-          <div className="vt-grid">
-            {VENDOR_THEMES.map((th) => (
-              <button type="button" key={th.id} className={`vt ${themeId === th.id ? 'on' : ''}`} onClick={() => pickTheme(th.id)} aria-pressed={themeId === th.id}
-                style={{ background: th.background.style === 'solid' ? th.palette.background : `linear-gradient(150deg, ${th.background.gradientStart}, ${th.background.gradientEnd})`, borderRadius: Math.min(th.radius.card, 16) }}>
-                <span className="vt-name" style={{ color: th.palette.onBackground, fontFamily: th.family === 'poppins' ? 'Poppins, sans-serif' : th.family === 'inter' ? 'Inter, sans-serif' : 'system-ui' }}>{th.name}</span>
-                <span className="vt-cards">{[0, 1, 2].map((i) => <i key={i} style={{ background: th.palette.surfaceVariant, borderRadius: th.radius.card / 2, outline: i === 0 ? `2px solid ${th.palette.accent}` : 'none' }} />)}</span>
-                <span className="vt-btn" style={{ background: th.button === 'outlined' ? 'transparent' : th.palette.primary, color: th.button === 'outlined' ? th.palette.primary : th.palette.buttonText, border: `2px solid ${th.palette.primary}`, borderRadius: th.radius.button }}>Reproducir</span>
-                <span className="vt-desc" style={{ color: th.palette.textSecondary }}>{th.desc}</span>
-              </button>
-            ))}
-          </div>
+          <ThemeGrid value={themeId} onPick={pickTheme} />
         </div>
         <b style={{ display: 'block', marginTop: 14 }}>2. Logotipo: la app toma sus colores automáticamente (puedes ajustarlos)</b>
         <div className="vendor-brand">
@@ -249,7 +348,9 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
       </Group>
       <Group title="Tus apps" hint="«Editar su app» abre su diseño en el estudio; al publicar solo cambia esa app.">
         <div className={`vendor ${cur === '' ? 'on' : ''}`}>
-          <div className="vendor-head"><b>App principal</b>{cur === '' ? <span className="pill pill-ok">Editando</span> : <button className="btn-ghost" onClick={() => { setTarget(''); location.reload(); }}>Editar su app</button>}</div>
+          <div className="vendor-head"><b>App principal</b>{cur === '' ? <span className="pill pill-ok">Editando</span> : <button className="btn-ghost" onClick={() => { setTarget(''); location.reload(); }}>Editar su app</button>}
+            <button className="btn-ghost" onClick={() => setLook(look === '' ? null : '')} aria-expanded={look === ''}>🎨 Tema y logotipo</button></div>
+          {look === '' && <AppLookEditor slug="" name="App principal" onClose={() => setLook(null)} />}
           <Links slug="" />
         </div>
         {vendors.length === 0 && <p className="hint">Todavía no hay vendedores.</p>}
@@ -258,8 +359,10 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
             <div className="vendor-head">
               <b>{v.name}</b><span className="hint">id: {v.slug}</span>
               {cur === v.slug ? <span className="pill pill-ok">Editando</span> : <button className="btn-ghost" onClick={() => { setTarget(v.slug); location.reload(); }}>Editar su app</button>}
+              <button className="btn-ghost" onClick={() => setLook(look === v.slug ? null : v.slug)} aria-expanded={look === v.slug}>🎨 Tema y logotipo</button>
               <button className="link danger" disabled={busy} onClick={() => { if (confirm(`¿Eliminar la app de ${v.name}? Su APK dejará de actualizarse.`)) void run(() => githubApi.deleteVendor(v.slug), `${v.name} eliminado`); }}>Eliminar</button>
             </div>
+            {look === v.slug && <AppLookEditor slug={v.slug} name={v.name} onClose={() => setLook(null)} />}
             <Links slug={v.slug} />
           </div>
         ))}
