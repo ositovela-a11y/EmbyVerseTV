@@ -10,7 +10,9 @@
     var v = (q.get('v') || '').toLowerCase();
     var name = /^[a-z][a-z0-9]{1,30}$/.test(v) ? v : 'EmbyVerse';
     var kind = q.get('portable') ? 'Portable' : 'Instalador';
-    window.PC_URL = 'https://github.com/ositovela-a11y/EmbyVerseTV/releases/download/pc-latest/' + name + '-PC-' + kind + '.exe';
+    var file = name + '-PC-' + kind + '.exe';
+    // Con tu dominio el instalador baja desde ahí; en la dirección vieja, desde GitHub.
+    window.PC_URL = /github\.io$/.test(location.hostname) ? 'https://github.com/ositovela-a11y/EmbyVerseTV/releases/download/pc-latest/' + file : '/descargas/pc/' + file;
     var go = function () { location.replace(window.PC_URL); };
     // Conteo de descargas para el panel (sin datos personales).
     try {
