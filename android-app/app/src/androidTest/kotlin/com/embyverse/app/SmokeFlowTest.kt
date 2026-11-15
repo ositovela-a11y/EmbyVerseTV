@@ -1094,6 +1094,7 @@ class SmokeFlowTest {
         c.database.profiles().all().filter { it.name == "Niños" }.forEach { c.library.deleteProfile(it.id) }
         c.prefs.setActiveProfile(c.database.profiles().all().first().id)
         app.getSharedPreferences("account_sync", android.content.Context.MODE_PRIVATE).edit().clear().commit()
+        Unit // las pruebas no devuelven valor
     }
 
     /** Películas con audio AC3 (Dolby) y DTS: se oyen gracias al decodificador FFmpeg; y la opción de otro reproductor. */
