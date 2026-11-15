@@ -45,16 +45,21 @@ jobs:
         if: steps.ready.outputs.ok == '1'
         working-directory: stats-worker
         run: |
-          npm i -g wrangler@4.20.0 > /dev/null 2>&1
+          npm i -g wrangler@4 > /dev/null 2>&1
           dbid() { wrangler d1 list --json 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s).find(d=>d.name==='embyverse-stats');console.log(x?(x.uuid||x.id||''):'')}catch{console.log('')}})"; }
           ID=$(dbid)
           if [ -z "$ID" ]; then wrangler d1 create embyverse-stats; ID=$(dbid); fi
           [ -n "$ID" ] || { echo "::error::No se pudo crear la base de datos en Cloudflare (revisa los permisos del token: Workers y D1 en Editar)."; exit 1; }
           sed -i "s/database_id = \"LOCAL\"/database_id = \"$ID\"/" wrangler.toml
           wrangler d1 execute embyverse-stats --remote --file=schema.sql -y
-          wrangler deploy 2>&1 | tee deploy.txt
+          # La primera vez Cloudflare tarda unos segundos en dar de alta el servidor: se reintenta.
+          URL=""
+          for i in 1 2 3; do
+            wrangler deploy 2>&1 | tee deploy.txt || true
+            URL=$(grep -o 'https://[a-z0-9.-]*\.workers\.dev' deploy.txt | head -1)
+            [ -n "$URL" ] && break; sleep 15
+          done
           printf '%s' "$ADMIN_KEY" | wrangler secret put ADMIN_KEY
-          URL=$(grep -o 'https://[a-z0-9.-]*\.workers\.dev' deploy.txt | head -1)
           [ -n "$URL" ] || { echo "::error::Se publicó pero no salió la dirección. En Cloudflare entra una vez a «Workers y Pages» para que te asigne tu subdominio workers.dev."; exit 1; }
           curl -fsS "$URL/v1" && echo
           echo "URL=$URL" >> $GITHUB_ENV
