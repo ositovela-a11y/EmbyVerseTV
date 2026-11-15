@@ -1124,8 +1124,12 @@ class SmokeFlowTest {
             waitTag("nav_settings", 30_000)
             compose.onNodeWithTag("nav_settings", useUnmergedTree = true).performClick()
             compose.onNodeWithText(app.getString(R.string.playback_title), useUnmergedTree = true).performClick()
-            waitFor("opción otro reproductor", 15_000) { compose.onAllNodesWithText(app.getString(R.string.external_player), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
-            runCatching { compose.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performScrollToNode(androidx.compose.ui.test.hasText(app.getString(R.string.external_player))) }
+            waitText(app.getString(R.string.forced_subs))
+            // Está más abajo en la lista: se baja hasta la opción.
+            waitFor("opción otro reproductor", 20_000) {
+                runCatching { compose.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("external_player")) }
+                compose.onAllNodesWithTag("external_player", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+            }
             Thread.sleep(600); shot("40-ajustes-otro-reproductor")
         }
         val np = com.embyverse.app.player.NowPlaying(com.embyverse.app.data.repo.ItemRef(com.embyverse.core.model.ContentKind.MOVIE, movie.sourceId, movie.providerId), "Ajuste de cuentas", null, null, "http://10.0.2.2:8800/movie/u/p/1.mkv", null, null)
