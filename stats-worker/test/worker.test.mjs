@@ -1,0 +1,37 @@
+// Prueba del servidor de estadísticas: avisos de apps, descargas, separación por app/vendedor y clave del panel.
+import worker from '../src/index.js';
+import { makeDB } from './d1-shim.mjs';
+import { fileURLToPath } from 'node:url';
+const env = { DB: makeDB(fileURLToPath(new URL('../schema.sql', import.meta.url))), ADMIN_KEY: 'clave-de-prueba' };
+let fails = 0;
+const ok = (c, m) => { console.log(`${c ? '✔' : '✘'} ${m}`); if (!c) fails++; };
+const call = (path, init = {}, country = 'MX') => worker.fetch(new Request('https://x.test' + path, { ...init, headers: { 'cf-ipcountry': country, ...(init.headers || {}) } }), env);
+const ping = (b, c) => call('/v1/ping', { method: 'POST', body: JSON.stringify(b), headers: { 'content-type': 'application/json' } }, c);
+
+ok((await ping({ id: 'dev-aaaa-1111', app: '', platform: 'android', model: 'Pixel 7', version: '1.15.5', user: 'juan01', host: 'krnosmx.com' })).status === 200, 'aviso de la app principal');
+ok((await ping({ id: 'dev-aaaa-1111', app: '', platform: 'android', model: 'Pixel 7', version: '1.15.6', user: '' })).status === 200, 'segundo aviso del mismo equipo');
+ok((await ping({ id: 'dev-bbbb-2222', app: 'nandotv', platform: 'androidtv', model: 'Chromecast', version: '1.15.5', user: 'pedro', host: 'otro.tv' }, 'US')).status === 200, 'aviso de la app de un vendedor');
+ok((await ping({ id: 'dev-cccc-3333', app: 'nandotv', platform: 'pc', model: 'Windows', version: '1.2.0', user: 'luis' })).status === 200, 'aviso de PC del vendedor');
+ok((await ping({ id: 'x', app: '' })).status === 400, 'id inválido rechazado');
+ok((await ping({ id: 'dev-dddd-4444', app: 'Mal Slug!' })).status === 400, 'vendedor inválido rechazado');
+ok((await call('/v1/ping', { method: 'POST', body: 'no-json' })).status === 400, 'cuerpo que no es JSON rechazado');
+for (let i = 0; i < 3; i++) await call('/v1/dl?app=&platform=android');
+await call('/v1/dl?app=nandotv&platform=pc');
+ok((await call('/v1/dl?app=nandotv&platform=pc')).status === 204, 'conteo de descargas');
+ok((await call('/v1/stats')).status === 401, 'sin clave no se ven estadísticas');
+ok((await call('/v1/stats', { headers: { authorization: 'Bearer otra' } })).status === 401, 'clave equivocada rechazada');
+const s = await (await call('/v1/stats', { headers: { authorization: 'Bearer clave-de-prueba' } })).json();
+const a = s.devices.find((d) => d.id === 'dev-aaaa-1111');
+ok(s.devices.length === 3, `3 equipos registrados (${s.devices.length})`);
+ok(a.opens === 2 && a.version === '1.15.6' && a.xuser === 'juan01', 'el mismo equipo suma aperturas, actualiza versión y conserva el usuario');
+ok(s.devices.filter((d) => d.app === 'nandotv').length === 2 && s.devices.filter((d) => d.app === '').length === 1, 'separados: app principal vs vendedor');
+ok(s.devices.find((d) => d.id === 'dev-bbbb-2222').country === 'US', 'país del equipo');
+const dl = (app, p) => s.downloads.filter((d) => d.app === app && d.platform === p).reduce((t, d) => t + d.n, 0);
+ok(dl('', 'android') === 3 && dl('nandotv', 'pc') === 2, 'descargas por app y plataforma');
+ok(!JSON.stringify(s).includes('password'), 'nunca hay contraseñas');
+ok((await call('/v1/devices/dev-cccc-3333', { method: 'DELETE', headers: { authorization: 'Bearer clave-de-prueba' } })).status === 200, 'borrar un equipo');
+const s2 = await (await call('/v1/stats', { headers: { authorization: 'Bearer clave-de-prueba' } })).json();
+ok(s2.devices.length === 2, 'equipo borrado');
+ok((await call('/v1/stats', { method: 'OPTIONS' })).headers.get('access-control-allow-origin') === '*', 'el panel puede consultarlo (CORS)');
+console.log(fails ? `\n${fails} FALLAS` : '\nTODO BIEN');
+process.exit(fails ? 1 : 0);

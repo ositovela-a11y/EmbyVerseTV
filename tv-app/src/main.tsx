@@ -1,3 +1,4 @@
+import { reportStats } from './stats';
 import { clientFor } from './m3u';
 import './polyfills';
 import './styles.css';
@@ -75,6 +76,8 @@ function App() {
     check(); const i = setInterval(check, 60_000); return () => clearInterval(i);
   }, [config, phase, notice]);
 
+  // Aviso de estadísticas al abrir la app (y al iniciar sesión, abajo).
+  useEffect(() => { void reportStats(store.account()); }, []);
   const continueStart = useCallback(() => {
     if (store.blockedFlag()) { setPhase('suspended'); return; }
     const acc = store.account();
@@ -179,7 +182,7 @@ function App() {
   if (phase === 'splash') body = <Splash onDone={afterSplash} />;
   else if (phase === 'activate') body = <Activation status={lic} onActive={continueStart} onTrial={continueStart} />;
   else if (phase === 'suspended') body = <Suspended />;
-  else if (phase === 'login') body = <Login onLogged={() => { setClient(clientFor(store.account()!)); setPhase('app'); }} />;
+  else if (phase === 'login') body = <Login onLogged={() => { setClient(clientFor(store.account()!)); setPhase('app'); void reportStats(store.account()); }} />;
   else if (phase === 'profiles') body = <Profiles onPick={() => { setProfile(store.activeProfile()); setPhase('app'); }} />;
   else body = (
     <div className="shell">

@@ -100,6 +100,7 @@ createServer((req, res) => {
   // App de PC de un vendedor (prueba): su diseño (pide la URL del servidor) y la lista de activaciones.
   if (u.pathname === '/cfg/vendor.json') return json(JSON.stringify({ version: 1, brand: { appName: 'Prueba Vendedor TV' },
     theme: { palette: { primary: '#FF8A00', accent: '#FFD000', background: '#120A02' } }, texts: { 'provider.askHost': '1', 'license.whatsapp': '5215512345678' }, messages: [], banners: [] }));
+  if (u.pathname === '/cfg/stats.json') return json(JSON.stringify({ url: 'http://10.0.2.2:8788' }));
   if (u.pathname === '/licenses.json') return json(JSON.stringify(licenses));
   if (u.pathname === '/__license') { licenses.devices[u.searchParams.get('h')] = { exp: u.searchParams.get('exp') || null }; return json('{"ok":true}'); }
   if (u.pathname === '/__vod') { vodFile = u.searchParams.get('file') || null; return json('{"ok":true}'); }

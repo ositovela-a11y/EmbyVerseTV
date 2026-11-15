@@ -908,4 +908,18 @@ class SmokeFlowTest {
         val hard = found.distinct().filter { "recortado" in it || "tapado" in it }
         assertTrue("textos recortados o tapados (${hard.size}):\n" + hard.joinToString("\n"), hard.isEmpty())
     }
+
+    /** Estadísticas: la app avisa al servidor (equipo, versión, usuario Xtream, nunca la contraseña) y aparece en el panel. */
+    @Test fun t_estadisticas() {
+        val c = app.container
+        val rep = com.embyverse.app.data.stats.StatsReporter(app, c.okHttp, "$base/cfg")
+        runBlocking { rep.report(c.sources.sources.first(), force = true) }
+        val body = c.okHttp.newCall(okhttp3.Request.Builder().url("http://10.0.2.2:8788/v1/stats").header("authorization", "Bearer clave-de-prueba").build()).execute().use { it.body.string() }
+        val dev = org.json.JSONObject(body).getJSONArray("devices").let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.firstOrNull { it.getString("id") == rep.installId }
+        assertTrue("el equipo aparece en las estadísticas: $body", dev != null)
+        log("Estadísticas: ${dev!!.getString("platform")} · ${dev.getString("model")} · v${dev.getString("version")} · usuario «${dev.getString("xuser")}» · app «${dev.getString("app")}»")
+        assertTrue("usuario Xtream registrado", dev.getString("xuser") == "user")
+        assertTrue("app principal", dev.getString("app") == "")
+        assertTrue("nunca la contraseña", !body.contains("\"pass\""))
+    }
 }

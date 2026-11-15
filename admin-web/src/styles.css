@@ -392,3 +392,9 @@ input[type=datetime-local] { min-width: 0; }
 .act-filters { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
 .act-filters .seg { flex: 0 1 auto; }
 .act-filters .seg button { white-space: nowrap; }
+.stats-cards { grid-template-columns: repeat(6, minmax(0,1fr)); }
+@media (max-width: 1100px) { .stats-cards { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+@media (max-width: 560px) { .stats-cards { grid-template-columns: 1fr 1fr; } }
+.plat-chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.plat-chips .chip { background:#f2f4f7; border-radius:99px; padding:4px 10px; font-size:13px; }
+ol.steps { margin:0; padding-left:20px; display:grid; gap:8px; line-height:1.5; }

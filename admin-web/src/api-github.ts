@@ -278,6 +278,8 @@ export const githubApi = {
     await gh('PUT', `/contents/${LICENSES}`, { message: `Activaciones: ${message}`, content: utf8b64(JSON.stringify(cur.data, null, 1) + '\n'), branch: GH.branch, ...(cur.sha ? { sha: cur.sha } : {}) });
     return cur.data;
   },
+  /** Dirección del servidor de estadísticas (la escribe el flujo «Servidor de estadísticas»). */
+  async statsUrl(): Promise<string | null> { const f = await readJsonFile<{ url?: string }>('web-player/config/stats.json'); return f?.data.url?.replace(/\/$/, '') || null; },
   /** Registro cifrado de activaciones (fuera del sitio publicado). */
   async registry(): Promise<{ data: SealedRegistry; sha: string } | null> { return readJsonFile<SealedRegistry>(REGISTRY); },
   async saveRegistry(data: SealedRegistry, sha: string | null, message: string) {

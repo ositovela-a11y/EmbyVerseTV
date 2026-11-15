@@ -149,6 +149,9 @@ class MainActivity : AppCompatActivity() {
         val container = (application as EmbyVerseApp).container
         startAwakeWatcher(container)
         setupNavSounds(container)
+        // Estadísticas del dueño de la app: aviso de que este equipo la tiene y la usa (máx. cada 6 h).
+        // Se repite cuando el cliente agrega o cambia su cuenta (el usuario nuevo aparece en el panel al momento).
+        lifecycleScope.launch { runCatching { container.stats.reportOn(container.sources.sources) } }
         // VPN: si el cliente pidió conectarla al abrir la app (y ya dio el permiso), se conecta sola.
         if (savedInstanceState == null) lifecycleScope.launch {
             runCatching {

@@ -13,6 +13,12 @@
     var base = '../apk/' + file;
     window.APK_URL = base + '?t=' + Date.now();
     var done = false;
+    // Conteo de descargas para el panel (sin datos personales): app principal o vendedor.
+    try {
+      fetch('../config/stats.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (c) {
+        if (c && /^https:\/\//.test(c.url || '')) fetch(c.url.replace(/\/$/, '') + '/v1/dl?app=' + (file === 'EmbyVerse.apk' ? '' : v) + '&platform=android', { mode: 'no-cors', keepalive: true });
+      }).catch(function () {});
+    } catch (e) {}
     function go(url) { if (done) return; done = true; window.APK_URL = url; var l = document.getElementById('l'); if (l) l.href = url; location.replace(url); }
     setTimeout(function () { go(base + '?t=' + Date.now()); }, 2500); // sin respuesta: igual descarga, sin caché
     try {

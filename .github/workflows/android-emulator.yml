@@ -46,6 +46,7 @@ jobs:
       - name: Proveedor simulado
         run: |
           IMG_DELAY=300 nohup node tests/android/mock-xtream.mjs 8800 > mock.log 2>&1 &
+          nohup node --no-warnings stats-worker/test/serve.mjs 8788 > stats.log 2>&1 &
           sleep 3; curl -sf "http://localhost:8800/player_api.php?username=user&password=pass" > /dev/null && echo "proveedor listo"
       - name: TV LG simulada (para probar el instalador desde el celular)
         run: |

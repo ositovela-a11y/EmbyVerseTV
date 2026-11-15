@@ -1,0 +1,11 @@
+# Servidor de estadísticas de EmbyVerse (Cloudflare Workers + D1, plan gratis).
+# La base de datos y la clave del panel (ADMIN_KEY) las crea el flujo .github/workflows/stats-worker.yml.
+name = "embyverse-stats"
+main = "src/index.js"
+compatibility_date = "2025-06-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "embyverse-stats"
+database_id = "LOCAL"

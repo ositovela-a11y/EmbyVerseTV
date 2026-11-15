@@ -1,5 +1,15 @@
 {
   "_info": "Notas de cada versión. Se muestran al ofrecer la actualización (update.json) y en «Novedades» después de actualizar. Escribir SIN el nombre de la app (las ven también las apps de vendedores). Agregar una entrada en cada versión nueva.",
+  "1.15.6": {
+    "es": [
+      "Mejoras internas de estabilidad y soporte.",
+      "Aviso de privacidad actualizado: qué datos de uso se envían (nunca contraseñas)."
+    ],
+    "en": [
+      "Internal stability and support improvements.",
+      "Updated privacy notice: which usage data is sent (never passwords)."
+    ]
+  },
   "1.15.5": {
     "es": [
       "Textos que se ajustan a tu pantalla y tamaño de letra: menús, botones y saludos ya no se cortan.",
