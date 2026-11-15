@@ -1089,6 +1089,11 @@ class SmokeFlowTest {
         assertTrue("tercera sincronización", sync.sync() == "ok")
         assertTrue("perfil borrado en todos los equipos", c.database.profiles().all().none { it.name == "Papá" })
         log("Perfiles de la cuenta: subir, recibir de la TV y borrar funcionan")
+        // Deja el equipo como estaba (sin el perfil de prueba, para que las siguientes pruebas no vean «¿Quién está viendo?»).
+        sync.setEnabled(false)
+        c.database.profiles().all().filter { it.name == "Niños" }.forEach { c.library.deleteProfile(it.id) }
+        c.prefs.setActiveProfile(c.database.profiles().all().first().id)
+        app.getSharedPreferences("account_sync", android.content.Context.MODE_PRIVATE).edit().clear().commit()
     }
 
     /** Películas con audio AC3 (Dolby) y DTS: se oyen gracias al decodificador FFmpeg; y la opción de otro reproductor. */
