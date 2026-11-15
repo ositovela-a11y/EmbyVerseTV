@@ -59,6 +59,8 @@ object PlaybackProbe {
     /** Decodificador de audio en uso (p. ej. el de FFmpeg para AC3/DTS) y si el audio no se pudo decodificar. */
     @Volatile var audioDecoder: String? = null
     @Volatile var audioUnsupported = false
+    /** Lo que se está reproduciendo (para las pruebas del siguiente episodio). */
+    @Volatile var nowId: String? = null
     fun reset() { readyCount = 0; lastError = null; reconnects = 0; lastReconnectReason = null; lastAutoTrack = null; audioDecoder = null; audioUnsupported = false }
 }
 
@@ -335,6 +337,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         registerNetwork(ctx.applicationContext)
         startProgressTicker()
         startWatchdog()
+        startEndWatch()
     }
 
     fun detach() {
@@ -361,6 +364,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         if (ref.kind == ContentKind.LIVE && np.ref.kind == ContentKind.LIVE && np.ref != ref) previousLive = ref
         ref = np.ref
         nowPlaying.value = np
+        PlaybackProbe.nowId = np.ref.id; endedFor = null
         favorite.value = c.library.isFavorite(np.ref).first()
         computeUpNext(np)
         loadIntro(np)
@@ -736,8 +740,35 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     fun cancelUpNext() { upNextCancelled.value = true }
     fun playUpNext() { val n = upNext.value?.first ?: return; upNext.value = null; viewModelScope.launch { load(n) } }
 
+    /** Para no avisar dos veces el final del mismo video. */
+    private var endedFor: ItemRef? = null
+
+    /**
+     * Muchos servidores IPTV no «cierran» bien el final de la película o del episodio: el video llega al último
+     * segundo y el reproductor se queda cargando para siempre (nunca dice «terminó»), así que el siguiente
+     * episodio no arrancaba solo. Si en los últimos segundos se queda cargando, se da por terminado.
+     */
+    private fun startEndWatch() {
+        viewModelScope.launch {
+            var since = 0L
+            while (isActive) {
+                delay(1_000)
+                val p = player.value; val np = nowPlaying.value
+                if (p == null || np == null || isLive || endedFor == np.ref) { since = 0; continue }
+                val dur = p.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: run { since = 0; null } ?: continue
+                val left = dur - p.currentPosition
+                val stuckAtEnd = p.playWhenReady && left <= 3_000 && p.playbackState == Player.STATE_BUFFERING
+                if (!stuckAtEnd) { since = 0; continue }
+                val now = android.os.SystemClock.elapsedRealtime()
+                if (since == 0L) since = now else if (now - since >= 2_500) { since = 0; buffering.value = false; onEnded() }
+            }
+        }
+    }
+
     private fun onEnded() {
         val np = nowPlaying.value ?: return
+        if (endedFor == np.ref) return
+        endedFor = np.ref
         saveProgress()
         // Terminó la cuenta regresiva: sigue el próximo episodio sin esperar más.
         if (upNext.value != null && prefs.autoplayNextEpisode && !upNextCancelled.value) { playUpNext(); return }
@@ -782,6 +813,9 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
 
         override fun onPlayerError(e: PlaybackException) {
             buffering.value = false
+            // Error justo al final de una película o episodio (el servidor cortó el último pedazo): es el final.
+            val pe = player.value
+            if (!isLive && pe != null && pe.duration > 0 && pe.duration != C.TIME_UNSET && pe.duration - pe.currentPosition <= 5_000) { error.value = null; onEnded(); return }
             if (isLive && e.errorCode != PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) com.embyverse.app.data.repo.ChannelHealth.failed(ref.sourceId, ref.id)
             val p = player.value
             if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW && p != null) {

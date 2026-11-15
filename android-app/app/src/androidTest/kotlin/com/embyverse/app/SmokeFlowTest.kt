@@ -1146,4 +1146,26 @@ class SmokeFlowTest {
         assertTrue("se manda la película con su título a otro reproductor", inner.action == android.content.Intent.ACTION_VIEW && inner.type == "video/*" && inner.getStringExtra("title") == "Ajuste de cuentas")
         log("Otro reproductor: opción en Ajustes y datos que se envían correctos")
     }
+
+    /** Siguiente episodio automático aunque el servidor no «cierre» el final del episodio (se quedaba cargando). */
+    @Test fun za_siguienteEpisodioAutomatico() {
+        val c = app.container
+        runBlocking { c.prefs.updatePlayback { it.copy(autoplayNextEpisode = true) } }
+        val s = runBlocking { c.catalog.series(null, 40).first() }.first { ser -> runBlocking { c.sources.loadEpisodes(ser.sourceId, ser.providerId); c.database.episodes().forSeries(ser.sourceId, ser.providerId).size >= 2 } }
+        val eps = runBlocking { c.database.episodes().forSeries(s.sourceId, s.providerId) }
+        mock("/__vod?file=stall")
+        try {
+            PlaybackProbe.reset()
+            ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("EPISODE", eps[0].sourceId, eps[0].providerId, "restart")).use {
+                compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 }
+                // El clip dura 20 s: al final el servidor se queda «colgado»; debe pasar solo al episodio 2.
+                try { compose.waitUntil(70_000) { PlaybackProbe.nowId == eps[1].providerId } }
+                catch (e: ComposeTimeoutException) { shot("fallo-siguiente-episodio"); fail("no pasó solo al siguiente episodio (sigue en ${PlaybackProbe.nowId}) · ${PlaybackProbe.lastError}") }
+                log("Siguiente episodio: pasó solo de E1 a E2 aunque el servidor no cerró el final")
+                mock("/__vod?file=")
+                compose.waitUntil(40_000) { PlaybackProbe.readyCount > 1 }
+                Thread.sleep(1_500); shot("41-siguiente-episodio-solo")
+            }
+        } finally { mock("/__vod?file=") }
+    }
 }

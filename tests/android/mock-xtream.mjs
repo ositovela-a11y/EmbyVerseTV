@@ -200,6 +200,13 @@ createServer((req, res) => {
     if (vodFile === 'dual' && m[1] === 'movie') return sendFile(req, res, join(MEDIA, 'dual.mkv'), 'video/x-matroska');
     // Películas con audio que muchos equipos no traen: AC3 (Dolby Digital) y DTS (/__vod?file=ac3 | dts).
     if ((vodFile === 'ac3' || vodFile === 'dts') && m[1] === 'movie') return sendFile(req, res, join(MEDIA, `${vodFile}.mkv`), 'video/x-matroska');
+    // Episodio cuyo servidor no cierra el final (manda todo pero anuncia más bytes y deja la conexión abierta):
+    // el reproductor se queda cargando en el último segundo (/__vod?file=stall).
+    if (vodFile === 'stall' && m[1] === 'series') {
+      const data = readFileSync(join(MEDIA, 'clip.mp4'));
+      res.writeHead(200, { 'content-type': 'video/mp4', 'content-length': data.length + 200000 });
+      res.write(data); setTimeout(() => res.destroy(), 120000); return;
+    }
     // Episodios largos (11 min) para probar «Saltar intro» (/__vod?file=long).
     if (vodFile === 'long' && m[1] === 'series') return sendFile(req, res, join(MEDIA, 'long.mp4'), 'video/mp4');
     return sendFile(req, res, join(MEDIA, 'clip.mp4'), 'video/mp4'); // mkv/avi del catálogo también entregan el clip
