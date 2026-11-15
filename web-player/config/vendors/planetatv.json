@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": 2,
-  "publishedAt": "2026-11-15T17:47:56Z",
+  "version": 3,
+  "publishedAt": "2026-11-15T17:49:03Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "Planetatv",
@@ -53,7 +53,7 @@
     },
     "buttonStyle": "filled",
     "navigation": {
-      "style": "bottom_bar",
+      "style": "side_rail",
       "showLabels": true
     }
   },
@@ -77,6 +77,11 @@
         "focusRing": "#2FEBE6",
         "error": "#FF5A6E"
       }
+    },
+    {
+      "id": "tema_ox7a",
+      "name": "Nuevo tema",
+      "palette": {}
     }
   ],
   "userCustomization": {
