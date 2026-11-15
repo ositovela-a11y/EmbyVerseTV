@@ -130,6 +130,7 @@ private fun typography(family: FontFamily, scale: Float, tv: Boolean): Typograph
 
 fun detectTv(context: Context): Boolean {
     val ui = context.getSystemService(Context.UI_MODE_SERVICE) as? UiModeManager
+    if (com.embyverse.app.BuildConfig.DEBUG && com.embyverse.app.data.prefs.UiPrefs.forceTv(context)) return true
     return ui?.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION ||
         context.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
 }

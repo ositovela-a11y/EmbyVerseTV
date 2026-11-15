@@ -260,21 +260,34 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
     }
     val listKey = "$selectedFolder|${s.query}"
 
+    // Todo se reparte según el ancho REAL disponible (TV de 720p, TV con letra grande o con margen de
+    // pantalla): antes el buscador se partía en sílabas y la lista de canales quedaba angosta y cortada.
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+    val fullW = maxWidth
     Column(Modifier.fillMaxSize()) {
         if (t.device.isTv) {
-            // Título en una sola línea (antes se apretaba y salía letra por letra) y botones a la derecha.
+            var searchOpen by rememberSaveable { mutableStateOf(false) }
+            val roomy = fullW >= 1000.dp      // cabe todo en una fila
+            val showClock = fullW >= 820.dp
             Row(Modifier.fillMaxWidth().statusBarsPadding().padding(end = t.screenPadding, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.nav_live), style = MaterialTheme.typography.headlineMedium, color = t.onBackground, maxLines = 1, softWrap = false,
                     modifier = Modifier.padding(horizontal = t.screenPadding))
-                com.embyverse.app.ui.components.Clock(Modifier.padding(end = 12.dp))
+                if (showClock) com.embyverse.app.ui.components.Clock(Modifier.padding(end = 12.dp))
                 Spacer(Modifier.weight(1f))
-                com.embyverse.app.ui.components.RefreshListsButton(Modifier.padding(end = 10.dp))
-                com.embyverse.app.ui.components.EmbyButton(stringResource(R.string.guide_title), { nav.go(Routes.GUIDE) }, icon = Icons.Rounded.CalendarViewWeek, secondary = true)
+                com.embyverse.app.ui.components.RefreshListsButton(Modifier.padding(end = 10.dp), compact = !roomy)
+                com.embyverse.app.ui.components.EmbyButton(stringResource(R.string.guide_title), { nav.go(Routes.GUIDE) }, icon = Icons.Rounded.CalendarViewWeek, secondary = true,
+                    modifier = Modifier.testTag("open_guide"))
                 Spacer(Modifier.width(10.dp))
-                SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_channels), Modifier.width(300.dp))
+                if (roomy) SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_channels), Modifier.width((fullW * 0.24f).coerceIn(220.dp, 320.dp)))
+                else com.embyverse.app.ui.components.FocusableSurface(onClick = { searchOpen = !searchOpen }, shape = androidx.compose.foundation.shape.CircleShape, modifier = Modifier.testTag("live_search_toggle")) { _ ->
+                    Icon(Icons.Rounded.Search, stringResource(R.string.search_channels), tint = t.onBackground, modifier = Modifier.padding(12.dp).size(26.dp))
+                }
                 Spacer(Modifier.width(8.dp))
                 com.embyverse.app.ui.components.VoiceSearchButton({ said -> text = said; vm.setQuery(said) })
             }
+            if (!roomy && (searchOpen || text.isNotEmpty()))
+                SearchField(text, { text = it; vm.setQuery(it) }, stringResource(R.string.search_channels),
+                    Modifier.fillMaxWidth().padding(horizontal = t.screenPadding).padding(bottom = 6.dp).testTag("live_search"))
         } else {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ScreenTitle(stringResource(R.string.nav_live), Modifier.weight(1f))
@@ -288,17 +301,19 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
             FolderRow(folders, selectedFolder, onFolder)
         }
         Row(Modifier.fillMaxSize()) {
-            if (t.device.isTv) FolderColumn(folders, selectedFolder, onFolder, Modifier.width(270.dp).fillMaxHeight())
+            if (t.device.isTv) FolderColumn(folders, selectedFolder, onFolder, Modifier.width((fullW * 0.22f).coerceIn(180.dp, 270.dp)).fillMaxHeight())
             androidx.compose.foundation.layout.BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()) {
-                // Lista de canales con espacio para el nombre completo; vista previa + ficha ≈ 40 % del ancho.
-                val sideW = (maxWidth * 0.42f).coerceIn(300.dp, 480.dp)
+                // La lista de canales siempre tiene al menos ~340 dp para el nombre completo; la vista previa
+                // usa lo que sobra y, si no cabe, se muestra arriba de la lista.
+                val sideW = (maxWidth * 0.40f).coerceIn(240.dp, 480.dp)
+                val sideFits = wide && maxWidth - sideW >= 340.dp
                 when {
                     s.loading -> LoadingBox()
                     s.rows.isEmpty() && s.filter == LiveFilter.ALL && s.category == null && s.query.isEmpty() ->
                         MessageState(Icons.Rounded.LiveTv, stringResource(R.string.live_empty_title), stringResource(R.string.live_empty_message),
                             stringResource(R.string.nav_sources), { nav.go(Routes.SOURCES) })
                     s.rows.isEmpty() -> MessageState(Icons.Rounded.LiveTv, stringResource(R.string.folder_empty_title), stringResource(R.string.folder_empty_message))
-                    wide -> Row(Modifier.fillMaxSize()) {
+                    sideFits -> Row(Modifier.fillMaxSize()) {
                         ChannelList(s, listKey, previewing, vm, onChannel, showFavoriteButton = !t.device.isTv, modifier = Modifier.weight(1f).fillMaxHeight())
                         Column(Modifier.width(sideW).fillMaxHeight().padding(end = t.screenPadding, top = 8.dp, bottom = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -307,12 +322,14 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
                         }
                     }
                     else -> Column(Modifier.fillMaxSize()) {
-                        if (previewing != null) PreviewBox(preview, onFullscreen = fullscreen, modifier = Modifier.fillMaxWidth().padding(horizontal = t.screenPadding, vertical = 6.dp))
-                        ChannelList(s, listKey, previewing, vm, onChannel, showFavoriteButton = true, modifier = Modifier.fillMaxSize())
+                        if (previewing != null) PreviewBox(preview, onFullscreen = fullscreen, modifier = Modifier.fillMaxWidth(if (t.device.isTv) 0.6f else 1f)
+                            .padding(horizontal = t.screenPadding, vertical = 6.dp))
+                        ChannelList(s, listKey, previewing, vm, onChannel, showFavoriteButton = !t.device.isTv, modifier = Modifier.fillMaxSize())
                     }
                 }
             }
         }
+    }
     }
 }
 

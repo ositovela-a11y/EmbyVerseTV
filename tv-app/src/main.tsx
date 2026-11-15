@@ -1,4 +1,5 @@
 import { reportStats } from './stats';
+import { syncAccount } from './account-sync';
 import { clientFor } from './m3u';
 import './polyfills';
 import './styles.css';
@@ -78,13 +79,23 @@ function App() {
 
   // Aviso de estadísticas al abrir la app (y al iniciar sesión, abajo).
   useEffect(() => { void reportStats(store.account()); }, []);
+  // Perfiles, favoritos y «seguir viendo» iguales en todos los equipos de la cuenta (cada 5 min y al cambiar algo).
+  useEffect(() => {
+    const onSynced = () => setProfile(store.activeProfile());
+    window.addEventListener('ev-synced', onSynced);
+    const i = setInterval(() => { void syncAccount(); }, 5 * 60_000);
+    return () => { window.removeEventListener('ev-synced', onSynced); clearInterval(i); };
+  }, []);
+  /** Espera la sincronización (máximo unos segundos) para mostrar los perfiles de la cuenta al entrar. */
+  const syncFirst = (then: () => void) => { let done = false; const go = () => { if (!done) { done = true; then(); } };
+    void syncAccount().then(go, go); setTimeout(go, 3500); };
   const continueStart = useCallback(() => {
     if (store.blockedFlag()) { setPhase('suspended'); return; }
     const acc = store.account();
     if (!acc) { setPhase('login'); return; }
     setClient(clientFor(acc));
     newestMovies(1).catch(() => {}); // calienta el catálogo
-    setPhase(store.profiles().length > 1 ? 'profiles' : 'app');
+    syncFirst(() => setPhase(store.profiles().length > 1 ? 'profiles' : 'app'));
   }, []);
 
   // Edición de tienda: primero la activación del equipo (o su prueba gratis).
@@ -182,7 +193,7 @@ function App() {
   if (phase === 'splash') body = <Splash onDone={afterSplash} />;
   else if (phase === 'activate') body = <Activation status={lic} onActive={continueStart} onTrial={continueStart} />;
   else if (phase === 'suspended') body = <Suspended />;
-  else if (phase === 'login') body = <Login onLogged={() => { setClient(clientFor(store.account()!)); setPhase('app'); void reportStats(store.account()); }} />;
+  else if (phase === 'login') body = <Login onLogged={() => { setClient(clientFor(store.account()!)); void reportStats(store.account()); syncFirst(() => setPhase(store.profiles().length > 1 ? 'profiles' : 'app')); }} />;
   else if (phase === 'profiles') body = <Profiles onPick={() => { setProfile(store.activeProfile()); setPhase('app'); }} />;
   else body = (
     <div className="shell">

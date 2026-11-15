@@ -25,6 +25,10 @@ object UiPrefs {
     fun init(ctx: Context) { _fontScale.value = sp(ctx).getFloat("font_scale", 1f); _tvMargin.value = sp(ctx).getInt("tv_margin", 1) }
     private fun sp(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
+    /** Solo pruebas (versión debug): mostrar la app como en TV dentro del emulador de celular. */
+    fun forceTv(ctx: Context) = sp(ctx).getBoolean("force_tv", false)
+    fun setForceTv(ctx: Context, v: Boolean) { sp(ctx).edit().putBoolean("force_tv", v).commit() }
+
     fun setFontScale(ctx: Context, v: Float) { sp(ctx).edit().putFloat("font_scale", v).apply(); _fontScale.value = v }
 
     fun onboardingDone(ctx: Context) = sp(ctx).getBoolean("onboarding_done", false) && !sp(ctx).getBoolean("force_tour", false)

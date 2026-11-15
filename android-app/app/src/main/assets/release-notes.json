@@ -3,11 +3,15 @@
   "1.15.7": {
     "es": [
       "Al entrar puedes elegir: tu cuenta, otro servidor Xtream o una lista M3U.",
-      "Si el usuario o la contraseña están mal, ahora te lo dice claramente."
+      "Si el usuario o la contraseña están mal, ahora te lo dice claramente.",
+      "Tus perfiles, favoritos y «Seguir viendo» son los mismos en todos tus equipos con la misma cuenta.",
+      "TV en vivo se acomoda a cada televisor: buscador y nombres de canales completos."
     ],
     "en": [
       "When signing in you can choose: your account, another Xtream server or an M3U playlist.",
-      "A wrong username or password now shows a clear message."
+      "A wrong username or password now shows a clear message.",
+      "Your profiles, favorites and “Continue watching” are the same on all devices with the same account.",
+      "Live TV adapts to every TV: full search box and channel names."
     ]
   },
   "1.15.6": {

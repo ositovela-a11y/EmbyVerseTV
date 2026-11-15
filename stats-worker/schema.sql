@@ -21,3 +21,12 @@ CREATE TABLE IF NOT EXISTS downloads (
   n        INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (day, app, platform, country)
 );
+-- Perfiles, favoritos y «seguir viendo» de cada cuenta, iguales en todos sus equipos.
+-- id = huella de (servidor + usuario + contraseña) calculada en el equipo: aquí no se guarda ni el
+-- usuario ni la contraseña, y solo quien tiene la cuenta puede leer o cambiar sus datos.
+CREATE TABLE IF NOT EXISTS sync (
+  id      TEXT PRIMARY KEY,
+  rev     INTEGER NOT NULL,
+  data    TEXT NOT NULL,
+  updated INTEGER NOT NULL
+);

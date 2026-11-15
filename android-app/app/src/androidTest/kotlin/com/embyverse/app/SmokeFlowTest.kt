@@ -32,6 +32,8 @@ import com.embyverse.app.data.repo.SyncState
 import com.embyverse.app.player.PlaybackProbe
 import com.embyverse.core.model.SourceType
 import kotlinx.coroutines.runBlocking
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import kotlinx.coroutines.flow.first
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -865,6 +867,8 @@ class SmokeFlowTest {
             val shown = if (last >= 0) r.getLineEnd(last, visibleEnd = true) else 0
             val kind = when {
                 last < 0 -> null
+                // Una palabra partida entre dos renglones (el buscador salía «Bus / car / ca / nal / es»).
+                (0 until last).any { i -> val e = r.getLineEnd(i); val tx = r.layoutInput.text.text; e in 1 until tx.length && tx[e - 1].isLetter() && tx[e].isLetter() } -> "recortado (palabra partida)"
                 r.isLineEllipsized(last) -> "con «…»"
                 // Se dejó de mostrar parte del texto (límite de renglones sin «…») o un renglón sale del ancho del texto.
                 shown < r.layoutInput.text.text.trimEnd().length -> "recortado"
@@ -981,17 +985,93 @@ class SmokeFlowTest {
         ActivityScenario.launch(MainActivity::class.java).use {
             waitTag("nav_settings", 40_000)
             compose.onNodeWithTag("nav_settings", useUnmergedTree = true).performClick()
-            waitText("Fuentes"); compose.onNodeWithText("Fuentes", useUnmergedTree = true).performClick()
-            waitFor("botón añadir", 10_000) { compose.onAllNodesWithContentDescription("Añadir fuente", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
-            compose.onAllNodesWithContentDescription("Añadir fuente", useUnmergedTree = true)[0].performClick()
+            val srcLabel = app.getString(R.string.nav_sources); waitText(srcLabel); compose.onAllNodesWithText(srcLabel, useUnmergedTree = true)[0].performClick()
+            waitFor("botón añadir", 10_000) { compose.onAllNodesWithContentDescription(app.getString(R.string.action_add_source), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+            compose.onAllNodesWithContentDescription(app.getString(R.string.action_add_source), useUnmergedTree = true)[0].performClick()
             waitTag("login_mode_account")
-            assertTrue("modo cuenta: sin campo de servidor", compose.onAllNodesWithText("Servidor", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+            assertTrue("modo cuenta: sin campo de servidor", compose.onAllNodesWithText(app.getString(R.string.source_server), useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
             Thread.sleep(600); shot("37-entrar-mi-cuenta")
             compose.onNodeWithTag("login_mode_m3u", useUnmergedTree = true).performClick()
-            waitText("URL de la lista M3U"); Thread.sleep(400); shot("38-entrar-lista-m3u")
+            waitText(app.getString(R.string.source_url)); Thread.sleep(400); shot("38-entrar-lista-m3u")
             compose.onNodeWithTag("login_mode_xtream", useUnmergedTree = true).performClick()
-            waitText("Servidor"); Thread.sleep(400); shot("39-entrar-otro-servidor")
+            waitText(app.getString(R.string.source_server)); Thread.sleep(400); shot("39-entrar-otro-servidor")
             log("Entrar: «Mi cuenta», «Otro servidor (Xtream)» y «Lista M3U» funcionan")
         }
+    }
+
+    /** Como en TV (720p, 1080p, letra grande y margen grande): TV en vivo y demás pantallas sin textos encimados ni partidos. */
+    @Test fun x_pantallasDeTv() {
+        val inst = InstrumentationRegistry.getInstrumentation()
+        fun sh(cmd: String) { inst.uiAutomation.executeShellCommand(cmd).close(); Thread.sleep(400) }
+        data class Cfg(val name: String, val size: String, val font: Float, val margin: Int)
+        val configs = listOf(Cfg("tv-720p", "1280x720:213", 1f, 1), Cfg("tv-720p-letra-grande-margen", "1280x720:213", 1.3f, 2),
+            Cfg("tv-1080p", "1920x1080:320", 1f, 1), Cfg("tv-1080p-letra-grande", "1920x1080:320", 1.3f, 1))
+        val found = mutableListOf<String>()
+        com.embyverse.app.data.prefs.UiPrefs.setForceTv(app, true)
+        try {
+            for (cf in configs) {
+                val (wh, dpi) = cf.size.split(':'); sh("wm size $wh"); sh("wm density $dpi")
+                com.embyverse.app.data.prefs.UiPrefs.setFontScale(app, cf.font); com.embyverse.app.data.prefs.UiPrefs.setTvMargin(app, cf.margin)
+                ActivityScenario.launch(MainActivity::class.java).use {
+                    waitTag("nav_settings", 40_000); Thread.sleep(2_500)
+                    for ((tag, label) in listOf("nav_live" to "tv-en-vivo", "nav_home" to "inicio", "nav_movies" to "peliculas", "nav_series" to "series", "nav_settings" to "ajustes")) {
+                        runCatching { compose.onNodeWithTag(tag, useUnmergedTree = true).performClick() }
+                        Thread.sleep(2_200)
+                        textosCortados(label, cf.name, found)
+                        shot("tv-${cf.name}-$label")
+                    }
+                }
+            }
+        } finally {
+            com.embyverse.app.data.prefs.UiPrefs.setForceTv(app, false)
+            sh("wm size reset"); sh("wm density reset"); com.embyverse.app.data.prefs.UiPrefs.setFontScale(app, 1f); com.embyverse.app.data.prefs.UiPrefs.setTvMargin(app, 1)
+        }
+        found.distinct().forEach { log("TV CORTADO: $it") }
+        val hard = found.distinct().filter { "recortado" in it || "tapado" in it }
+        assertTrue("TV: textos recortados o partidos (${hard.size}):\n" + hard.joinToString("\n"), hard.isEmpty())
+    }
+
+    /** Misma cuenta en otro equipo (TV Samsung/LG o PC): los perfiles, favoritos y «seguir viendo» se comparten. */
+    @Test fun y_perfilesDeLaCuenta() = runBlocking {
+        val c = app.container
+        val srv = "http://10.0.2.2:8788"
+        app.getSharedPreferences("account_sync", android.content.Context.MODE_PRIVATE).edit().clear().commit()
+        val sync = com.embyverse.app.data.sync.AccountSync(c) { srv }
+        val src = c.database.sources().all().first { it.type == SourceType.XTREAM.name }
+        val host = java.net.URI(if (src.location.contains("://")) src.location else "http://${src.location}").host.lowercase()
+        val key = com.embyverse.app.data.sync.AccountSync.sha256("ev-sync-v1|$host|${src.username}|${c.credentials.get(src.id)}")
+        fun remote() = org.json.JSONObject(c.okHttp.newCall(okhttp3.Request.Builder().url("$srv/v1/sync/$key").build()).execute().use { it.body.string() })
+        fun put(rev: Int, data: org.json.JSONObject) = c.okHttp.newCall(okhttp3.Request.Builder().url("$srv/v1/sync/$key")
+            .put(org.json.JSONObject().put("rev", rev).put("data", data).toString().toRequestBody("application/json".toMediaType())).build()).execute().use { it.code }
+        // 1) Este celular: perfil «Niños» con un favorito.
+        val kidsId = c.database.profiles().all().firstOrNull { it.name == "Niños" }?.id ?: c.library.createProfile("Niños", 0xFF22D3EE.toInt())
+        val movie = c.database.movies().observeAll(1).first().first()
+        c.database.library().addFavorite(com.embyverse.app.data.db.FavoriteEntity(kidsId, "MOVIE", src.id, movie.providerId, movie.title, null, 1000L))
+        assertTrue("primera sincronización", sync.sync() == "ok")
+        val r1 = remote(); val profs1 = r1.getJSONObject("data").getJSONArray("profiles")
+        val kidsUid = (0 until profs1.length()).map { profs1.getJSONObject(it) }.first { it.getString("name") == "Niños" }.getString("uid")
+        assertTrue("el favorito de Niños está en la cuenta", r1.getJSONObject("data").getJSONObject("favs").getJSONArray(kidsUid).toString().contains(movie.providerId))
+        assertTrue("nunca la contraseña", !r1.toString().contains(c.credentials.get(src.id)!!))
+        log("Cuenta: ${profs1.length()} perfiles subidos")
+        // 2) Una TV Samsung con la misma cuenta agrega el perfil «Papá» con un canal favorito.
+        val d = r1.getJSONObject("data")
+        d.getJSONArray("profiles").put(org.json.JSONObject().put("uid", "ptv1").put("name", "Papá").put("avatar", "🦁"))
+        d.getJSONObject("favs").put("ptv1", org.json.JSONArray().put(org.json.JSONObject().put("kind", "live").put("id", "5").put("title", "Canal 5").put("at", 2000)))
+        assertTrue("la TV guarda", put(r1.getInt("rev"), d) == 200)
+        assertTrue("segunda sincronización", sync.sync() == "ok")
+        val papa = c.database.profiles().all().firstOrNull { it.name == "Papá" }
+        assertTrue("el perfil de la TV aparece en el celular", papa != null)
+        assertTrue("con su canal favorito", c.database.library().favorites(papa!!.id).any { it.kind == "LIVE" && it.itemId == "5" && it.sourceId == src.id })
+        val r2 = remote()
+        val p2 = r2.getJSONObject("data").getJSONArray("profiles").let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.first { it.getString("uid") == "ptv1" }
+        assertTrue("el avatar de la TV se conserva", p2.optString("avatar") == "🦁")
+        // 3) En la TV borran «Papá»: también desaparece del celular.
+        val d3 = r2.getJSONObject("data")
+        val keep = org.json.JSONArray(); val arr = d3.getJSONArray("profiles"); for (i in 0 until arr.length()) if (arr.getJSONObject(i).getString("uid") != "ptv1") keep.put(arr.getJSONObject(i))
+        d3.put("profiles", keep); d3.getJSONObject("favs").remove("ptv1")
+        assertTrue("la TV borra", put(r2.getInt("rev"), d3) == 200)
+        assertTrue("tercera sincronización", sync.sync() == "ok")
+        assertTrue("perfil borrado en todos los equipos", c.database.profiles().all().none { it.name == "Papá" })
+        log("Perfiles de la cuenta: subir, recibir de la TV y borrar funcionan")
     }
 }
