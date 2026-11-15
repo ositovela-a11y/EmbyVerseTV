@@ -7,6 +7,7 @@ import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -1023,6 +1024,17 @@ class SmokeFlowTest {
                         if (tag == "nav_live") runCatching { waitTag("channel", 30_000); Thread.sleep(800) } // con canales, no solo cargando
                         textosCortados(label, cf.name, found)
                         shot("tv-${cf.name}-$label")
+                    }
+                    if (cf.name == "tv-1080p") {
+                        // Ficha de una película en TV: la selección empieza en «Ver», no en la flecha de regreso.
+                        val movieCard = androidx.compose.ui.test.SemanticsMatcher("tarjeta de película") { n -> n.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.TestTag)?.startsWith("card:MOVIE:") == true }
+                        compose.onNodeWithTag("nav_movies", useUnmergedTree = true).performClick()
+                        waitFor("tarjeta de película", 30_000) { compose.onAllNodes(movieCard, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+                        compose.onAllNodes(movieCard, useUnmergedTree = true)[0].performClick()
+                        waitTag("detail_play", 20_000)
+                        waitFor("«Ver» seleccionado", 8_000) { runCatching { compose.onNodeWithTag("detail_play", useUnmergedTree = true).assertIsFocused() }.isSuccess }
+                        Thread.sleep(500); shot("tv-ficha-ver-seleccionado")
+                        log("TV: la ficha abre con «Ver» seleccionado")
                     }
                 }
             }

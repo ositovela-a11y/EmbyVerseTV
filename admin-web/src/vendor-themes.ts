@@ -66,6 +66,8 @@ export function applyVendorTheme(cfg: { theme: Record<string, unknown>; texts: R
   t.buttonStyle = th.button;
   t.navigation = { ...(t.navigation ?? {}), style: th.nav };
   cfg.texts['style.default'] = th.style;
+  // La app usa la forma del estilo con los colores de aquí (no los del estilo).
+  cfg.texts['style.brandColors'] = '1';
   const same = colors && colors.primary === th.palette.primary && colors.accent === th.palette.accent && colors.background === th.palette.background;
   if (colors && !same) {
     // Colores propios (del logotipo o ajustados a mano): TODA la paleta se arma con ellos (fondo,

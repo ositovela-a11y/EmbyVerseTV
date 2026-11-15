@@ -27,7 +27,12 @@ object ConfigResolver {
         val chosen = if (uc.allowThemeSelection) STYLE_THEMES.firstOrNull { it.id == prefs.themeId } else null
         // Estilo de navegación predeterminado del panel (por app o por vendedor) si el cliente no eligió otro.
         val style = chosen ?: if (prefs.themeId == null || !uc.allowThemeSelection) STYLE_THEMES.firstOrNull { it.id == config.texts["style.default"] } else null
-        val base = style?.transform?.invoke(config.theme) ?: config.theme
+        val styled = style?.transform?.invoke(config.theme) ?: config.theme
+        // Colores de la marca (elegidos en el panel: del logotipo o propios): el estilo solo pone la FORMA
+        // (menú, bordes, letra, botones, plantillas) y los colores siguen siendo los de la app.
+        val base = if (style != null && config.texts["style.brandColors"] == "1")
+            styled.copy(palette = config.theme.palette, gradientStart = config.theme.gradientStart, gradientEnd = config.theme.gradientEnd)
+        else styled
         var palette = base.palette
         if (style == null && uc.allowThemeSelection && prefs.themeId != null) {
             config.themes.firstOrNull { it.id == prefs.themeId }?.let { palette = palette.merge(it.palette) }

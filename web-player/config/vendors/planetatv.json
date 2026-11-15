@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": 4,
-  "publishedAt": "2026-11-15T17:55:47Z",
+  "version": 5,
+  "publishedAt": "2026-11-15T18:46:47Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "Planetatv",
@@ -13,25 +13,25 @@
   },
   "theme": {
     "palette": {
-      "primary": "#E50914",
-      "secondary": "#B20710",
-      "accent": "#FF4D57",
-      "background": "#0B0B0B",
-      "surface": "#161616",
-      "surfaceVariant": "#232323",
+      "primary": "#5BEA2C",
+      "secondary": "#3AB312",
+      "accent": "#B57BFF",
+      "background": "#07041A",
+      "surface": "#120E2A",
+      "surfaceVariant": "#1B163B",
       "onBackground": "#F2F4F8",
       "onSurface": "#E3E7EE",
-      "textSecondary": "#A3A3A3",
-      "onPrimary": "#FFFFFF",
-      "buttonBackground": "#E50914",
-      "buttonText": "#FFFFFF",
-      "focusRing": "#FF4D57",
+      "textSecondary": "#A5A2B9",
+      "onPrimary": "#0A0F18",
+      "buttonBackground": "#5BEA2C",
+      "buttonText": "#0A0F18",
+      "focusRing": "#B57BFF",
       "error": "#FF5A6E"
     },
     "background": {
       "style": "solid",
-      "gradientStart": "#0B0B0B",
-      "gradientEnd": "#1A0405"
+      "gradientStart": "#07041A",
+      "gradientEnd": "#15310C"
     },
     "typography": {
       "family": "inter",
@@ -62,19 +62,19 @@
       "id": "vendor",
       "name": "Cine Rojo",
       "palette": {
-        "primary": "#E50914",
-        "secondary": "#B20710",
-        "accent": "#FF4D57",
-        "background": "#0B0B0B",
-        "surface": "#161616",
-        "surfaceVariant": "#232323",
+        "primary": "#5BEA2C",
+        "secondary": "#3AB312",
+        "accent": "#B57BFF",
+        "background": "#07041A",
+        "surface": "#120E2A",
+        "surfaceVariant": "#1B163B",
         "onBackground": "#F2F4F8",
         "onSurface": "#E3E7EE",
-        "textSecondary": "#A3A3A3",
-        "onPrimary": "#FFFFFF",
-        "buttonBackground": "#E50914",
-        "buttonText": "#FFFFFF",
-        "focusRing": "#FF4D57",
+        "textSecondary": "#A5A2B9",
+        "onPrimary": "#0A0F18",
+        "buttonBackground": "#5BEA2C",
+        "buttonText": "#0A0F18",
+        "focusRing": "#B57BFF",
         "error": "#FF5A6E"
       }
     }
@@ -234,7 +234,8 @@
     "support.whatsapp": "4442011541",
     "season.every": "24",
     "style.default": "style_cine_rojo",
-    "splash.welcome": "Tu universo de entretenimiento"
+    "splash.welcome": "Tu universo de entretenimiento",
+    "style.brandColors": "1"
   },
   "messages": []
 }

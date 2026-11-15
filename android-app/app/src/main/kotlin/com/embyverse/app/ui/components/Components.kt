@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -318,14 +319,32 @@ fun EmbyButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
     // Botón enfocado con el control: se agranda y lleva el mismo borde de foco que las tarjetas.
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    val scale by animateFloatAsState(if (focused) 1.07f else 1f, tween(120), label = "btnFocus")
+    val scale by animateFloatAsState(if (focused) 1.1f else 1f, tween(140), label = "btnFocus")
     val ring = if (t.focusStyle == com.embyverse.core.config.FocusStyle.RING) t.focusRing else Color.White
+    // Muy visible desde el sillón: se agranda, brilla con el color de foco y lleva doble borde (oscuro + color).
     val m = modifier.graphicsLayer { scaleX = scale; scaleY = scale }
-        .then(if (focused) Modifier.border(BorderStroke(5.dp, Color.Black.copy(alpha = 0.6f)), shape).border(BorderStroke(3.dp, ring), shape) else Modifier)
+        .then(if (focused) Modifier.shadow(18.dp, shape, ambientColor = ring, spotColor = ring)
+            .border(BorderStroke(6.dp, Color.Black.copy(alpha = 0.55f)), shape).border(BorderStroke(3.5.dp, ring), shape) else Modifier)
     when (style) {
         ButtonStyle.FILLED -> Button(onClick, m, enabled, shape, ButtonDefaults.buttonColors(containerColor = t.buttonBackground, contentColor = t.buttonText), interactionSource = interaction) { content() }
         ButtonStyle.TONAL -> FilledTonalButton(onClick, m, enabled, shape, ButtonDefaults.filledTonalButtonColors(containerColor = t.buttonBackground.copy(alpha = 0.22f), contentColor = t.buttonBackground), interactionSource = interaction) { content() }
         ButtonStyle.OUTLINED -> OutlinedButton(onClick, m, enabled, shape, ButtonDefaults.outlinedButtonColors(contentColor = t.onBackground), border = BorderStroke(1.5.dp, t.buttonBackground.copy(alpha = 0.8f)), interactionSource = interaction) { content() }
+    }
+}
+
+/** Botón de ícono (regresar, favorito…) con el mismo foco vistoso que los botones grandes. */
+@Composable
+fun EmbyIconButton(icon: ImageVector, contentDescription: String?, onClick: () -> Unit, modifier: Modifier = Modifier, tint: Color = Color.Unspecified, background: Color = Color.Transparent) {
+    val t = LocalEmby.current
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val scale by animateFloatAsState(if (focused) 1.18f else 1f, tween(140), label = "iconFocus")
+    val ring = if (t.focusStyle == com.embyverse.core.config.FocusStyle.RING) t.focusRing else Color.White
+    androidx.compose.material3.IconButton(onClick = onClick, interactionSource = interaction,
+        modifier = modifier.graphicsLayer { scaleX = scale; scaleY = scale }
+            .then(if (focused) Modifier.shadow(14.dp, CircleShape, ambientColor = ring, spotColor = ring).border(BorderStroke(3.dp, ring), CircleShape) else Modifier)
+            .background(if (focused) ring.copy(alpha = 0.28f) else background, CircleShape)) {
+        Icon(icon, contentDescription, tint = if (tint == Color.Unspecified) t.onBackground else tint)
     }
 }
 
