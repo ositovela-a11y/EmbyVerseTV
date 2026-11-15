@@ -982,7 +982,10 @@ class SmokeFlowTest {
         val c = app.container
         val r = runBlocking { c.sources.test(com.embyverse.app.data.repo.SourceDraft(null, "x", SourceType.XTREAM, "$base/sin-xtream", "nadie", "mala", null, null)) }
         assertTrue("404 al entrar → usuario o contraseña: $r", r is com.embyverse.core.net.Outcome.Fail && r.error == com.embyverse.core.net.SourceError.AuthOrNotFound)
-        ActivityScenario.launch(MainActivity::class.java).use {
+        // App con servidor ya puesto (como las de tus clientes): solo así aparecen las 3 opciones.
+        val cfg0 = c.config.config.value
+        c.config.overrideForTest(cfg0.copy(texts = cfg0.texts - "provider.askHost" + ("provider.host" to base)))
+        try { ActivityScenario.launch(MainActivity::class.java).use {
             waitTag("nav_settings", 40_000)
             compose.onNodeWithTag("nav_settings", useUnmergedTree = true).performClick()
             val srcLabel = app.getString(R.string.nav_sources); waitText(srcLabel); compose.onAllNodesWithText(srcLabel, useUnmergedTree = true)[0].performClick()
@@ -996,7 +999,7 @@ class SmokeFlowTest {
             compose.onNodeWithTag("login_mode_xtream", useUnmergedTree = true).performClick()
             waitText(app.getString(R.string.source_server)); Thread.sleep(400); shot("39-entrar-otro-servidor")
             log("Entrar: «Mi cuenta», «Otro servidor (Xtream)» y «Lista M3U» funcionan")
-        }
+        } } finally { c.config.overrideForTest(cfg0) }
     }
 
     /** Como en TV (720p, 1080p, letra grande y margen grande): TV en vivo y demás pantallas sin textos encimados ni partidos. */
