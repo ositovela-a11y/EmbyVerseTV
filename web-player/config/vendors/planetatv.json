@@ -1,37 +1,37 @@
 {
   "schemaVersion": 1,
-  "version": 1,
-  "publishedAt": "2026-11-15T04:57:48Z",
+  "version": 2,
+  "publishedAt": "2026-11-15T17:47:56Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "Planetatv",
     "logo": {
       "variant": "asset",
-      "url": "https://ositovela-a11y.github.io/EmbyVerseTV/config/assets/logo-67e37371-ee3e-449a-b0b3-3620a46dbe7b-a69-mwhd5m62.jpg"
+      "url": "https://ositovela-a11y.github.io/EmbyVerseTV/config/assets/logo-67e37371-ee3e-449a-b0b3-3620a46dbe7b-a69-mwi4nzrn.png"
     },
     "tagline": null
   },
   "theme": {
     "palette": {
-      "primary": "#5BEA2C",
-      "secondary": "#7C3AED",
-      "accent": "#B57BFF",
-      "background": "#000000",
-      "surface": "#130C2E",
-      "surfaceVariant": "#1E1442",
+      "primary": "#78F646",
+      "secondary": "#47E00B",
+      "accent": "#2FEBE6",
+      "background": "#070812",
+      "surface": "#0E1024",
+      "surfaceVariant": "#151837",
       "onBackground": "#F2F4F8",
       "onSurface": "#E3E7EE",
-      "textSecondary": "#A79FC9",
+      "textSecondary": "#A2A4B9",
       "onPrimary": "#0A0F18",
-      "buttonBackground": "#5BEA2C",
+      "buttonBackground": "#78F646",
       "buttonText": "#0A0F18",
-      "focusRing": "#B57BFF",
+      "focusRing": "#2FEBE6",
       "error": "#FF5A6E"
     },
     "background": {
       "style": "nebula",
-      "gradientStart": "#000000",
-      "gradientEnd": "#1F0B4A"
+      "gradientStart": "#070812",
+      "gradientEnd": "#17310C"
     },
     "typography": {
       "family": "poppins",
@@ -62,19 +62,19 @@
       "id": "vendor",
       "name": "Planeta TV",
       "palette": {
-        "primary": "#5BEA2C",
-        "secondary": "#7C3AED",
-        "accent": "#B57BFF",
-        "background": "#000000",
-        "surface": "#130C2E",
-        "surfaceVariant": "#1E1442",
+        "primary": "#78F646",
+        "secondary": "#47E00B",
+        "accent": "#2FEBE6",
+        "background": "#070812",
+        "surface": "#0E1024",
+        "surfaceVariant": "#151837",
         "onBackground": "#F2F4F8",
         "onSurface": "#E3E7EE",
-        "textSecondary": "#A79FC9",
+        "textSecondary": "#A2A4B9",
         "onPrimary": "#0A0F18",
-        "buttonBackground": "#5BEA2C",
+        "buttonBackground": "#78F646",
         "buttonText": "#0A0F18",
-        "focusRing": "#B57BFF",
+        "focusRing": "#2FEBE6",
         "error": "#FF5A6E"
       }
     }
