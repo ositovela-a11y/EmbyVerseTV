@@ -32,17 +32,21 @@ const cfgPath = (t = currentTarget()) => (t ? `web-player/config/vendors/${t}.js
 const draftKey = () => `ev.studio.draft:${currentTarget() || 'principal'}`;
 const DRAFT_KEY_LEGACY = 'ev.studio.draft';
 /** Enlaces públicos de una app (principal si slug = ''). */
+/** Tu dominio propio (servidor site-worker en Cloudflare). */
+export const PUBLIC_SITE = 'https://eversetv.com';
+
 export function linksFor(slug: string) {
-  // Sitio actual (con dominio propio, los enlaces usan ese dominio; sin él, github.io).
-  const here = typeof location !== 'undefined' && /^https?:/.test(location.href) ? location.href.split('/studio')[0].replace(/\/$/, '') : '';
-  const site = here || 'https://ositovela-a11y.github.io/EmbyVerseTV';
+  // Los enlaces para clientes y vendedores siempre usan tu dominio propio (no muestran GitHub).
+  // Solo en pruebas locales se usa la dirección de la página.
+  const here = typeof location !== 'undefined' && /^http:\/\/(localhost|127\.0\.0\.1)/.test(location.href) ? location.href.split('/studio')[0].replace(/\/$/, '') : '';
+  const site = here || PUBLIC_SITE;
   return {
     apk: `${site}/apk/${slug ? `EmbyVerse-${slug}.apk` : 'EmbyVerse.apk'}`,
     short: `${site.replace('https://', '')}/a/${slug ? `?v=${slug}` : ''}`,
     web: `${site}/${slug ? `?v=${slug}` : ''}`,
     // App de PC (Windows): enlace corto que siempre baja la última versión de esa marca.
     pc: `${site}/pc/${slug ? `?v=${slug}` : ''}`,
-    pcExe: `https://github.com/${GH.owner}/${GH.repo}/releases/download/pc-latest/${slug || 'EmbyVerse'}-PC-Instalador.exe`,
+    pcExe: `${site}/descargas/pc/${slug || 'EmbyVerse'}-PC-Instalador.exe`,
   };
 }
 const API = `https://api.github.com/repos/${GH.owner}/${GH.repo}`;

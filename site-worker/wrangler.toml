@@ -1,0 +1,11 @@
+# Sitio público con dominio propio (eversetv.com). Sirve lo mismo que GitHub Pages pero con tu dirección,
+# sin que se vea «github» ni tu usuario. El dominio se conecta en Cloudflare: Workers › eversetv-site ›
+# Settings › Domains & Routes › Add › Custom domain.
+name = "eversetv-site"
+main = "src/index.js"
+compatibility_date = "2025-06-01"
+workers_dev = true
+routes = [
+  { pattern = "eversetv.com", custom_domain = true },
+  { pattern = "www.eversetv.com", custom_domain = true },
+]
