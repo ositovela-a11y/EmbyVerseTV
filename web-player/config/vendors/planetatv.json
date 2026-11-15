@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": 5,
-  "publishedAt": "2026-11-15T18:35:29Z",
+  "version": 6,
+  "publishedAt": "2026-11-15T18:42:18Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "Planetatv",
@@ -15,7 +15,7 @@
     "palette": {
       "primary": "#78F646",
       "secondary": "#47E00B",
-      "accent": "#70ff0e",
+      "accent": "#2FEBE6",
       "background": "#070812",
       "surface": "#0E1024",
       "surfaceVariant": "#151837",
@@ -25,7 +25,7 @@
       "onPrimary": "#0A0F18",
       "buttonBackground": "#78F646",
       "buttonText": "#0A0F18",
-      "focusRing": "#70ff0e",
+      "focusRing": "#2FEBE6",
       "error": "#FF5A6E"
     },
     "background": {
@@ -64,7 +64,7 @@
       "palette": {
         "primary": "#78F646",
         "secondary": "#47E00B",
-        "accent": "#70ff0e",
+        "accent": "#2FEBE6",
         "background": "#070812",
         "surface": "#0E1024",
         "surfaceVariant": "#151837",
@@ -74,7 +74,7 @@
         "onPrimary": "#0A0F18",
         "buttonBackground": "#78F646",
         "buttonText": "#0A0F18",
-        "focusRing": "#70ff0e",
+        "focusRing": "#2FEBE6",
         "error": "#FF5A6E"
       }
     }
