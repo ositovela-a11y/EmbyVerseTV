@@ -833,6 +833,14 @@ class SmokeFlowTest {
                     Thread.sleep(1_500)
                     val name = id ?: "original"
                     shot("tema-$name-inicio")
+                    // Sagas hasta abajo del inicio en todos los temas.
+                    if (runBlocking { c.catalog.sagas() }.isNotEmpty()) {
+                        val found = (0 until 4).any { i -> runCatching {
+                            compose.onAllNodes(androidx.compose.ui.test.hasScrollAction(), useUnmergedTree = true)[i].performScrollToNode(androidx.compose.ui.test.hasTestTag("sagas"))
+                        }.isSuccess }
+                        if (!found) { shot("tema-$name-sin-sagas"); fail("Tema $name: no aparecen las sagas en el inicio") }
+                        Thread.sleep(700); shot("tema-$name-sagas"); log("Tema $name: sagas al final del inicio")
+                    }
                     // Modo control remoto: el selector debe verse claro.
                     // Películas (cuadrícula): como con el control remoto, una tecla saca del modo táctil y se enfoca la 1.ª tarjeta.
                     val moviesTag = if (id == "style_estelar") "hub_movies" else "nav_movies"

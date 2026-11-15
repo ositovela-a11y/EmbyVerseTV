@@ -198,10 +198,12 @@ fun HomeScreen(nav: Navigator) {
                             }
                         }
                     }
-                    if (type == SectionType.RECOMMENDED) { becauseRows(s, nav); item(key = "week_new") { WeekNewRow(nav) }; item(key = "sagas") { SagasRow(nav) } }
+                    if (type == SectionType.RECOMMENDED) { becauseRows(s, nav); item(key = "week_new") { WeekNewRow(nav) } }
                 }
             }
         }
+        // Sagas siempre hasta abajo del inicio, con cualquier estilo o tema (y en las apps de vendedores).
+        if (s.hasSources) item(key = "sagas") { SagasRow(nav) }
     }
     }
     }
