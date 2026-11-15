@@ -338,7 +338,9 @@ fun SourceEditScreen(nav: Navigator, id: String?, firstRun: Boolean, onDone: () 
             val locked = vm.lockedHost != null && mode == SourceEditViewModel.Mode.PROVIDER
             if (vm.lockedHost != null) {
                 Text(stringResource(R.string.login_how), style = MaterialTheme.typography.titleSmall, color = t.textSecondary)
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Las 3 opciones siempre a la vista (en celular bajan al siguiente renglón).
+                @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(SourceEditViewModel.Mode.PROVIDER to R.string.login_mode_account, SourceEditViewModel.Mode.XTREAM to R.string.login_mode_xtream,
                         SourceEditViewModel.Mode.M3U to R.string.login_mode_m3u).forEach { (m, label) ->
                         Box(Modifier.testTag("login_mode_${m.name.lowercase()}")) { CategoryChip(stringResource(label), mode == m) { vm.setMode(m) } }

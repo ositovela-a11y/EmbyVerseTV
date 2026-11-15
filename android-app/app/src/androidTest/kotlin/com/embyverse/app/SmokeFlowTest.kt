@@ -991,12 +991,12 @@ class SmokeFlowTest {
             val srcLabel = app.getString(R.string.nav_sources); waitText(srcLabel); compose.onAllNodesWithText(srcLabel, useUnmergedTree = true)[0].performClick()
             waitFor("botón añadir", 10_000) { compose.onAllNodesWithContentDescription(app.getString(R.string.action_add_source), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
             compose.onAllNodesWithContentDescription(app.getString(R.string.action_add_source), useUnmergedTree = true)[0].performClick()
-            waitTag("login_mode_account")
+            waitText(app.getString(R.string.login_mode_account))
             assertTrue("modo cuenta: sin campo de servidor", compose.onAllNodesWithText(app.getString(R.string.source_server), useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
             Thread.sleep(600); shot("37-entrar-mi-cuenta")
-            compose.onNodeWithTag("login_mode_m3u", useUnmergedTree = true).performClick()
+            compose.onNodeWithText(app.getString(R.string.login_mode_m3u), useUnmergedTree = true).performClick()
             waitText(app.getString(R.string.source_url)); Thread.sleep(400); shot("38-entrar-lista-m3u")
-            compose.onNodeWithTag("login_mode_xtream", useUnmergedTree = true).performClick()
+            compose.onNodeWithText(app.getString(R.string.login_mode_xtream), useUnmergedTree = true).performClick()
             waitText(app.getString(R.string.source_server)); Thread.sleep(400); shot("39-entrar-otro-servidor")
             log("Entrar: «Mi cuenta», «Otro servidor (Xtream)» y «Lista M3U» funcionan")
         } } finally { c.config.overrideForTest(cfg0) }
