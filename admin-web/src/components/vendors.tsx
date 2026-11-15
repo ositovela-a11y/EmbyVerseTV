@@ -4,7 +4,7 @@ import { currentTarget, githubApi, linksFor, setTarget, type Vendor } from '../a
 import { Group, Notice } from './ui';
 import { fixImage } from '../image-fix';
 import { VENDOR_THEMES } from '../vendor-themes';
-import { closestTheme, logoColors, type BrandColors } from '../logo-colors';
+import { fullPalette, gradientEnd, logoColors, type BrandColors } from '../logo-colors';
 import { removeLogoBackground } from '../logo-cutout';
 
 /**
@@ -154,68 +154,142 @@ function Links({ slug }: { slug: string }) {
   );
 }
 
-/** Tarjetas de temas (con vista previa de colores, tarjetas y botón). */
-function ThemeGrid({ value, onPick }: { value: string | null; onPick: (id: string) => void }) {
+type ColorSource = 'theme' | 'logo' | 'custom';
+const themePal = (id: string | null): BrandColors | null => {
+  const p = VENDOR_THEMES.find((t) => t.id === id)?.palette;
+  return p ? { primary: p.primary!, accent: p.accent!, background: p.background! } : null;
+};
+const sameColors = (a: BrandColors | null, b: BrandColors | null) => !!a && !!b && ['primary', 'accent', 'background'].every((k) => a[k as keyof BrandColors].toLowerCase() === b[k as keyof BrandColors].toLowerCase());
+
+/**
+ * Tema y colores por separado: el TEMA es la forma (menú, bordes, letra, botones, distribución) y los
+ * COLORES pueden ser los del tema, los del logotipo o unos propios. Cambiar de tema no cambia los colores
+ * elegidos, y cambiar colores no cambia el tema.
+ */
+function useLook(initialTheme: string | null, initialColors?: BrandColors) {
+  const [themeId, setThemeId] = useState<string | null>(initialTheme);
+  const [colors, setColors] = useState<BrandColors>(initialColors ?? themePal(initialTheme) ?? { primary: '#7BE52F', accent: '#22D3EE', background: '#02050C' });
+  const [source, setSource] = useState<ColorSource>(initialColors && !sameColors(initialColors, themePal(initialTheme)) ? 'custom' : 'theme');
+  const [logoCols, setLogoCols] = useState<BrandColors | null>(null);
+  return {
+    themeId, colors, source, logoCols,
+    /** Para cargar lo que ya tiene una app. */
+    load(theme: string | null, c: BrandColors) { setThemeId(theme); setColors(c); setSource(sameColors(c, themePal(theme)) ? 'theme' : 'custom'); },
+    pickTheme(id: string) { setThemeId(id); if (source === 'theme') setColors(themePal(id)!); },
+    setColor(k: keyof BrandColors, v: string) { setColors((c) => ({ ...c, [k]: v })); setSource('custom'); },
+    useThemeColors() { const p = themePal(themeId); if (p) { setColors(p); setSource('theme'); } },
+    useLogoColors() { if (logoCols) { setColors(logoCols); setSource('logo'); } },
+    /** Colores leídos del logotipo: se aplican solos (el tema elegido se queda). */
+    gotLogoColors(lc: BrandColors | null, apply = true) { setLogoCols(lc); if (lc && apply) { setColors(lc); setSource('logo'); } },
+  };
+}
+type Look = ReturnType<typeof useLook>;
+
+/** Tarjetas de temas: la forma de cada tema, pintada con los colores elegidos (o los suyos). */
+function ThemeGrid({ look }: { look: Look }) {
+  const own = look.source !== 'theme' ? fullPalette(look.colors) : null;
   return (
-    <div className="vt-grid">
-      {VENDOR_THEMES.map((th) => (
-        <button type="button" key={th.id} className={`vt ${value === th.id ? 'on' : ''}`} onClick={() => onPick(th.id)} aria-pressed={value === th.id}
-          style={{ background: th.background.style === 'solid' ? th.palette.background : `linear-gradient(150deg, ${th.background.gradientStart}, ${th.background.gradientEnd})`, borderRadius: Math.min(th.radius.card, 16) }}>
-          <span className="vt-name" style={{ color: th.palette.onBackground, fontFamily: th.family === 'poppins' ? 'Poppins, sans-serif' : th.family === 'inter' ? 'Inter, sans-serif' : 'system-ui' }}>{th.name}</span>
-          <span className="vt-cards">{[0, 1, 2].map((i) => <i key={i} style={{ background: th.palette.surfaceVariant, borderRadius: th.radius.card / 2, outline: i === 0 ? `2px solid ${th.palette.accent}` : 'none' }} />)}</span>
-          <span className="vt-btn" style={{ background: th.button === 'outlined' ? 'transparent' : th.palette.primary, color: th.button === 'outlined' ? th.palette.primary : th.palette.buttonText, border: `2px solid ${th.palette.primary}`, borderRadius: th.radius.button }}>Reproducir</span>
-          <span className="vt-desc" style={{ color: th.palette.textSecondary }}>{th.desc}</span>
-        </button>
+    <div className="vt-grid" role="radiogroup" aria-label="Tema de la app">
+      {VENDOR_THEMES.map((th) => {
+        const p = own ? { ...th.palette, ...own } : th.palette;
+        const bg = own ? { start: look.colors.background, end: gradientEnd(look.colors) } : { start: th.background.gradientStart, end: th.background.gradientEnd };
+        return (
+          <button type="button" key={th.id} className={`vt ${look.themeId === th.id ? 'on' : ''}`} onClick={() => look.pickTheme(th.id)} aria-pressed={look.themeId === th.id}
+            style={{ background: th.background.style === 'solid' ? p.background : `linear-gradient(150deg, ${bg.start}, ${bg.end})`, borderRadius: Math.min(th.radius.card, 16) }}>
+            <span className="vt-name" style={{ color: p.onBackground, fontFamily: th.family === 'poppins' ? 'Poppins, sans-serif' : th.family === 'inter' ? 'Inter, sans-serif' : 'system-ui' }}>{th.name}</span>
+            <span className="vt-cards">{[0, 1, 2].map((i) => <i key={i} style={{ background: p.surfaceVariant, borderRadius: th.radius.card / 2, outline: i === 0 ? `2px solid ${p.accent}` : 'none' }} />)}</span>
+            <span className="vt-btn" style={{ background: th.button === 'outlined' ? 'transparent' : p.primary, color: th.button === 'outlined' ? p.primary : p.buttonText, border: `2px solid ${p.primary}`, borderRadius: th.radius.button }}>Reproducir</span>
+            <span className="vt-desc" style={{ color: p.textSecondary }}>{th.desc}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Colores de la app: de dónde salen (tema, logotipo o propios) y ajuste a mano. */
+function ColorFields({ look, name, logoSrc }: { look: Look; name: string; logoSrc?: string | null }) {
+  const th = VENDOR_THEMES.find((t) => t.id === look.themeId);
+  return (
+    <div className="vendor-colors">
+      <div className="color-source" role="group" aria-label="Colores">
+        <button type="button" className={`chip ${look.source === 'theme' ? 'on' : ''}`} onClick={look.useThemeColors} disabled={!th}>Colores del tema{th ? ` (${th.name})` : ''}</button>
+        <button type="button" className={`chip ${look.source === 'logo' ? 'on' : ''}`} onClick={look.useLogoColors} disabled={!look.logoCols} title={look.logoCols ? '' : 'Sube un logotipo'}>Colores del logotipo</button>
+        <span className={`chip ${look.source === 'custom' ? 'on' : ''}`} aria-disabled>Mis colores</span>
+      </div>
+      {([['primary', 'Color principal (botones)'], ['accent', 'Color de acento (al seleccionar y detalles)'], ['background', 'Fondo']] as const).map(([k, label]) => (
+        <label key={k}><input type="color" value={look.colors[k]} aria-label={label} onChange={(e) => look.setColor(k, e.target.value)} /> <span>{label}</span></label>
       ))}
+      <div className="vendor-preview" style={{ background: `linear-gradient(150deg, ${look.colors.background}, ${gradientEnd(look.colors)})` }}>
+        {logoSrc ? <img src={logoSrc} alt="" style={{ height: 40 }} /> : null}
+        <b style={{ color: '#F2F4F8' }}>{name}</b>
+        <span className="vp-focus" style={{ outline: `3px solid ${look.colors.accent}` }}>Seleccionado</span>
+        <span style={{ background: look.colors.primary, color: fullPalette(look.colors).buttonText }} className="vp-btn">Reproducir</span>
+      </div>
+      <span className="hint">El tema pone la forma (menú, bordes, letra y botones); estos colores pintan toda la app: botones, lo seleccionado, fondo y tarjetas.</span>
+    </div>
+  );
+}
+
+/** Logotipo: se le quita el fondo y se leen sus colores (se aplican solos sin cambiar el tema). */
+function LogoField({ look, current, onFile }: { look: Look; current?: string | null; onFile: (f: File | null) => void }) {
+  const [orig, setOrig] = useState<File | null>(null);
+  const [cut, setCut] = useState<File | null>(null);
+  const [useCut, setUseCut] = useState(true);
+  const [prev, setPrev] = useState(''); const [note, setNote] = useState('');
+  const file = orig ? (useCut && cut ? cut : orig) : null;
+  useEffect(() => { onFile(file); if (!file) { setPrev(''); return; } const u = URL.createObjectURL(file); setPrev(u); return () => URL.revokeObjectURL(u); }, [file]); // eslint-disable-line
+  // Logotipo que ya tiene la app: se leen sus colores para poder usarlos (sin aplicarlos solos).
+  useEffect(() => { if (current && !orig) void fetch(current).then((r) => r.blob()).then((b) => logoColors(b)).then((lc) => look.gotLogoColors(lc, false)).catch(() => {}); }, [current]); // eslint-disable-line
+  const pick = async (f: File | undefined) => {
+    if (!f) return; setNote('Preparando el logotipo…');
+    try {
+      const r0 = await fixImage(f, 'logo');
+      const c = await removeLogoBackground(r0.file).catch(() => null);
+      setOrig(r0.file); setCut(c && c.file !== r0.file ? c.file : null); setUseCut(true);
+      const lc = await logoColors(c?.file ?? r0.file).catch(() => null);
+      look.gotLogoColors(lc);
+      setNote([c?.note, lc ? '🎨 La app tomó los colores del logotipo (el tema elegido se queda).' : 'El logotipo casi no tiene color: se quedan los colores actuales.'].filter(Boolean).join(' '));
+    } catch (e) { setNote(e instanceof Error ? e.message : 'No se pudo abrir la imagen.'); }
+  };
+  const shown = prev || current || '';
+  return (
+    <div className="vendor-logo-pick">
+      <div className="vendor-logo-box checker" style={{ background: look.colors.background }}>{shown ? <img src={shown} alt="Logotipo" /> : <span>Sin logotipo</span>}</div>
+      <label className="btn-ghost">{shown ? 'Cambiar logotipo' : 'Subir logotipo'}
+        <input type="file" accept="image/*" hidden aria-label="Logotipo" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; void pick(f); }} />
+      </label>
+      {orig && cut && <label className="hint"><input type="checkbox" checked={useCut} onChange={(e) => setUseCut(e.target.checked)} /> Quitar el fondo (desmarca si prefieres la imagen original)</label>}
+      {note && <span className="hint">{note}</span>}
     </div>
   );
 }
 
 /**
- * Editor rápido de una app ya creada (la tuya o la de un vendedor): cambiar el tema con el que arranca,
- * sus colores y su logotipo (se le quita el fondo solo). Se publica al guardar y le llega a sus clientes.
+ * Editor rápido de una app ya creada (la tuya o la de un vendedor): tema con el que arranca, colores y
+ * logotipo (sin fondo). Se publica al guardar y le llega a sus clientes.
  */
 function AppLookEditor({ slug, name, onClose }: { slug: string; name: string; onClose: () => void }) {
+  const look = useLook(null);
   const [loaded, setLoaded] = useState(false);
-  const [themeId, setThemeId] = useState<string | null>(null);
-  const [colors, setColors] = useState<BrandColors>({ primary: '#7BE52F', accent: '#22D3EE', background: '#02050C' });
   const [curLogo, setCurLogo] = useState<string | null>(null);
-  const [orig, setOrig] = useState<File | null>(null);       // logotipo tal cual lo subió
-  const [cut, setCut] = useState<File | null>(null);         // logotipo sin fondo
-  const [useCut, setUseCut] = useState(true);
-  const [prev, setPrev] = useState(''); const [note, setNote] = useState('');
-  const [dirty, setDirty] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [saved, setSaved] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   useEffect(() => {
-    void githubApi.appLook(slug).then((l) => { setThemeId(l.themeId); setColors(l.colors); setCurLogo(l.logo); setLoaded(true); })
+    void githubApi.appLook(slug).then((l) => { look.load(l.themeId, l.colors); setCurLogo(l.logo); setSaved(JSON.stringify([l.themeId, l.colors])); setLoaded(true); })
       .catch((e) => setMsg({ kind: 'error', text: e instanceof Error ? e.message : 'No se pudo leer la app.' }));
-  }, [slug]);
-  const logoFile = orig ? (useCut && cut ? cut : orig) : null;
-  useEffect(() => {
-    if (!logoFile) return;
-    const u = URL.createObjectURL(logoFile); setPrev(u);
-    return () => URL.revokeObjectURL(u);
-  }, [logoFile]);
-  const pickTheme = (id: string) => { setThemeId(id); const p = VENDOR_THEMES.find((t) => t.id === id)!.palette; setColors({ primary: p.primary!, accent: p.accent!, background: p.background! }); setDirty(true); };
-  const pickLogo = async (f: File | undefined) => {
-    if (!f) return; setNote('Preparando el logotipo…'); setMsg(null);
-    try {
-      const r0 = await fixImage(f, 'logo');
-      const c = await removeLogoBackground(r0.file).catch(() => null);
-      setOrig(r0.file); setCut(c?.removed || (c && c.file !== r0.file) ? c.file : null); setUseCut(true);
-      const lc = await logoColors(c?.file ?? r0.file).catch(() => null);
-      if (lc) { setThemeId(closestTheme(VENDOR_THEMES, lc.primary).id); setColors(lc); }
-      setNote([c?.note, lc ? '🎨 Colores tomados del logotipo (puedes ajustarlos o elegir otro tema).' : ''].filter(Boolean).join(' '));
-      setDirty(true);
-    } catch (e) { setNote(e instanceof Error ? e.message : 'No se pudo abrir la imagen.'); }
-  };
+  }, [slug]); // eslint-disable-line
+  const [newPrev, setNewPrev] = useState('');
+  useEffect(() => { if (!logoFile) { setNewPrev(''); return; } const u = URL.createObjectURL(logoFile); setNewPrev(u); return () => URL.revokeObjectURL(u); }, [logoFile]);
+  const dirty = !!logoFile || JSON.stringify([look.themeId, look.colors]) !== saved;
   const save = async () => {
     setBusy(true); setMsg(null);
     try {
-      const r = await githubApi.restyleApp(slug, { themeId, colors, logo: logoFile });
+      const r = await githubApi.restyleApp(slug, { themeId: look.themeId, colors: look.colors, logo: logoFile });
       setMsg({ kind: 'ok', text: `✓ Publicado (versión ${r.version}). Sus clientes lo ven al abrir la app.${slug && logoFile ? ' El ícono de su APK se actualiza en unos 10 minutos.' : ''}` });
-      setDirty(false); setOrig(null); setCut(null);
+      setSaved(JSON.stringify([look.themeId, look.colors]));
       if (currentTarget() === slug) setTimeout(() => location.reload(), 1500); // el estudio estaba abierto en esta app
     } catch (e) { setMsg({ kind: 'error', text: e instanceof Error ? e.message : 'No se pudo publicar.' }); }
     finally { setBusy(false); }
@@ -224,34 +298,16 @@ function AppLookEditor({ slug, name, onClose }: { slug: string; name: string; on
     <div className="app-look" aria-label={`Tema y logotipo de ${name}`}>
       {!loaded && !msg && <span className="hint">Cargando…</span>}
       {loaded && <>
-        <b>Tema con el que arranca la app</b> <span className="hint">Colores, fondo, letra, bordes y forma del menú. Puedes cambiarlo cuando quieras.</span>
-        <ThemeGrid value={themeId} onPick={pickTheme} />
+        <b>Tema con el que arranca la app</b> <span className="hint">La forma: menú, bordes, letra y botones. Cambiar de tema no cambia tus colores.</span>
+        <ThemeGrid look={look} />
         <div className="vendor-brand">
-          <div className="vendor-logo-pick">
-            <div className="vendor-logo-box checker" style={{ background: colors.background }}>
-              {prev && logoFile ? <img src={prev} alt="Logotipo nuevo" /> : curLogo ? <img src={curLogo} alt="Logotipo actual" /> : <span>Sin logotipo</span>}
-            </div>
-            <label className="btn-ghost">{curLogo || orig ? 'Cambiar logotipo' : 'Subir logotipo'}
-              <input type="file" accept="image/*" hidden aria-label="Logotipo" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; void pickLogo(f); }} />
-            </label>
-            {orig && cut && <label className="hint"><input type="checkbox" checked={useCut} onChange={(e) => setUseCut(e.target.checked)} /> Quitar el fondo (desmarca si prefieres la imagen original)</label>}
-            {note && <span className="hint">{note}</span>}
-          </div>
-          <div className="vendor-colors">
-            {([['primary', 'Color principal (botones)'], ['accent', 'Color de acento (foco y detalles)'], ['background', 'Fondo']] as const).map(([k, label]) => (
-              <label key={k}><input type="color" value={colors[k]} onChange={(e) => { setColors((c) => ({ ...c, [k]: e.target.value })); setDirty(true); }} /> <span>{label}</span></label>
-            ))}
-            <div className="vendor-preview" style={{ background: colors.background }}>
-              {(prev && logoFile) || curLogo ? <img src={prev && logoFile ? prev : curLogo!} alt="" style={{ height: 40 }} /> : null}
-              <b style={{ color: colors.accent }}>{name}</b>
-              <span style={{ background: colors.primary }} className="vp-btn">Reproducir</span>
-            </div>
-          </div>
+          <LogoField look={look} current={curLogo} onFile={setLogoFile} />
+          <ColorFields look={look} name={name} logoSrc={newPrev || curLogo} />
         </div>
         <div className="dl-row">
-          <button className="btn" disabled={busy || !dirty || !themeId} onClick={() => void save()}>{busy ? 'Publicando…' : 'Guardar y publicar'}</button>
+          <button className="btn" disabled={busy || !dirty || !look.themeId} onClick={() => void save()}>{busy ? 'Publicando…' : 'Guardar y publicar'}</button>
           <button className="btn-ghost" onClick={onClose}>Cerrar</button>
-          {!themeId && <span className="hint">Elige un tema para poder guardar.</span>}
+          {!look.themeId && <span className="hint">Elige un tema para poder guardar.</span>}
         </div>
       </>}
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
@@ -264,28 +320,8 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
   const [mode, setMode] = useState<'mine' | 'ask'>('mine');
   const [welcome, setWelcome] = useState('');
   const [logo, setLogo] = useState<File | null>(null);
-  const [logoPrev, setLogoPrev] = useState('');
-  const [logoNote, setLogoNote] = useState('');
-  const [themeId, setThemeId] = useState(VENDOR_THEMES[1]!.id);
-  const themeOf = (id: string) => VENDOR_THEMES.find((x) => x.id === id) ?? VENDOR_THEMES[0]!;
-  const [colors, setColors] = useState(() => { const p = themeOf(VENDOR_THEMES[1]!.id).palette; return { primary: p.primary!, accent: p.accent!, background: p.background! }; });
-  const pickTheme = (id: string) => { setThemeId(id); const p = themeOf(id).palette; setColors({ primary: p.primary!, accent: p.accent!, background: p.background! }); };
-  const pickLogo = async (f: File | undefined) => {
-    setLogoNote(''); if (!f) return;
-    try {
-      const r0 = await fixImage(f, 'logo');
-      const cut = await removeLogoBackground(r0.file).catch(() => null);
-      const r = cut ? { ...r0, file: cut.file, note: `${r0.changed ? r0.note + ' ' : ''}${cut.note}`, changed: true } : r0;
-      setLogo(r.file);
-      // Colores de la app tomados del logotipo (se pueden ajustar abajo).
-      const lc = await logoColors(r.file).catch(() => null);
-      if (lc) {
-        setThemeId(closestTheme(VENDOR_THEMES, lc.primary).id); setColors(lc);
-        setLogoNote(`${r.changed ? r.note + ' ' : ''}🎨 Colores tomados del logotipo: la app usará estos colores (puedes ajustarlos).`);
-      } else setLogoNote(r.changed ? r.note : 'Imagen lista. El logotipo casi no tiene color: se quedan los colores del tema.');
-      setLogoPrev((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(r.file); });
-    } catch (e) { setLogo(null); setLogoPrev(''); setLogoNote(e instanceof Error ? e.message : 'No se pudo abrir la imagen.'); }
-  };
+  const newLook = useLook(VENDOR_THEMES[1]!.id);
+  const [formKey, setFormKey] = useState(0); // para limpiar el logotipo después de crear
   const [look, setLook] = useState<string | null>(null); // app abierta en el editor rápido de tema y logotipo
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'error' | 'info'; text: string } | null>(null);
@@ -298,7 +334,7 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
   };
   const create = (e: FormEvent) => {
     e.preventDefault();
-    void run(async () => { const v = await githubApi.createVendor(name, { askHost: mode === 'ask', logo, colors, themeId, welcome }); setName(''); setWelcome(''); setLogo(null); setLogoPrev(''); setLogoNote(''); return v; },
+    void run(async () => { const v = await githubApi.createVendor(name, { askHost: mode === 'ask', logo, colors: newLook.colors, themeId: newLook.themeId ?? undefined, welcome }); setName(''); setWelcome(''); setLogo(null); setFormKey((k) => k + 1); return v; },
       `Vendedor creado ${mode === 'ask' ? '(sus clientes escribirán URL, usuario y contraseña)' : '(con tu servidor: sus clientes solo escriben usuario y contraseña)'}. Su APK estará lista en unos 5–15 minutos: abajo verás cuando esté lista. Elige «Editar su app» para cambiar su logotipo y colores.`);
   };
   return (
@@ -309,29 +345,17 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={30} placeholder="Nombre de la marca del vendedor (ej. Juan TV)" aria-label="Nombre del vendedor" />
           <button className="btn" disabled={busy || name.trim().length < 2}>{busy ? 'Creando…' : 'Crear app de vendedor'}</button>
         </form>
-        <div className="vendor-themes" role="radiogroup" aria-label="Tema de la app">
-          <b>1. Elige un tema</b> <span className="hint">Cambia colores, fondo, letra, bordes y la forma del menú: así su app no se ve igual a la tuya.</span>
-          <ThemeGrid value={themeId} onPick={pickTheme} />
+        <div className="vendor-themes">
+          <b>1. Elige un tema</b> <span className="hint">La forma de la app: menú, bordes, letra y botones (así su app no se ve igual a la tuya).</span>
+          <ThemeGrid look={newLook} />
         </div>
-        <b style={{ display: 'block', marginTop: 14 }}>2. Logotipo: la app toma sus colores automáticamente (puedes ajustarlos)</b>
-        <div className="vendor-brand">
-          <div className="vendor-logo-pick">
-            <div className="vendor-logo-box" style={{ background: colors.background }}>{logoPrev ? <img src={logoPrev} alt="Logotipo" /> : <span>Sin logotipo</span>}</div>
-            <label className="btn-ghost">{logo ? 'Cambiar logotipo' : 'Subir logotipo'}
-              <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; void pickLogo(f); }} />
-            </label>
-            {logoNote && <span className="hint">{logoNote}</span>}
+        <b style={{ display: 'block', marginTop: 14 }}>2. Logotipo y colores: al subir el logotipo, la app toma sus colores sola (el tema se queda)</b>
+        <div className="vendor-brand" key={formKey}>
+          <div>
+            <LogoField look={newLook} onFile={setLogo} />
             {!logo && <span className="hint" style={{ color: '#b54708' }}>Sin logotipo, la app usa uno con las iniciales del nombre (nunca el de EmbyVerse).</span>}
           </div>
-          <div className="vendor-colors">
-            {([['primary', 'Color principal (botones)'], ['accent', 'Color de acento (foco y detalles)'], ['background', 'Fondo']] as const).map(([k, label]) => (
-              <label key={k}><input type="color" value={colors[k]} onChange={(e) => setColors((c) => ({ ...c, [k]: e.target.value }))} /> <span>{label}</span></label>
-            ))}
-            <div className="vendor-preview" style={{ background: colors.background }}>
-              <b style={{ color: colors.accent }}>{name.trim() || 'Nombre del vendedor'}</b>
-              <span style={{ background: colors.primary }} className="vp-btn">Reproducir</span>
-            </div>
-          </div>
+          <ColorFields look={newLook} name={name.trim() || 'Nombre del vendedor'} />
         </div>
         <fieldset className="vendor-mode">
           <legend>3. Servidor de la app del vendedor</legend>
