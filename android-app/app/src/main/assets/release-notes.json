@@ -3,11 +3,13 @@
   "1.15.9": {
     "es": [
       "Ahora se oyen las películas y series con audio Dolby (AC3, E-AC3), DTS y TrueHD en cualquier equipo.",
-      "Nuevo: «Abrir en otro reproductor» (VLC, MX Player…) desde el panel de opciones, o siempre desde Ajustes › Reproducción."
+      "Nuevo: «Abrir en otro reproductor» (VLC, MX Player…) desde el panel de opciones, o siempre desde Ajustes › Reproducción.",
+      "Los videos abren siempre en pantalla «Llenar»."
     ],
     "en": [
       "Movies and series with Dolby (AC3, E-AC3), DTS and TrueHD audio now play with sound on any device.",
-      "New: “Open in another player” (VLC, MX Player…) from the options panel, or always from Settings › Playback."
+      "New: “Open in another player” (VLC, MX Player…) from the options panel, or always from Settings › Playback.",
+      "Videos always open in “Fill” screen mode."
     ]
   },
   "1.15.8": {

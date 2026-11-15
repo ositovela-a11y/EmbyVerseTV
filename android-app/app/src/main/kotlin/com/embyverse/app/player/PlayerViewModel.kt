@@ -44,6 +44,9 @@ data class NowPlaying(
 )
 
 /** Estado observable del reproductor para las pruebas en dispositivo (sin datos personales). */
+/** Pantalla «Llenar»: el video ocupa toda la pantalla (posición 1 de Ajustar, Llenar, Zoom, 16:9, 4:3). */
+const val ASPECT_FILL = 1
+
 object PlaybackProbe {
     @Volatile var readyCount = 0
     @Volatile var lastError: String? = null
@@ -80,7 +83,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     /** En ventana «imagen en imagen»: se ocultan todos los controles. */
     val inPip = MutableStateFlow(false)
     /** Formato de pantalla (0 ajustar, 1 llenar, 2 zoom, 3 16:9, 4 4:3). */
-    val aspect = MutableStateFlow(0)
+    val aspect = MutableStateFlow(ASPECT_FILL)
     private var langs: Pair<String, String> = "es" to ""
 
     /** Idioma preferido del perfil: audio (p. ej. latino) y subtítulos, elegidos solos en cada video. */
@@ -170,7 +173,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     fun cycleAspect() {
         val n = (aspect.value + 1) % 5
         aspect.value = n
-        viewModelScope.launch { c.prefs.updatePlayback { it.copy(aspectMode = n) } }
+        // Solo para este video: cada película, serie o canal abre siempre en «Llenar».
     }
     /** Nombre del Chromecast al que se está enviando (null = se ve en el equipo). */
     val castingTo = MutableStateFlow<String?>(null)
@@ -286,7 +289,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     init {
         viewModelScope.launch {
             prefs = c.prefs.playback.first()
-            subtitleStyle.value = prefs; nightMode.value = prefs.nightNow(); aspect.value = prefs.aspectMode
+            subtitleStyle.value = prefs; nightMode.value = prefs.nightNow(); aspect.value = ASPECT_FILL
             langs = runCatching { c.prefs.profileLanguages(c.prefs.activeProfile()).first() }.getOrDefault("es" to "")
             player.value?.let { applyLanguages(it) }
             if (isLive) {
