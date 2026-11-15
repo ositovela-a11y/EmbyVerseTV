@@ -60,7 +60,7 @@ async function shorten(urls: string[]): Promise<string> {
   for (const host of ['is.gd', 'v.gd']) for (const u of urls) {
     try { return await shortenWith(host, u); } catch (e) { errors.push(e instanceof Error ? e.message : String(e)); }
   }
-  throw new Error(`No se pudo crear el código corto (${[...new Set(errors)].slice(0, 2).join(' · ')}). Usa el enlace largo o go.aftvnews.com.`);
+  throw new Error(`No se pudo crear el código corto (${[...new Set(errors)].slice(0, 2).join(' · ')}). Usa el código de AFTVnews de arriba.`);
 }
 
 /** ¿Ya está publicada la APK? (la de un vendedor nuevo tarda unos 5–15 minutos en compilarse). */
@@ -85,38 +85,69 @@ function useApkReady(url: string): 'checking' | 'ready' | 'building' | 'unknown'
 
 const SHORT_KEY = (slug: string) => `ev.studio.short:${slug || 'principal'}`;
 
+/** «aftv.news/9698305», «go.aftvnews.com/9698305» o «9698305» → «9698305». */
+export function normDlCode(raw: string): string | null {
+  const m = /(?:^|\/)(\d{4,9})\/?$/.exec(raw.trim()) ?? /^\s*(\d{4,9})\s*$/.exec(raw);
+  return m ? m[1]! : null;
+}
+
 function Links({ slug }: { slug: string }) {
   const l = linksFor(slug);
+  const longUrl = `https://${l.short}`;
   const copy = (t: string) => navigator.clipboard?.writeText(t);
   const [short, setShort] = useState<string>(() => { try { return localStorage.getItem(SHORT_KEY(slug)) || ''; } catch { return ''; } });
+  const [code, setCode] = useState<string | null>(null); // código numérico de Downloader guardado (para todos tus equipos)
+  const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState('');
+  const [err, setErr] = useState(''); const [ok, setOk] = useState('');
   const ready = useApkReady(l.apk);
+  useEffect(() => { void githubApi.downloaderCodes().then((c) => setCode(c[slug] ?? '')).catch(() => setCode('')); }, [slug]);
   const make = async () => {
     setBusy(true); setErr('');
     try {
-      const s = (await shorten([l.apk, `https://${l.short}`])).replace(/^https?:\/\//, '');
+      const s = (await shorten([longUrl, l.apk])).replace(/^https?:\/\//, '');
       setShort(s); try { localStorage.setItem(SHORT_KEY(slug), s); } catch { /* */ }
     } catch (e) { setErr(e instanceof Error ? e.message : 'Error'); }
     finally { setBusy(false); }
+  };
+  const saveCode = async (raw: string | null) => {
+    const c = raw === null ? null : normDlCode(raw);
+    if (raw !== null && !c) { setErr('Ese código no es válido. Copia el número que te dio AFTVnews (por ejemplo 9698305 o aftv.news/9698305).'); return; }
+    setBusy(true); setErr(''); setOk('');
+    try { await githubApi.setDownloaderCode(slug, c); setCode(c ?? ''); setDraft(''); setOk(c ? `✓ Código ${c} guardado.` : 'Código quitado.'); }
+    catch (e) { setErr(e instanceof Error ? e.message : 'No se pudo guardar.'); } finally { setBusy(false); }
   };
   return (
     <div className="vendor-links">
       {ready === 'building' && <span className="hint" style={{ color: '#b54708' }}>⏳ Su APK se está compilando (unos 5–15 minutos después de crearla o de cambiar su nombre o logotipo). Esta página se actualiza sola; mientras tanto el enlace de descarga todavía no funciona.</span>}
       {ready === 'ready' && <span className="hint" style={{ color: '#067647' }}>✓ APK lista para descargar</span>}
-      <span><b>Código para Downloader:</b>{' '}
+      <span><b>Código de Downloader:</b>{' '}
+        {code ? <><code className="short-code dl-code">{code}</code> <button className="link" onClick={() => copy(code)}>Copiar</button> <button className="link danger" disabled={busy} onClick={() => void saveCode(null)}>Quitar</button></>
+          : code === '' ? <span className="hint">todavía no tiene.</span> : <span className="hint">cargando…</span>}
+      </span>
+      {code === '' && (
+        <div className="dl-steps">
+          <span className="hint"><b>Cómo sacar el código numérico (1 minuto):</b> 1) pulsa «Copiar enlace y abrir AFTVnews» · 2) en la página de AFTVnews pega el enlace, resuelve el captcha y pulsa crear · 3) copia el número que te da y pégalo aquí. AFTVnews no permite hacerlo automático (pide el captcha).</span>
+          <div className="dl-row">
+            <button className="btn" disabled={ready === 'building'} onClick={() => { void copy(longUrl); window.open('https://go.aftvnews.com/', '_blank', 'noopener'); }}>{ready === 'building' ? 'Espera a que termine la APK' : 'Copiar enlace y abrir AFTVnews'}</button>
+            <input className="input" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Pega el código, ej. 9698305" aria-label="Código de Downloader" inputMode="numeric" style={{ maxWidth: 220 }} />
+            <button className="btn" disabled={busy || !draft.trim()} onClick={() => void saveCode(draft)}>Guardar código</button>
+          </div>
+        </div>
+      )}
+      {code && <span className="hint">Tus clientes abren Downloader, escriben <b>{code}</b> y se instala la app. Siempre baja la versión más reciente.</span>}
+      {ok && <span className="hint" style={{ color: '#067647' }}>{ok}</span>}
+      <span><b>Código corto sin captcha (alternativo):</b>{' '}
         {short ? <><code className="short-code">{short}</code> <button className="link" onClick={() => copy(short)}>Copiar</button> <button className="link" onClick={() => { setShort(''); try { localStorage.removeItem(SHORT_KEY(slug)); } catch { /* */ } }}>Crear otro</button></>
-          : <button className="btn" disabled={busy || ready === 'building'} onClick={() => void make()}>{busy ? 'Creando…' : ready === 'building' ? 'Espera a que termine la APK' : 'Generar código para Downloader'}</button>}
+          : <button className="btn-ghost" disabled={busy || ready === 'building'} onClick={() => void make()}>{busy ? 'Creando…' : 'Crear con is.gd'}</button>}
       </span>
       {err && <span className="hint" style={{ color: '#b42318' }}>{err}</span>}
-      {short && <span className="hint">Tus clientes escriben <b>{short}</b> en Downloader y se instala la app. Siempre baja la versión más reciente; después se actualiza sola dentro de la app.</span>}
-      <span><b>Enlace largo:</b> <code>{l.short}</code> <button className="link" onClick={() => copy(l.short)}>Copiar</button></span>
+      <span><b>Enlace largo (el que va en AFTVnews):</b> <code>{l.short}</code> <button className="link" onClick={() => copy(longUrl)}>Copiar</button></span>
       <span><b>APK:</b> <a href={l.apk} target="_blank" rel="noreferrer">{l.apk.split('/').pop()}</a></span>
       <span><b>Página de descarga:</b> <a href={l.web} target="_blank" rel="noreferrer">{l.web.replace('https://', '')}</a></span>
       <span><b>App para PC (Windows):</b> <code>{l.pc.replace('https://', '')}</code> <button className="link" onClick={() => copy(l.pc)}>Copiar</button>
         {' '}<a href={l.pcExe} target="_blank" rel="noreferrer">descargar instalador</a></span>
       <span className="hint">La app de PC es de pago: el cliente o vendedor te manda el código que aparece al abrirla y tú lo activas en «Activaciones». Se compila sola unos 10 minutos después de crear el vendedor o cambiar su nombre o logotipo.</span>
-      <span className="hint">¿Prefieres un código numérico de Downloader? Pégale el enlace largo en <a href="https://go.aftvnews.com/" target="_blank" rel="noreferrer">go.aftvnews.com</a> (pide resolver un captcha, por eso no se puede hacer automático).</span>
     </div>
   );
 }
@@ -226,7 +257,7 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
           </div>
         ))}
       </Group>
-      <p className="hint">Pasos para una app nueva: 1) escribe el nombre, elige un tema, sube su logotipo y elige el servidor · 2) «Crear app de vendedor» (se publica sola) · 3) si quieres más cambios, «Editar su app» y «Publicar» · 4) cuando aparezca «✓ APK lista» (5–15 minutos), pulsa «Generar código para Downloader» y entrégaselo a tu vendedor. Cada versión nueva le llega sola a sus clientes.</p>
+      <p className="hint">Pasos para una app nueva: 1) escribe el nombre, elige un tema, sube su logotipo y elige el servidor · 2) «Crear app de vendedor» (se publica sola) · 3) si quieres más cambios, «Editar su app» y «Publicar» · 4) cuando aparezca «✓ APK lista» (5–15 minutos), saca su código de Downloader con AFTVnews (botón «Copiar enlace y abrir AFTVnews»), pégalo y entrégaselo a tu vendedor. Cada versión nueva le llega sola a sus clientes.</p>
     </div>
   );
 }
