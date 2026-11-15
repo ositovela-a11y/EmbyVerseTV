@@ -1020,6 +1020,7 @@ class SmokeFlowTest {
                     for ((tag, label) in listOf("nav_live" to "tv-en-vivo", "nav_home" to "inicio", "nav_movies" to "peliculas", "nav_series" to "series", "nav_settings" to "ajustes")) {
                         runCatching { compose.onNodeWithTag(tag, useUnmergedTree = true).performClick() }
                         Thread.sleep(2_200)
+                        if (tag == "nav_live") runCatching { waitTag("channel", 30_000); Thread.sleep(800) } // con canales, no solo cargando
                         textosCortados(label, cf.name, found)
                         shot("tv-${cf.name}-$label")
                     }

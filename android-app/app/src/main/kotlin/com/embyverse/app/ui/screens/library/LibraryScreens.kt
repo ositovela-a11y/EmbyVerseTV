@@ -168,7 +168,7 @@ private fun FolderColumn(folders: List<Folder>, selected: String, onSelect: (Str
                     .padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(width = 3.dp, height = 18.dp).background(if (isSel) t.primary else Color.Transparent))
                     Spacer(Modifier.width(10.dp))
-                    Text(f.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    Text(f.label, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis, // nombres largos en 2 renglones (TV angostos)
                         color = if (isSel || focused) t.onBackground else t.textSecondary,
                         fontWeight = if (isSel || focused) androidx.compose.ui.text.font.FontWeight.Bold else null)
                 }
