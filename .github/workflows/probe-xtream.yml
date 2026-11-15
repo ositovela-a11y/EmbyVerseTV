@@ -1,0 +1,12 @@
+name: Prueba temporal del servidor
+on: { push: { branches: [probe-xtream] } }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for q in "username=usuario_inexistente_123&password=x" "username=&password=" ; do
+            for ua in "EmbyVerse/1.15 (Android)" "okhttp/4.12.0"; do
+              echo "=== $q | $ua"; curl -s -m 20 -A "$ua" -D - -o body.txt "https://krnosmx.com:443/player_api.php?$q" | head -12; echo "--- cuerpo:"; head -c 400 body.txt; echo
+            done
+          done
