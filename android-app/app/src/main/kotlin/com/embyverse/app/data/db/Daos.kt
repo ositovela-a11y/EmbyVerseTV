@@ -346,6 +346,14 @@ interface LibraryDao {
     @Query("DELETE FROM favorites WHERE sourceId = :sourceId")
     suspend fun deleteFavoritesForSource(sourceId: String)
 
+    /** Cambia cuando se agrega o quita un favorito (para sincronizar con la cuenta). */
+    @Query("SELECT COUNT(*) || ':' || COALESCE(MAX(addedAt), 0) || ':' || COALESCE(SUM(LENGTH(itemId)), 0) FROM favorites")
+    fun observeFavoritesSignature(): Flow<String>
+
+    /** Cambia cuando se guarda el avance de una película o episodio. */
+    @Query("SELECT COUNT(*) || ':' || COALESCE(MAX(updatedAt), 0) FROM progress WHERE kind IN ('MOVIE','EPISODE')")
+    fun observeProgressSignature(): Flow<String>
+
     @Query("DELETE FROM progress WHERE sourceId = :sourceId")
     suspend fun deleteProgressForSource(sourceId: String)
 }

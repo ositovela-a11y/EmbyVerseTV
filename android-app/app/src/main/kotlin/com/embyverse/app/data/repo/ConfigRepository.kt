@@ -59,6 +59,9 @@ class ConfigRepository(context: Context, private val client: OkHttpClient) {
     private val _config = MutableStateFlow(manager.current())
     val config: StateFlow<RemoteConfig> = _config
 
+    /** Solo pruebas (versión debug): usar un diseño dado sin descargarlo. */
+    fun overrideForTest(cfg: RemoteConfig) { if (BuildConfig.DEBUG) _config.value = cfg }
+
     private val _status = MutableStateFlow<ConfigStatus>(if (BuildConfig.CONFIG_BASE_URL.isBlank()) ConfigStatus.NotConfigured else ConfigStatus.Idle)
     val status: StateFlow<ConfigStatus> = _status
 

@@ -8,19 +8,26 @@ export interface Prefs { style: string; navSounds: boolean; screensaver: boolean
 
 const get = <T>(k: string, d: T): T => { try { const v = localStorage.getItem(k); return v ? (JSON.parse(v) as T) : d; } catch { return d; } };
 const set = (k: string, v: unknown) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* lleno */ } };
+/** Aviso de cambios en perfiles, favoritos o «seguir viendo» (la sincronización con la cuenta lo usa). */
+let onChange: () => void = () => {};
+let quiet = false;
+export const setOnChange = (f: () => void) => { onChange = f; };
+/** Cambios que vienen de la sincronización: no vuelven a avisar. */
+export const quietly = (f: () => void) => { quiet = true; try { f(); } finally { quiet = false; } };
+const changed = () => { if (!quiet) onChange(); };
 
 export const store = {
   account: () => get<Account | null>('ev.account', null),
   setAccount: (a: Account | null) => (a ? set('ev.account', a) : localStorage.removeItem('ev.account')),
 
   profiles: () => { const p = get<Profile[]>('ev.profiles', []); return p.length ? p : [{ id: 'p1', name: 'Principal', avatar: '🦁' }]; },
-  setProfiles: (p: Profile[]) => set('ev.profiles', p),
+  setProfiles: (p: Profile[]) => { set('ev.profiles', p); changed(); },
   activeProfileId: () => get<string>('ev.profile', 'p1'),
   setActiveProfile: (id: string) => set('ev.profile', id),
   activeProfile(): Profile { const id = this.activeProfileId(); return this.profiles().find((p) => p.id === id) ?? this.profiles()[0]; },
 
   favs: (pid: string) => get<Fav[]>(`ev.fav.${pid}`, []),
-  setFavs: (pid: string, f: Fav[]) => set(`ev.fav.${pid}`, f),
+  setFavs: (pid: string, f: Fav[]) => { set(`ev.fav.${pid}`, f); changed(); },
   toggleFav(pid: string, f: Omit<Fav, 'at'>): boolean {
     const l = this.favs(pid); const i = l.findIndex((x) => x.kind === f.kind && x.id === f.id);
     if (i >= 0) { l.splice(i, 1); this.setFavs(pid, l); return false; }
@@ -31,7 +38,7 @@ export const store = {
   progress: (pid: string) => get<Progress[]>(`ev.prog.${pid}`, []),
   saveProgress(pid: string, p: Progress) {
     const l = this.progress(pid).filter((x) => !(x.kind === p.kind && x.id === p.id) && !(p.seriesId && x.seriesId === p.seriesId));
-    l.unshift(p); set(`ev.prog.${pid}`, l.slice(0, 60));
+    l.unshift(p); set(`ev.prog.${pid}`, l.slice(0, 60)); changed();
   },
   lastLive: (pid: string) => get<string[]>(`ev.lastlive.${pid}`, []),
   pushLive(pid: string, id: string) { const l = this.lastLive(pid).filter((x) => x !== id); l.unshift(id); set(`ev.lastlive.${pid}`, l.slice(0, 30)); },

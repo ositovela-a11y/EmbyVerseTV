@@ -154,6 +154,14 @@ fun SettingsScreen(nav: Navigator) {
         SettingsList {
             item { SettingsItem(Icons.Rounded.Dns, stringResource(R.string.nav_sources), stringResource(R.string.settings_sources_sub)) { nav.go(Routes.SOURCES) } }
             item { SettingsItem(Icons.Rounded.Person, stringResource(R.string.profiles_title), stringResource(R.string.settings_profiles_sub)) { nav.go(Routes.PROFILES) } }
+            item {
+                var on by remember { mutableStateOf(c.accountSync.enabled()) }
+                Box(Modifier.testTag("account_sync")) {
+                    SwitchRow(stringResource(R.string.sync_title), stringResource(R.string.sync_sub), on) { v ->
+                        on = v; c.accountSync.setEnabled(v); if (v) scope.launch { c.accountSync.sync() }
+                    }
+                }
+            }
             item { SettingsItem(Icons.Rounded.Lock, stringResource(R.string.parental_title), stringResource(R.string.parental_sub)) { nav.go(Routes.PARENTAL) } }
             item { SettingsItem(Icons.Rounded.Palette, stringResource(R.string.appearance_title), stringResource(R.string.settings_appearance_sub)) { nav.go(Routes.APPEARANCE) } }
             item { SettingsItem(Icons.Rounded.PlayCircle, stringResource(R.string.playback_title), stringResource(R.string.settings_playback_sub)) { nav.go(Routes.PLAYBACK) } }

@@ -47,6 +47,9 @@ class StatsReporter(private val context: Context, http: OkHttpClient, private va
         return url.takeIf { it.startsWith("https://") || (BuildConfig.DEBUG && it.startsWith("http://")) }
     }
 
+    /** Dirección del servidor (también la usa la sincronización de perfiles de la cuenta). Llamar fuera del hilo principal. */
+    fun serviceUrl(): String? = endpoint()
+
     /** Avisa al abrir y cada vez que cambia la cuenta del cliente. */
     suspend fun reportOn(flow: kotlinx.coroutines.flow.Flow<List<SourceEntity>>) =
         flow.collect { report(it) }

@@ -52,3 +52,6 @@ export async function reportStats(acc: Account | null, force = false): Promise<v
     if (r.ok) { st.sig = sig; st.at = now; write(st); }
   } catch { /* sin aviso */ }
 }
+
+/** Dirección del servidor (la usa también la sincronización de perfiles). */
+export async function serviceUrl(): Promise<string | null> { return endpoint(read()); }

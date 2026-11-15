@@ -121,10 +121,10 @@ class XtreamClient(
         return if (action == null) base else "$base&action=$action$extra"
     }
 
-    private fun checkStatus(code: Int, allowNotXtream: Boolean) {
+    private fun checkStatus(code: Int, allowNotXtream: Boolean, on404: SourceError? = null) {
         when {
             code == 401 || code == 403 -> throw SourceException(SourceError.AuthFailed)
-            code == 404 -> throw SourceException(if (allowNotXtream) SourceError.Http(404) else SourceError.NotXtream)
+            code == 404 -> throw SourceException(on404 ?: if (allowNotXtream) SourceError.Http(404) else SourceError.NotXtream)
             code !in 200..299 -> throw SourceException(SourceError.Http(code))
         }
     }
@@ -132,10 +132,10 @@ class XtreamClient(
     // IMPORTANTE: la descarga y lectura se hacen SIEMPRE en Dispatchers.IO. Antes el cuerpo se leía en
     // el hilo de quien llamaba (la pantalla) y Android cerraba la app (NetworkOnMainThreadException)
     // al abrir series o sincronizar desde la lista de fuentes.
-    private suspend fun getJson(url: String, allowNotXtream: Boolean = false): JsonElement = withContext(Dispatchers.IO) {
+    private suspend fun getJson(url: String, allowNotXtream: Boolean = false, on404: SourceError? = null): JsonElement = withContext(Dispatchers.IO) {
         if (!UrlSafety.isHttpUrl(url)) throw SourceException(SourceError.InvalidUrl)
         http.get(url, mapOf("Accept" to "application/json")).use { r ->
-            checkStatus(r.code, allowNotXtream)
+            checkStatus(r.code, allowNotXtream, on404)
             val text = r.readText(maxBodyBytes).trim()
             if (text.isEmpty()) return@withContext JsonArray(emptyList())
             if (!(text.startsWith("{") || text.startsWith("["))) throw SourceException(SourceError.NotXtream)
@@ -190,7 +190,9 @@ class XtreamClient(
     /** Prueba de conexión: valida credenciales y estado de la cuenta. */
     suspend fun authenticate(c: XtreamCredentials): XtreamAccount {
         if (c.username.isBlank() || c.password.isBlank()) throw SourceException(SourceError.AuthFailed)
-        val root = getJson(api(c)) as? JsonObject ?: throw SourceException(SourceError.AuthFailed)
+        // Un «404» al iniciar sesión casi siempre es usuario o contraseña equivocados (así responden los
+        // paneles XUI); también puede ser una dirección que no es de un servidor Xtream.
+        val root = getJson(api(c), on404 = SourceError.AuthOrNotFound) as? JsonObject ?: throw SourceException(SourceError.AuthFailed)
         val ui = root.obj("user_info") ?: throw SourceException(
             if (root.containsKey("server_info")) SourceError.AuthFailed else SourceError.NotXtream
         )

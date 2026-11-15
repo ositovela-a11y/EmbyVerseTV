@@ -2,11 +2,13 @@
 // cada descarga (/v1/dl) y el panel lee todo con la clave ADMIN_KEY (/v1/stats). Sin contraseñas de nadie.
 const CORS = {
   'access-control-allow-origin': '*',
-  'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS',
+  'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'access-control-allow-headers': 'content-type, authorization',
   'access-control-max-age': '86400',
 };
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...CORS } });
+const MAX_SYNC = 400_000;
+async function sha256(t) { const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('ev-sync|' + t)); return [...new Uint8Array(d)].map((x) => x.toString(16).padStart(2, '0')).join(''); }
 const clip = (v, n) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
 const SLUG = /^[a-z][a-z0-9]{1,30}$/;
 const PLATFORMS = new Set(['android', 'androidtv', 'samsung', 'lg', 'pc', 'web', 'otro']);
@@ -72,6 +74,32 @@ export default {
       if (!authorized(req, env)) return json({ ok: false, error: 'clave' }, 401);
       await env.DB.prepare('DELETE FROM devices WHERE id = ?1').bind(decodeURIComponent(url.pathname.slice(12))).run();
       return json({ ok: true });
+    }
+
+    // Perfiles de la cuenta en todos sus equipos. La llave (64 hex) la calcula el equipo con servidor,
+    // usuario y contraseña; aquí se guarda solo su huella (sha256), así ni la llave queda en la base.
+    const sm = /^\/v1\/sync\/([a-f0-9]{64})$/.exec(url.pathname);
+    if (sm) {
+      const id = await sha256(sm[1]);
+      if (req.method === 'GET') {
+        const row = await env.DB.prepare('SELECT rev, data FROM sync WHERE id = ?1').bind(id).first();
+        return json({ ok: true, rev: row ? row.rev : 0, data: row ? JSON.parse(row.data) : null });
+      }
+      if (req.method === 'PUT') {
+        const text = await req.text();
+        if (text.length > MAX_SYNC) return json({ ok: false, error: 'grande' }, 413);
+        let b; try { b = JSON.parse(text); } catch { return json({ ok: false, error: 'json' }, 400); }
+        if (!b || typeof b.rev !== 'number' || !b.data || typeof b.data !== 'object' || Array.isArray(b.data)) return json({ ok: false, error: 'datos' }, 400);
+        const row = await env.DB.prepare('SELECT rev, data FROM sync WHERE id = ?1').bind(id).first();
+        const cur = row ? row.rev : 0;
+        // Otro equipo guardó antes: se devuelve lo actual para que el equipo lo combine y reintente.
+        if (b.rev !== cur) return json({ ok: false, error: 'conflicto', rev: cur, data: row ? JSON.parse(row.data) : null }, 409);
+        const data = JSON.stringify(b.data);
+        if (row) await env.DB.prepare('UPDATE sync SET rev = ?2, data = ?3, updated = ?4 WHERE id = ?1 AND rev = ?5').bind(id, cur + 1, data, now, cur).run();
+        else await env.DB.prepare('INSERT INTO sync (id, rev, data, updated) VALUES (?1, ?2, ?3, ?4)').bind(id, 1, data, now).run();
+        return json({ ok: true, rev: cur + 1 });
+      }
+      return json({ ok: false, error: 'método' }, 405);
     }
 
     if (url.pathname === '/' || url.pathname === '/v1') return json({ ok: true, service: 'estadisticas' });

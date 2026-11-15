@@ -482,4 +482,11 @@
     <string name="tv_margin_1">Normal</string>
     <string name="tv_margin_2">Large (if your TV crops the edges)</string>
     <string name="player_back_to_video">Back to the video</string>
+    <string name="login_how">How do you want to sign in?</string>
+    <string name="login_mode_account">My account</string>
+    <string name="login_mode_xtream">Another server (Xtream)</string>
+    <string name="login_mode_m3u">M3U playlist</string>
+    <string name="login_auth_failed_locked">Wrong username or password. Check the spelling (it is case-sensitive) and that your account is still active.</string>
+    <string name="sync_title">Profiles on all your devices</string>
+    <string name="sync_sub">The same profiles, favorites and “Continue watching” on your phone, TV and PC with the same account.</string>
 </resources>

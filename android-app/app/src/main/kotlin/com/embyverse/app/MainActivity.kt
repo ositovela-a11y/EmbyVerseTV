@@ -31,6 +31,9 @@ import com.embyverse.app.ui.theme.EmbyTheme
 import com.embyverse.core.config.ConfigResolver
 import com.embyverse.core.config.UserAppearance
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 
 /**
@@ -152,6 +155,18 @@ class MainActivity : AppCompatActivity() {
         // Estadísticas del dueño de la app: aviso de que este equipo la tiene y la usa (máx. cada 6 h).
         // Se repite cuando el cliente agrega o cambia su cuenta (el usuario nuevo aparece en el panel al momento).
         lifecycleScope.launch { runCatching { container.stats.reportOn(container.sources.sources) } }
+        // Perfiles, favoritos y «seguir viendo» iguales en todos los equipos de la cuenta: al abrir, al volver
+        // a la app, al cambiar de cuenta y unos segundos después de cualquier cambio.
+        lifecycleScope.launch {
+            repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                kotlinx.coroutines.flow.merge(
+                    container.sources.sources.map { l -> l.joinToString { it.id } }.distinctUntilChanged().map { 0L },
+                    kotlinx.coroutines.flow.combine(container.database.profiles().observeAll(), container.database.library().observeFavoritesSignature(),
+                        container.database.library().observeProgressSignature()) { a, b, c -> "${a.map { it.name to it.colorArgb }}|$b|$c" }
+                        .distinctUntilChanged().drop(1).map { 20_000L },
+                ).collectLatest { wait -> kotlinx.coroutines.delay(wait); runCatching { container.accountSync.sync() } }
+            }
+        }
         // VPN: si el cliente pidió conectarla al abrir la app (y ya dio el permiso), se conecta sola.
         if (savedInstanceState == null) lifecycleScope.launch {
             runCatching {

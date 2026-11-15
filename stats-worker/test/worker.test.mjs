@@ -33,5 +33,21 @@ ok((await call('/v1/devices/dev-cccc-3333', { method: 'DELETE', headers: { autho
 const s2 = await (await call('/v1/stats', { headers: { authorization: 'Bearer clave-de-prueba' } })).json();
 ok(s2.devices.length === 2, 'equipo borrado');
 ok((await call('/v1/stats', { method: 'OPTIONS' })).headers.get('access-control-allow-origin') === '*', 'el panel puede consultarlo (CORS)');
+// Perfiles por cuenta en todos sus equipos.
+const K = 'a'.repeat(64), K2 = 'b'.repeat(64);
+const sg = (k) => call('/v1/sync/' + k).then((r) => r.json());
+const sp = (k, rev, data) => call('/v1/sync/' + k, { method: 'PUT', body: JSON.stringify({ rev, data }) });
+ok((await sg(K)).rev === 0, 'cuenta nueva: sin datos');
+ok((await sp(K, 0, { v: 1, profiles: [{ uid: 'u1', name: 'Papá' }] })).status === 200, 'primer equipo guarda perfiles');
+const g1 = await sg(K); ok(g1.rev === 1 && g1.data.profiles[0].name === 'Papá', 'otro equipo lee los mismos perfiles');
+const c = await sp(K, 0, { v: 1, profiles: [] }); const cj = await c.json();
+ok(c.status === 409 && cj.rev === 1 && cj.data.profiles.length === 1, 'versión vieja: conflicto con los datos actuales');
+ok((await sp(K, 1, { v: 1, profiles: [{ uid: 'u1', name: 'Papá' }, { uid: 'u2', name: 'Niños' }] })).status === 200, 'guardar sobre la versión actual');
+ok((await sg(K2)).rev === 0, 'otra cuenta no ve esos perfiles');
+ok((await call('/v1/sync/xyz')).status === 404, 'llave inválida rechazada');
+ok((await sp(K, 2, 'x'.repeat(10))).status === 400, 'datos inválidos rechazados');
+ok((await call('/v1/sync/' + K, { method: 'PUT', body: JSON.stringify({ rev: 2, data: { x: 'y'.repeat(500_000) } }) })).status === 413, 'demasiado grande rechazado');
+const raw = env.DB.raw.prepare('SELECT id FROM sync').all().map((r) => r.id);
+ok(!raw.includes(K) && raw.length === 1, 'en la base no queda la llave, solo su huella');
 console.log(fails ? `\n${fails} FALLAS` : '\nTODO BIEN');
 process.exit(fails ? 1 : 0);
