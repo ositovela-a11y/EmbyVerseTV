@@ -74,11 +74,6 @@ export function Home() {
           {news.data!.map((m) => <Card key={m.id} title={m.name} image={m.poster} sub={m.year ? String(m.year) : undefined} onClick={() => app.go({ name: 'movie', id: m.id })} />)}
         </Row>
       )}
-      {(sg.data ?? []).length > 0 && (
-        <Row title="Sagas">
-          {sg.data!.map((s) => <Card key={s.key} title={s.name} image={s.poster} badge={String(s.items.length)} onClick={() => app.go({ name: 'saga', key: s.key })} />)}
-        </Row>
-      )}
       {(shows.data ?? []).length > 0 && (
         <Row title="Series">
           {shows.data!.map((s) => <Card key={s.id} title={s.name} image={s.poster} sub={s.year ? String(s.year) : undefined} onClick={() => app.go({ name: 'show', id: s.id })} />)}
@@ -88,6 +83,12 @@ export function Home() {
         <Row title="Colecciones">
           {cats.data!.slice(0, 16).map((c, i) => <Fx key={c.id} className="coll" style={{ background: `linear-gradient(135deg, hsl(${(i * 47) % 360},65%,45%), hsl(${(i * 47 + 60) % 360},70%,18%))` }}
             onClick={() => app.go({ name: 'movies', cat: c.id })}>{c.name.replace(/^[A-Z]{2,3}\s*[|:-]\s*/, '')}</Fx>)}
+        </Row>
+      )}
+      {/* Sagas siempre hasta abajo del inicio. */}
+      {(sg.data ?? []).length > 0 && (
+        <Row title="Sagas">
+          {sg.data!.map((s) => <Card key={s.key} title={s.name} image={s.poster} badge={String(s.items.length)} onClick={() => app.go({ name: 'saga', key: s.key })} />)}
         </Row>
       )}
     </div>
