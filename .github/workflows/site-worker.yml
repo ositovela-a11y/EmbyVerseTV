@@ -6,6 +6,8 @@ on:
     branches: [main, beta]
     paths: ['site-worker/**', '.github/workflows/site-worker.yml']
   workflow_dispatch:
+permissions:
+  contents: write
 concurrency:
   group: site-worker
   cancel-in-progress: false
@@ -34,3 +36,9 @@ jobs:
             printf '%s → ' "$u"; curl -s -o /dev/null -I -m 20 -w '%{http_code} %{content_type} %{redirect_url}\n' "$u" || echo "sin respuesta"
           done
           if curl -fsS -m 20 https://eversetv.com/a/ -o /dev/null; then echo "::notice::eversetv.com ya funciona"; else echo "::notice::eversetv.com todavía no está conectado (falta agregar el dominio al servidor en Cloudflare)"; fi
+      - name: Capturas
+        continue-on-error: true
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          cd site-worker/test && npm i --no-save playwright@1.48.2 > /dev/null 2>&1 && npx playwright install --with-deps chromium > /dev/null 2>&1
+          node shots.mjs && gh release upload ci-logs dominio-pagina-celular.png dominio-pagina-pc.png --clobber -R ${{ github.repository }}
