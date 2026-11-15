@@ -154,7 +154,7 @@ function Links({ slug }: { slug: string }) {
   );
 }
 
-type ColorSource = 'theme' | 'logo' | 'custom';
+type ColorSource = 'theme' | 'logo' | 'custom' | 'current';
 const themePal = (id: string | null): BrandColors | null => {
   const p = VENDOR_THEMES.find((t) => t.id === id)?.palette;
   return p ? { primary: p.primary!, accent: p.accent!, background: p.background! } : null;
@@ -174,7 +174,8 @@ function useLook(initialTheme: string | null, initialColors?: BrandColors) {
   return {
     themeId, colors, source, logoCols,
     /** Para cargar lo que ya tiene una app. */
-    load(theme: string | null, c: BrandColors) { setThemeId(theme); setColors(c); setSource(sameColors(c, themePal(theme)) ? 'theme' : 'custom'); },
+    /** Lo que ya tiene una app: sus colores se quedan aunque cambies de tema (hasta que elijas otros). */
+    load(theme: string | null, c: BrandColors) { setThemeId(theme); setColors(c); setSource('current'); },
     pickTheme(id: string) { setThemeId(id); if (source === 'theme') setColors(themePal(id)!); },
     setColor(k: keyof BrandColors, v: string) { setColors((c) => ({ ...c, [k]: v })); setSource('custom'); },
     useThemeColors() { const p = themePal(themeId); if (p) { setColors(p); setSource('theme'); } },
@@ -215,7 +216,7 @@ function ColorFields({ look, name, logoSrc }: { look: Look; name: string; logoSr
       <div className="color-source" role="group" aria-label="Colores">
         <button type="button" className={`chip ${look.source === 'theme' ? 'on' : ''}`} onClick={look.useThemeColors} disabled={!th}>Colores del tema{th ? ` (${th.name})` : ''}</button>
         <button type="button" className={`chip ${look.source === 'logo' ? 'on' : ''}`} onClick={look.useLogoColors} disabled={!look.logoCols} title={look.logoCols ? '' : 'Sube un logotipo'}>Colores del logotipo</button>
-        <span className={`chip ${look.source === 'custom' ? 'on' : ''}`} aria-disabled>Mis colores</span>
+        {look.source === 'current' ? <span className="chip on">Colores actuales de la app</span> : <span className={`chip ${look.source === 'custom' ? 'on' : ''}`} aria-disabled>Mis colores</span>}
       </div>
       {([['primary', 'Color principal (botones)'], ['accent', 'Color de acento (al seleccionar y detalles)'], ['background', 'Fondo']] as const).map(([k, label]) => (
         <label key={k}><input type="color" value={look.colors[k]} aria-label={label} onChange={(e) => look.setColor(k, e.target.value)} /> <span>{label}</span></label>

@@ -40,6 +40,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.remember
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.draw.clipToBounds
 import com.embyverse.app.ui.components.kenBurns
 import androidx.compose.ui.platform.testTag
@@ -111,9 +114,8 @@ private fun DetailHeader(imageUrl: String?, poster: String?, kind: ContentKind, 
             Box(Modifier.fillMaxSize().clipToBounds()) { MediaImage(imageUrl ?: poster, kind, Modifier.fillMaxSize().kenBurns()) }
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(t.background.copy(alpha = 0.2f), t.background.copy(alpha = 0.6f), t.background))))
         }
-        IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(8.dp).background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(50))) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back), tint = Color.White)
-        }
+        com.embyverse.app.ui.components.EmbyIconButton(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back), onBack,
+            Modifier.statusBarsPadding().padding(8.dp).testTag("detail_back"), tint = Color.White, background = Color.Black.copy(alpha = 0.35f))
         Row(Modifier.align(Alignment.BottomStart).padding(horizontal = t.screenPadding), verticalAlignment = Alignment.Bottom) {
             if (poster != null) Box(Modifier.width(if (t.device.isTv) 150.dp else 104.dp).aspectRatio(2f / 3f).background(t.surface, RoundedCornerShape(t.cardRadius))) {
                 MediaImage(poster, kind, Modifier.fillMaxSize().padding(0.dp))
@@ -126,8 +128,19 @@ private fun DetailHeader(imageUrl: String?, poster: String?, kind: ContentKind, 
 
 private fun formatDuration(seconds: Long?): String? = seconds?.takeIf { it > 0 }?.let { s -> if (s >= 3600) "${s / 3600} h ${(s % 3600) / 60} min" else "${s / 60} min" }
 
+/** En TV la selección empieza en «Ver» (no en la flecha de regreso); para regresar se sube a la flecha. */
+@Composable
+private fun FocusOnTv(req: FocusRequester) {
+    val t = LocalEmby.current
+    if (!t.device.isTv) return
+    LaunchedEffect(req) {
+        repeat(15) { kotlinx.coroutines.delay(120); if (runCatching { req.requestFocus() }.isSuccess) return@LaunchedEffect }
+    }
+}
+
 @Composable
 fun MovieDetailScreen(nav: Navigator, sid: String, id: String) {
+    val playFocus = remember { FocusRequester() }
     val vm = appViewModel(key = "movie-$sid-$id") { MovieDetailViewModel(it, sid, id) }
     val movie by vm.movie.collectAsStateWithLifecycle()
     val fav by vm.favorite.collectAsStateWithLifecycle()
@@ -160,7 +173,9 @@ fun MovieDetailScreen(nav: Navigator, sid: String, id: String) {
             Row(Modifier.padding(horizontal = t.screenPadding), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 val p = progress
                 val resume = p != null && !p.completed && p.positionMs > 15_000
-                EmbyButton(stringResource(if (resume) R.string.action_resume else R.string.action_play), { nav.play(ItemRef(ContentKind.MOVIE, sid, id)) }, icon = Icons.Rounded.PlayArrow)
+                EmbyButton(stringResource(if (resume) R.string.action_resume else R.string.action_play), { nav.play(ItemRef(ContentKind.MOVIE, sid, id)) }, icon = Icons.Rounded.PlayArrow,
+                    modifier = Modifier.focusRequester(playFocus).testTag("detail_play"))
+                FocusOnTv(playFocus)
                 if (resume) EmbyButton(stringResource(R.string.action_restart), { nav.play(ItemRef(ContentKind.MOVIE, sid, id), "restart") }, icon = Icons.Rounded.Replay, secondary = true)
                 m.trailer?.let { url ->
                     val ctx = androidx.compose.ui.platform.LocalContext.current
@@ -169,9 +184,8 @@ fun MovieDetailScreen(nav: Navigator, sid: String, id: String) {
                             .onFailure { android.widget.Toast.makeText(ctx, R.string.trailer_no_app, android.widget.Toast.LENGTH_LONG).show() }
                     }, icon = Icons.Rounded.Movie, secondary = true)
                 }
-                IconButton(onClick = { vm.toggleFavorite() }) {
-                    Icon(if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, stringResource(if (fav) R.string.action_unfavorite else R.string.action_favorite), tint = if (fav) t.primary else t.onBackground)
-                }
+                com.embyverse.app.ui.components.EmbyIconButton(if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    stringResource(if (fav) R.string.action_unfavorite else R.string.action_favorite), { vm.toggleFavorite() }, tint = if (fav) t.primary else t.onBackground)
             }
         }
         progress?.takeIf { !it.completed && it.durationMs > 0 }?.let { p ->
@@ -256,6 +270,7 @@ class SeriesDetailViewModel(private val c: AppContainer, private val sid: String
 
 @Composable
 fun SeriesDetailScreen(nav: Navigator, sid: String, id: String) {
+    val playFocus = remember { FocusRequester() }
     val vm = appViewModel(key = "series-$sid-$id") { SeriesDetailViewModel(it, sid, id) }
     val series by vm.series.collectAsStateWithLifecycle()
     val seasons by vm.seasons.collectAsStateWithLifecycle()
@@ -280,11 +295,13 @@ fun SeriesDetailScreen(nav: Navigator, sid: String, id: String) {
         item {
             Row(Modifier.padding(horizontal = t.screenPadding), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 val next = vm.nextToWatch()
-                if (next != null) EmbyButton(stringResource(R.string.action_play_episode, next.season, next.episode),
-                    { nav.play(ItemRef(ContentKind.EPISODE, sid, next.providerId)) }, icon = Icons.Rounded.PlayArrow)
-                IconButton(onClick = { vm.toggleFavorite() }) {
-                    Icon(if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, stringResource(if (fav) R.string.action_unfavorite else R.string.action_favorite), tint = if (fav) t.primary else t.onBackground)
+                if (next != null) {
+                    EmbyButton(stringResource(R.string.action_play_episode, next.season, next.episode),
+                        { nav.play(ItemRef(ContentKind.EPISODE, sid, next.providerId)) }, icon = Icons.Rounded.PlayArrow, modifier = Modifier.focusRequester(playFocus).testTag("detail_play"))
+                    FocusOnTv(playFocus)
                 }
+                com.embyverse.app.ui.components.EmbyIconButton(if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    stringResource(if (fav) R.string.action_unfavorite else R.string.action_favorite), { vm.toggleFavorite() }, tint = if (fav) t.primary else t.onBackground)
             }
         }
         s.plot?.let { item { Text(it, style = MaterialTheme.typography.bodyLarge, color = t.onSurface, modifier = Modifier.padding(horizontal = t.screenPadding)) } }

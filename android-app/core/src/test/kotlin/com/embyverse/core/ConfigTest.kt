@@ -94,6 +94,17 @@ class RemoteConfigParserTest {
 class ConfigResolverTest {
     private val cfg = (RemoteConfigParser.parse(Fixtures.text("shared/default-config.json")) as ConfigParseResult.Valid).config
 
+    @Test fun `estilo con colores de la marca - forma del estilo y colores de la app`() {
+        val green = cfg.copy(theme = cfg.theme.copy(palette = cfg.theme.palette.copy(primary = 0xFF22C55E.toInt(), buttonBackground = 0xFF22C55E.toInt())),
+            texts = cfg.texts + ("style.default" to "style_cine_rojo"))
+        val rojo = ConfigResolver.theme(green, UserAppearance.ORIGINAL)
+        assertEquals("sin la marca: colores del estilo", 0xFFE3262F.toInt(), rojo.palette.primary)
+        val marca = ConfigResolver.theme(green.copy(texts = green.texts + ("style.brandColors" to "1")), UserAppearance.ORIGINAL)
+        assertEquals("con la marca: los colores de la app", 0xFF22C55E.toInt(), marca.palette.primary)
+        assertEquals("y la forma de Cine Rojo", rojo.cardRadius, marca.cardRadius)
+        assertEquals(rojo.homeTemplate, marca.homeTemplate)
+    }
+
     @Test fun `tema y color de acento solo si el administrador lo permite`() {
         val prefs = UserAppearance(themeId = "electric", accentColor = 0xFFA855F7.toInt())
         val t = ConfigResolver.theme(cfg, prefs)

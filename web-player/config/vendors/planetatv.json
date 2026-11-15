@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": 6,
-  "publishedAt": "2026-11-15T18:42:18Z",
+  "version": 7,
+  "publishedAt": "2026-11-15T19:15:41Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "Planetatv",
@@ -234,7 +234,8 @@
     "support.whatsapp": "4442011541",
     "season.every": "24",
     "style.default": "style_cine_rojo",
-    "splash.welcome": "Tu universo de entretenimiento"
+    "splash.welcome": "Tu universo de entretenimiento",
+    "style.brandColors": "1"
   },
   "messages": []
 }
