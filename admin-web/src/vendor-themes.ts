@@ -1,3 +1,4 @@
+import { fullPalette, gradientEnd } from './logo-colors';
 // Temas listos para las apps de vendedores: cada uno cambia colores, fondo, letra, bordes, botones
 // y la distribución de la app (estilo de plataforma), para que no se vea igual que la app principal.
 
@@ -65,11 +66,11 @@ export function applyVendorTheme(cfg: { theme: Record<string, unknown>; texts: R
   t.buttonStyle = th.button;
   t.navigation = { ...(t.navigation ?? {}), style: th.nav };
   cfg.texts['style.default'] = th.style;
-  if (colors) {
-    const p = t.palette as Record<string, string>;
-    const on = (hex: string) => { const n = parseInt(hex.slice(1), 16); const l = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255; return l > 0.6 ? '#0A0F18' : '#FFFFFF'; };
-    p.primary = colors.primary; p.buttonBackground = colors.primary; p.onPrimary = on(colors.primary); p.buttonText = on(colors.primary);
-    p.accent = colors.accent; p.focusRing = colors.accent;
-    if (colors.background !== th.palette.background) { p.background = colors.background; t.background = { ...t.background, gradientStart: colors.background }; }
+  const same = colors && colors.primary === th.palette.primary && colors.accent === th.palette.accent && colors.background === th.palette.background;
+  if (colors && !same) {
+    // Colores propios (del logotipo o ajustados a mano): TODA la paleta se arma con ellos (fondo,
+    // tarjetas, textos, botones y degradado), para que la app entera tenga los colores de la marca.
+    t.palette = { ...(t.palette as Record<string, string>), ...fullPalette(colors) };
+    t.background = { ...t.background, gradientStart: colors.background, gradientEnd: gradientEnd(colors) };
   }
 }

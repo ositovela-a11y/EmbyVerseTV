@@ -4,6 +4,7 @@ import { currentTarget, githubApi, linksFor, setTarget, type Vendor } from '../a
 import { Group, Notice } from './ui';
 import { fixImage } from '../image-fix';
 import { VENDOR_THEMES } from '../vendor-themes';
+import { closestTheme, logoColors } from '../logo-colors';
 
 /**
  * Selector de la app que se está editando, separado en dos: «App de clientes» (la principal, la que usan
@@ -167,7 +168,13 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
     setLogoNote(''); if (!f) return;
     try {
       const r = await fixImage(f, 'logo');
-      setLogo(r.file); setLogoNote(r.changed ? r.note : 'Imagen lista.');
+      setLogo(r.file);
+      // Colores de la app tomados del logotipo (se pueden ajustar abajo).
+      const lc = await logoColors(r.file).catch(() => null);
+      if (lc) {
+        setThemeId(closestTheme(VENDOR_THEMES, lc.primary).id); setColors(lc);
+        setLogoNote(`${r.changed ? r.note + ' ' : ''}🎨 Colores tomados del logotipo: la app usará estos colores (puedes ajustarlos).`);
+      } else setLogoNote(r.changed ? r.note : 'Imagen lista. El logotipo casi no tiene color: se quedan los colores del tema.');
       setLogoPrev((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(r.file); });
     } catch (e) { setLogo(null); setLogoPrev(''); setLogoNote(e instanceof Error ? e.message : 'No se pudo abrir la imagen.'); }
   };
@@ -207,7 +214,7 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
             ))}
           </div>
         </div>
-        <b style={{ display: 'block', marginTop: 14 }}>2. Logotipo y ajuste de colores (opcional)</b>
+        <b style={{ display: 'block', marginTop: 14 }}>2. Logotipo: la app toma sus colores automáticamente (puedes ajustarlos)</b>
         <div className="vendor-brand">
           <div className="vendor-logo-pick">
             <div className="vendor-logo-box" style={{ background: colors.background }}>{logoPrev ? <img src={logoPrev} alt="Logotipo" /> : <span>Sin logotipo</span>}</div>
