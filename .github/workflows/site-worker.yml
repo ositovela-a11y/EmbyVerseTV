@@ -25,7 +25,9 @@ jobs:
         run: |
           [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "::warning::Falta el secreto CLOUDFLARE_API_TOKEN"; exit 0; }
           npm i -g wrangler@4 > /dev/null 2>&1
-          for i in 1 2 3; do wrangler deploy && break; sleep 15; done
+          ok=0; for i in 1 2 3; do wrangler deploy 2>&1 | tee d.txt; grep -q "Deployed" d.txt && { ok=1; break; }; sleep 15; done
+          if [ $ok = 0 ]; then echo "::warning::No se pudo conectar el dominio con la llave actual; se publica sin él"; sed -i "/^routes/,/^]/d" wrangler.toml; wrangler deploy; fi
+          sleep 60
       - name: ¿Ya responde tu dominio?
         run: |
           for u in https://eversetv.com/ https://eversetv.com/a/?v=planetatv https://eversetv.com/apk/EmbyVerse.apk https://www.eversetv.com/ https://eversetv-site.ositovela.workers.dev/; do

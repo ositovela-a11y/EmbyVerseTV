@@ -5,3 +5,7 @@ name = "eversetv-site"
 main = "src/index.js"
 compatibility_date = "2025-06-01"
 workers_dev = true
+routes = [
+  { pattern = "eversetv.com", custom_domain = true },
+  { pattern = "www.eversetv.com", custom_domain = true },
+]
