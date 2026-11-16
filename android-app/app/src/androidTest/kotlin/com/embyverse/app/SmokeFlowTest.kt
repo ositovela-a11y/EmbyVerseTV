@@ -1227,4 +1227,30 @@ class SmokeFlowTest {
             }
         } finally { mock("/__vod?file="); PlaybackProbe.seekFromEnd = null }
     }
+
+    /** Películas AVI con los códecs más comunes: se reproducen o, si el equipo no puede, se ofrece otro reproductor. */
+    @Test fun zd_formatosAvi() {
+        val c = app.container
+        val movie = runBlocking { c.database.movies().observeAll(1).first().first() }
+        val results = mutableListOf<String>()
+        for (f in listOf("avi_xvid", "avi_divx3", "avi_h264", "avi_mpeg4sp")) {
+            mock("/__vod?file=$f")
+            try {
+                PlaybackProbe.reset()
+                ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("MOVIE", movie.sourceId, movie.providerId, "restart")).use {
+                    try { compose.waitUntil(40_000) { (PlaybackProbe.readyCount > 0 && PlaybackProbe.videoDecoder != null) || PlaybackProbe.videoUnsupported ||
+                        compose.onAllNodesWithTag("player_error", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() } }
+                    catch (e: ComposeTimeoutException) { shot("fallo-$f"); fail("$f: ni reprodujo ni avisó (${PlaybackProbe.lastError})") }
+                    Thread.sleep(2_500)
+                    val err = compose.onAllNodesWithTag("player_error", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+                    val r = if (!err && PlaybackProbe.videoDecoder != null) "se reproduce (video ${PlaybackProbe.videoDecoder}, audio ${PlaybackProbe.audioDecoder})"
+                        else "no compatible en este equipo → aviso con «Abrir en otro reproductor» (${PlaybackProbe.lastError})"
+                    results += "$f: $r"; log("AVI $f: $r")
+                    shot("avi-$f")
+                    if (err) assertTrue("$f: el aviso ofrece otro reproductor", compose.onAllNodesWithTag("player_error_external", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
+                }
+            } finally { mock("/__vod?file=") }
+        }
+        assertTrue("AVI con Xvid y H.264 deben reproducirse: $results", results.filter { "se reproduce" in it }.map { it.substringBefore(':') }.containsAll(listOf("avi_xvid", "avi_h264")))
+    }
 }

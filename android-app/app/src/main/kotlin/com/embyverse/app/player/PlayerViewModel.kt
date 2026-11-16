@@ -63,7 +63,10 @@ object PlaybackProbe {
     @Volatile var nowId: String? = null
     /** Solo pruebas: mover el video a un punto (ms antes del final). */
     @Volatile var seekFromEnd: Long? = null
-    fun reset() { readyCount = 0; lastError = null; reconnects = 0; lastReconnectReason = null; lastAutoTrack = null; audioDecoder = null; audioUnsupported = false }
+    /** Decodificador de video en uso y si el video (p. ej. AVI DivX 3) no se puede decodificar aquí. */
+    @Volatile var videoDecoder: String? = null
+    @Volatile var videoUnsupported = false
+    fun reset() { readyCount = 0; lastError = null; reconnects = 0; lastReconnectReason = null; lastAutoTrack = null; audioDecoder = null; audioUnsupported = false; videoDecoder = null; videoUnsupported = false }
 }
 
 /** Pista de audio o subtítulos que se puede elegir en el panel de opciones. */
@@ -318,6 +321,9 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
                 addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
                     override fun onAudioDecoderInitialized(e: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
                         PlaybackProbe.audioDecoder = decoderName
+                    }
+                    override fun onVideoDecoderInitialized(e: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
+                        PlaybackProbe.videoDecoder = decoderName
                     }
                 })
                 playWhenReady = true
@@ -821,6 +827,14 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
             val audioGroups = tracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
             audioUnsupported.value = audioGroups.isNotEmpty() && audioGroups.none { g -> (0 until g.length).any { g.isTrackSupported(it) } }
             PlaybackProbe.audioUnsupported = audioUnsupported.value
+            // Video que este equipo no sabe decodificar (p. ej. AVI con DivX 3 o WMV): aviso con «Abrir en otro reproductor».
+            val videoGroups = tracks.groups.filter { it.type == C.TRACK_TYPE_VIDEO }
+            if (!isLive && videoGroups.isNotEmpty() && videoGroups.none { g -> (0 until g.length).any { g.isTrackSupported(it) } }) {
+                PlaybackProbe.videoUnsupported = true
+                PlaybackProbe.lastError = "VIDEO_SIN_DECODIFICADOR: " + videoGroups.joinToString { g -> g.getTrackFormat(0).sampleMimeType ?: g.getTrackFormat(0).codecs.orEmpty() }
+                buffering.value = false; player.value?.pause()
+                error.value = PlayerUiError.Message(R.string.player_video_unsupported, "VIDEO_UNSUPPORTED")
+            }
             if (audioUnsupported.value) PlaybackProbe.lastError = "AUDIO_SIN_DECODIFICADOR: " + audioGroups.joinToString { g -> g.getTrackFormat(0).sampleMimeType.orEmpty() }
         }
         override fun onTrackSelectionParametersChanged(parameters: androidx.media3.common.TrackSelectionParameters) { refreshTracks() }
@@ -905,7 +919,8 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
             e.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ||
                 e.errorCode == PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED ||
                 e.errorCode == PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED ||
-                e.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> R.string.player_error_format
+                e.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED ||
+                e.errorCode == PlaybackException.ERROR_CODE_DECODING_FAILED -> R.string.player_video_unsupported
             else -> R.string.player_error_generic
         }
     }

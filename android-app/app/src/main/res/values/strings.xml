@@ -498,4 +498,5 @@
     <string name="player_audio_unsupported">Este equipo no puede reproducir el audio de este video. Prueba «Abrir en otro reproductor».</string>
     <string name="help_contact_seller">¿Necesitas ayuda? Contacta a tu vendedor.</string>
     <string name="sagas_empty">Todavía no hay sagas en tu lista de películas.</string>
+    <string name="player_video_unsupported">Este equipo no puede reproducir el formato de este video (por ejemplo, algunos AVI con DivX o WMV). Ábrelo en otro reproductor como VLC.</string>
 </resources>

@@ -201,6 +201,8 @@ createServer((req, res) => {
     // Película con doble audio (inglés y «Latino» sin idioma marcado) y subtítulos «Forzados» (se arma con /__vod?file=dual).
     if (vodFile === 'dual' && m[1] === 'movie') return sendFile(req, res, join(MEDIA, 'dual.mkv'), 'video/x-matroska');
     // Películas con audio que muchos equipos no traen: AC3 (Dolby Digital) y DTS (/__vod?file=ac3 | dts).
+    // AVI con distintos códecs (Xvid, DivX 3, H.264, MPEG-4 simple): /__vod?file=avi_xvid | avi_divx3 | avi_h264 | avi_mpeg4sp
+    if (/^avi_\w+$/.test(vodFile ?? '') && m[1] === 'movie') return sendFile(req, res, join(MEDIA, `${vodFile}.avi`), 'video/x-msvideo');
     if ((vodFile === 'ac3' || vodFile === 'dts') && m[1] === 'movie') return sendFile(req, res, join(MEDIA, `${vodFile}.mkv`), 'video/x-matroska');
     // Episodio cuyo servidor no cierra el final (manda todo pero anuncia más bytes y deja la conexión abierta):
     // el reproductor se queda cargando en el último segundo (/__vod?file=stall).

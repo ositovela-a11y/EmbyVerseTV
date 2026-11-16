@@ -249,13 +249,10 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
                         secondary = true, modifier = Modifier.testTag("player_next_channel"))
                     else EmbyButton(stringResource(R.string.action_close), onClose, secondary = true)
                 }
-                cfg.texts["support.whatsapp"]?.filter { it.isDigit() }?.takeIf { it.length >= 8 }?.let { n ->
-                    androidx.compose.material3.TextButton(onClick = {
-                        val msg = ctx.getString(R.string.player_report_msg, np?.title ?: "", ctx.getString(e.messageRes))
-                        runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
-                            android.net.Uri.parse("https://wa.me/$n?text=" + android.net.Uri.encode(msg))).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                    }) { Text(stringResource(R.string.player_report), color = t.accent) }
-                }
+                // Películas y series: si este equipo no puede con el formato, que lo abra otro reproductor (VLC, MX…).
+                if (!vm.isLive) EmbyButton(stringResource(R.string.player_open_external), { vm.error.value = null; vm.openExternal() },
+                    icon = Icons.Rounded.SkipNext, modifier = Modifier.testTag("player_error_external"))
+                Text(com.embyverse.app.ui.components.helpContactText(cfg), style = MaterialTheme.typography.bodySmall, color = t.textSecondary)
             }
         }
 
