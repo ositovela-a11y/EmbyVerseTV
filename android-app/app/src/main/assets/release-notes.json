@@ -1,5 +1,19 @@
 {
   "_info": "Notas de cada versión. Se muestran al ofrecer la actualización (update.json) y en «Novedades» después de actualizar. Escribir SIN el nombre de la app (las ven también las apps de vendedores). Agregar una entrada en cada versión nueva.",
+  "1.15.10": {
+    "es": [
+      "«Siguiente episodio» aparece cuando empiezan los créditos, con una cuenta de 10 segundos.",
+      "Sagas: también al final de las carpetas de Películas, con su propia pantalla.",
+      "Modo para equipos lentos activado en celulares: más fluido y menos batería.",
+      "Ayuda: contacta a tu vendedor."
+    ],
+    "en": [
+      "“Next episode” appears when the credits start, with a 10-second countdown.",
+      "Sagas: also at the end of the Movies folders, with their own screen.",
+      "Slow-device mode on for phones: smoother and less battery.",
+      "Help: contact your seller."
+    ]
+  },
   "1.15.9": {
     "es": [
       "Ahora se oyen las películas y series con audio Dolby (AC3, E-AC3), DTS y TrueHD en cualquier equipo.",

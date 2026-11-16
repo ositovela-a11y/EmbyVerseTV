@@ -181,6 +181,7 @@ private const val KEY_ALL = "\u0000all"
 private const val KEY_FAV = "\u0000fav"
 private const val KEY_HIST = "\u0000hist"
 private const val KEY_LOCK = "\u0000lock"
+private const val KEY_SAGAS = "\u0000sagas"
 
 /**
  * Entrada de control parental al final de las carpetas: desbloquear con el PIN del perfil
@@ -525,11 +526,14 @@ private fun VodScreen(nav: Navigator, kind: ContentKind, initialCategory: String
         val allLabel = stringResource(R.string.category_all)
         val (lockFolder, onLockFolder) = rememberParentalFolder()
         val newLabel = stringResource(R.string.folder_newest)
+        val sagasLabel = stringResource(R.string.sagas)
+        // «Sagas» siempre al final de las carpetas de Películas, con cualquier estilo o tema.
         val folders = remember(s.categories, allLabel, lockFolder, newLabel) {
-            listOf(Folder(CATEGORY_NEW, "★ $newLabel"), Folder(KEY_ALL, allLabel)) + s.categories.map { Folder(it, it) } + listOfNotNull(lockFolder)
+            listOf(Folder(CATEGORY_NEW, "★ $newLabel"), Folder(KEY_ALL, allLabel)) + s.categories.map { Folder(it, it) } + listOfNotNull(lockFolder) +
+                listOfNotNull(Folder(KEY_SAGAS, "🎬 $sagasLabel").takeIf { kind == ContentKind.MOVIE })
         }
         val selectedFolder = s.category ?: KEY_ALL
-        val onFolder: (String) -> Unit = { k -> if (k == KEY_LOCK) onLockFolder() else vm.setCategory(if (k == KEY_ALL) null else k) }
+        val onFolder: (String) -> Unit = { k -> when (k) { KEY_LOCK -> onLockFolder(); KEY_SAGAS -> nav.go(Routes.SAGAS); else -> vm.setCategory(if (k == KEY_ALL) null else k) } }
         if (t.device.isTv) {
             val sp by vm.spotlight.collectAsStateWithLifecycle()
             Box(Modifier.fillMaxWidth().height(210.dp)) {
@@ -661,6 +665,40 @@ fun FavoritesScreen(nav: Navigator) {
     }
 }
 
+
+/** Todas las sagas (películas que forman una colección). */
+@Composable
+fun SagasScreen(nav: Navigator) {
+    val c = com.embyverse.app.ui.LocalAppContainer.current
+    val t = LocalEmby.current
+    val sagas by androidx.compose.runtime.produceState<List<com.embyverse.app.data.repo.CatalogRepository.Saga>?>(initialValue = null) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { runCatching { c.catalog.sagas(200) }.getOrDefault(emptyList()) }
+    }
+    Column(Modifier.fillMaxSize().testTag("sagas_screen")) {
+        com.embyverse.app.ui.screens.sources.SubScreenTop(stringResource(R.string.sagas), nav::back)
+        val list = sagas
+        when {
+            list == null -> LoadingBox()
+            list.isEmpty() -> MessageState(Icons.Rounded.Theaters, stringResource(R.string.sagas), stringResource(R.string.sagas_empty))
+            else -> LazyVerticalGrid(GridCells.Adaptive(if (t.device.isTv) 130.dp else 100.dp), Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(t.screenPadding), horizontalArrangement = Arrangement.spacedBy(t.cardGap), verticalArrangement = Arrangement.spacedBy(t.cardGap)) {
+                items(list.size, key = { "sg|${list[it].key}" }) { i ->
+                    val sg = list[i]
+                    com.embyverse.app.ui.components.FocusableSurface(onClick = { nav.go(Routes.saga(sg.key)) }, focusScale = 1.06f) { _ ->
+                        Column {
+                            Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).background(t.surface, RoundedCornerShape(t.cardRadius))) {
+                                com.embyverse.app.ui.components.MediaImage(sg.imageUrl, ContentKind.MOVIE, Modifier.fillMaxSize(), fallbackText = sg.name)
+                                Text("${sg.count}", style = MaterialTheme.typography.labelLarge, color = t.buttonText,
+                                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).background(t.primary, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 2.dp))
+                            }
+                            Text(sg.name, style = MaterialTheme.typography.bodySmall, color = t.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 /** Una saga: sus películas en orden de estreno. */
 @Composable

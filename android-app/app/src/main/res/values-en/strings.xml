@@ -495,4 +495,6 @@
     <string name="player_external_choose">Open with…</string>
     <string name="player_external_none">You don\'t have another player installed. Install one (for example VLC) from your device\'s store.</string>
     <string name="player_audio_unsupported">This device can\'t play this video\'s audio. Try “Open in another player”.</string>
+    <string name="help_contact_seller">Need help? Contact your seller.</string>
+    <string name="sagas_empty">There are no sagas in your movie list yet.</string>
 </resources>

@@ -29,7 +29,9 @@ class EmbyVerseApp : Application(), SingletonImageLoader.Factory {
         runCatching {
             val am = getSystemService(android.app.ActivityManager::class.java)
             val mi = android.app.ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
-            com.embyverse.app.data.prefs.LiteDefault.value = am.isLowRamDevice || am.memoryClass <= 128 || mi.totalMem < 1_700L * 1024 * 1024
+            // En celular viene activado siempre (más fluido y menos batería); en TV, según la memoria.
+            val phone = !packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
+            com.embyverse.app.data.prefs.LiteDefault.value = phone || am.isLowRamDevice || am.memoryClass <= 128 || mi.totalMem < 1_700L * 1024 * 1024
         }
         container = AppContainer(this)
         com.embyverse.app.data.prefs.UiPrefs.init(this)

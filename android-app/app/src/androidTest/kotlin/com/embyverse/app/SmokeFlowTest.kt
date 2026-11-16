@@ -993,7 +993,19 @@ class SmokeFlowTest {
         assertTrue("404 al entrar → usuario o contraseña: $r", r is com.embyverse.core.net.Outcome.Fail && r.error == com.embyverse.core.net.SourceError.AuthOrNotFound)
         // App con servidor ya puesto (como las de tus clientes): solo así aparecen las 3 opciones.
         val cfg0 = c.config.config.value
-        c.config.overrideForTest(cfg0.copy(texts = cfg0.texts - "provider.askHost" + ("provider.host" to base)))
+        // Sin activar «Otro servidor» en el panel, esa opción no aparece.
+        c.config.overrideForTest(cfg0.copy(texts = cfg0.texts - "provider.askHost" - "login.otherServer" + ("provider.host" to base)))
+        ActivityScenario.launch(MainActivity::class.java).use {
+            waitTag("nav_settings", 40_000)
+            compose.onNodeWithTag("nav_settings", useUnmergedTree = true).performClick()
+            val sl = app.getString(R.string.nav_sources); waitText(sl); compose.onAllNodesWithText(sl, useUnmergedTree = true)[0].performClick()
+            waitFor("botón añadir", 10_000) { compose.onAllNodesWithContentDescription(app.getString(R.string.action_add_source), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+            compose.onAllNodesWithContentDescription(app.getString(R.string.action_add_source), useUnmergedTree = true)[0].performClick()
+            waitText(app.getString(R.string.login_mode_account))
+            assertTrue("sin «Otro servidor» por defecto", compose.onAllNodesWithText(app.getString(R.string.login_mode_xtream), useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+            log("Entrar: «Otro servidor» oculto por defecto")
+        }
+        c.config.overrideForTest(cfg0.copy(texts = cfg0.texts - "provider.askHost" + ("provider.host" to base) + ("login.otherServer" to "1")))
         try { ActivityScenario.launch(MainActivity::class.java).use {
             waitTag("nav_settings", 40_000)
             compose.onNodeWithTag("nav_settings", useUnmergedTree = true).performClick()
@@ -1167,5 +1179,52 @@ class SmokeFlowTest {
                 Thread.sleep(1_500); shot("41-siguiente-episodio-solo")
             }
         } finally { mock("/__vod?file=") }
+    }
+
+    /** «Sagas» al final de las carpetas de Películas: abre la lista de sagas y una saga. */
+    @Test fun zb_sagasEnPeliculas() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            waitFor("inicio o perfiles", 30_000) { listOf("nav_settings", "profile").any { t -> compose.onAllNodesWithTag(t, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() } }
+            if (compose.onAllNodesWithTag("nav_settings", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+                compose.onAllNodesWithTag("profile", useUnmergedTree = true)[0].performClick()
+            waitTag("nav_movies", 30_000)
+            compose.onNodeWithTag("nav_movies", useUnmergedTree = true).performClick()
+            val label = "🎬 " + app.getString(R.string.sagas)
+            waitFor("carpeta Sagas", 30_000) {
+                compose.onAllNodes(androidx.compose.ui.test.hasScrollAction(), useUnmergedTree = true).fetchSemanticsNodes().indices.any { i ->
+                    runCatching { compose.onAllNodes(androidx.compose.ui.test.hasScrollAction(), useUnmergedTree = true)[i].performScrollToNode(androidx.compose.ui.test.hasText(label)) }.isSuccess
+                } || compose.onAllNodesWithText(label, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onAllNodesWithText(label, useUnmergedTree = true)[0].performClick()
+            waitTag("sagas_screen", 15_000)
+            waitText("Toy Story", 30_000)
+            Thread.sleep(800); shot("42-sagas")
+            compose.onAllNodesWithText("Toy Story", useUnmergedTree = true)[0].performClick()
+            waitTag("saga_grid", 15_000); Thread.sleep(800); shot("43-saga-toy-story")
+            log("Sagas: carpeta al final de Películas, lista y saga funcionan")
+        }
+    }
+
+    /** «Siguiente episodio» sale al empezar los créditos (≈45 s antes en un episodio de 11 min), no hasta el final. */
+    @Test fun zc_siguienteAlEmpezarCreditos() {
+        val c = app.container
+        runBlocking { c.prefs.updatePlayback { it.copy(autoplayNextEpisode = true) } }
+        val s = runBlocking { c.catalog.series(null, 40).first() }.first { ser -> runBlocking { c.sources.loadEpisodes(ser.sourceId, ser.providerId); c.database.episodes().forSeries(ser.sourceId, ser.providerId).size >= 2 } }
+        val eps = runBlocking { c.database.episodes().forSeries(s.sourceId, s.providerId) }
+        app.getSharedPreferences("credits", android.content.Context.MODE_PRIVATE).edit().clear().commit()
+        mock("/__vod?file=long")
+        try {
+            PlaybackProbe.reset()
+            PlaybackProbe.seekFromEnd = 40_000
+            ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("EPISODE", eps[0].sourceId, eps[0].providerId, "restart")).use {
+                compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 }
+                waitTag("up_next_cancel", 20_000)
+                Thread.sleep(800); shot("44-siguiente-en-creditos")
+                log("Siguiente episodio: aparece 40 s antes del final (créditos), con cuenta de 10 s")
+                // Cuenta regresiva: pasa solo al siguiente sin esperar el final.
+                try { compose.waitUntil(20_000) { PlaybackProbe.nowId == eps[1].providerId } }
+                catch (e: ComposeTimeoutException) { shot("fallo-creditos"); fail("no pasó al siguiente al terminar la cuenta (${PlaybackProbe.nowId})") }
+            }
+        } finally { mock("/__vod?file="); PlaybackProbe.seekFromEnd = null }
     }
 }

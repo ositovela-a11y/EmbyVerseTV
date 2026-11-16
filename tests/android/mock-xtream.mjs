@@ -27,8 +27,10 @@ const live = Array.from({ length: N_LIVE }, (_, i) => ({
   stream_icon: i % 3 ? `http://HOST/img/${i}.png` : '', epg_channel_id: i < 300 ? `ch${i + 1}` : null,
   added: String(now - i * 60), category_id: i % 97 === 0 ? null : pick(liveCats, i), tv_archive: i % 50 === 0 ? 1 : 0, tv_archive_duration: i % 50 === 0 ? '3' : 0,
 }));
+// Películas que forman sagas (para probar la fila y la carpeta «Sagas»).
+const SAGAS = { 100: 'Toy Story', 101: 'Toy Story 2', 102: 'Toy Story 3', 200: 'Rápidos y furiosos', 201: 'Rápidos y furiosos 2', 300: 'Shrek', 301: 'Shrek 2' };
 const vod = Array.from({ length: N_VOD }, (_, i) => ({
-  num: i + 1, name: i % 777 === 5 ? '' : `Película ${i + 1}${i % 11 === 0 ? ' (2024)' : ''}${i % 5000 === 1 ? ' ' + 'muy larga '.repeat(30) : ''}`,
+  num: i + 1, name: SAGAS[i] ?? (i % 777 === 5 ? '' : `Película ${i + 1}${i % 11 === 0 ? ' (2024)' : ''}${i % 5000 === 1 ? ' ' + 'muy larga '.repeat(30) : ''}`),
   stream_type: 'movie', stream_id: i % 2000 === 1999 ? i : i + 1, stream_icon: i % 7 === 3 ? `http://HOST/img-ua/m${i}.jpg` : i % 7 === 5 ? `http://HOST/img-slow/m${i}.jpg` : `http://HOST/img/m${i}.png`,
   rating: weird(i), rating_5based: i % 5, added: String(now - i * 30), category_id: i % 89 === 0 ? '12345' : pick(vodCats, i),
   container_extension: ['mp4', 'mkv', 'mp4', 'avi', null][i % 5], plot: i % 4 ? `Sinopsis ${i}` : null, genre: i % 2 ? 'Acción, Drama' : '',

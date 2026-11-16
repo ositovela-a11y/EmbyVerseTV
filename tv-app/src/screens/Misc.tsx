@@ -96,7 +96,7 @@ export function Settings() {
       setSpeed(`${mbps.toFixed(1)} Mbps · ${mbps >= 25 ? 'alcanza para 4K' : mbps >= 12 ? 'alcanza para Full HD' : mbps >= 6 ? 'alcanza para HD' : 'alcanza para SD; para HD se recomiendan 8 Mbps'}`);
     } catch { setSpeed('No se pudo medir. Revisa tu conexión.'); }
   };
-  const wa = (app.config.texts['support.whatsapp'] ?? '').replace(/\D/g, '');
+  const help = app.config.texts['support.message']?.trim() || '¿Necesitas ayuda? Contacta a tu vendedor.';
   const [pinFor, setPinFor] = useState(false);
   const saveProfile = (v: Partial<Profile>) => { store.setProfiles(store.profiles().map((x) => (x.id === app.profile.id ? { ...x, ...v } : x))); app.refreshProfile(); };
   const Toggle = ({ label, v, k }: { label: string; v: boolean; k: keyof typeof p }) => <Fx className="setting" onClick={() => upd({ [k]: !v } as any)}><span>{label}</span><b className={v ? 'on' : ''}>{v ? 'Sí' : 'No'}</b></Fx>;
@@ -129,7 +129,7 @@ export function Settings() {
             <span>🛠 Modo desarrollador LG</span><b>{lgDevLast() ? `Renovado ${new Date(lgDevLast()).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} · Renovar` : 'Renovar ahora'}</b></Fx>}
           {licenseRequired(app.config.texts) && <LicenseRow />}
           <Fx className="setting" onClick={measure}><span>📶 Prueba de velocidad</span><b>{speed || 'Medir'}</b></Fx>
-          {wa && <Fx className="setting" onClick={() => app.toast(`Escríbenos por WhatsApp: +${wa}\nReporte: ${app.config.brand.appName} ${__VERSION__} · ${deviceInfo()} · usuario ${acc?.username ?? '-'}`)}><span>💬 Ayuda por WhatsApp</span><b>+{wa}</b></Fx>}
+          <Fx className="setting" onClick={() => app.toast(`${help}\nVersión: ${app.config.brand.appName} ${__VERSION__} · ${deviceInfo()} · usuario ${acc?.username ?? '-'}`)}><span>💬 Ayuda</span><b>Contacta a tu vendedor</b></Fx>
           <Fx className="setting danger" onClick={() => { getEngine().stop(); store.setAccount(null); clearCache(); location.reload(); }}><span>⎋ Cerrar sesión</span><b /></Fx>
         </div>
         {pinFor && <PinPad title={app.profile.pin ? 'Nuevo PIN (4 dígitos). Escribe el mismo de antes para quitarlo' : 'Crea un PIN de 4 dígitos'}

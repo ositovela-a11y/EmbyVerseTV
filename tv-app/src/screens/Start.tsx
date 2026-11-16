@@ -80,7 +80,7 @@ export function Login({ onLogged }: { onLogged: () => void }) {
       <p className="muted">{mode === 'm3u' ? 'Pega el enlace de tu lista M3U. Si es de tipo «get.php?username=…», se usa como cuenta completa.' : fixed ? 'Xtream Codes: escribe el usuario y contraseña que te dio tu proveedor.' : 'Xtream Codes: escribe la dirección (URL) del servidor, usuario y contraseña que te dio tu proveedor.'}</p>
       <div className="login-tabs" data-fx-group="">
         <Fx className={`chip ${mode === 'account' ? 'on' : ''}`} onClick={() => { setMode('account'); setErr(''); }} id="tab-xtream">Xtream Codes</Fx>
-        <Fx className={`chip ${mode === 'm3u' ? 'on' : ''}`} onClick={() => { setMode('m3u'); setErr(''); }} id="tab-m3u">Lista M3U</Fx>
+        {config.texts['login.m3u'] !== '0' && <Fx className={`chip ${mode === 'm3u' ? 'on' : ''}`} onClick={() => { setMode('m3u'); setErr(''); }} id="tab-m3u">Lista M3U</Fx>}
       </div>
       {mode === 'account' ? (
         <div className="login-form" data-fx-group="">
@@ -103,13 +103,12 @@ export function Login({ onLogged }: { onLogged: () => void }) {
 
 export function Suspended() {
   const { config } = useApp();
-  const wa = (config.texts['support.whatsapp'] ?? '').replace(/\D/g, '');
   return (
     <div className="screen suspended" data-fx-layer="">
       <Logo className="login-logo" />
       <h1>Servicio suspendido</h1>
       <p>{config.texts['blocked.message']?.trim() || 'Tu servicio está suspendido. Comunícate con tu proveedor para reactivarlo.'}</p>
-      {wa && <p className="muted">WhatsApp: +{wa}</p>}
+      <p className="muted">{config.texts['support.message']?.trim() || '¿Necesitas ayuda? Contacta a tu vendedor.'}</p>
       <Fx className="btn" def onClick={() => location.reload()}>Reintentar</Fx>
     </div>
   );
