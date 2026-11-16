@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": 1,
-  "publishedAt": "2026-11-16T10:35:21Z",
+  "version": 2,
+  "publishedAt": "2026-11-16T21:44:30Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "stream PRO ⭐️",
@@ -13,8 +13,8 @@
   },
   "theme": {
     "palette": {
-      "primary": "#04D0E6",
-      "secondary": "#038796",
+      "primary": "#04ce00",
+      "secondary": "#027C00",
       "accent": "#F5BF44",
       "background": "#071112",
       "surface": "#0E2224",
@@ -23,7 +23,7 @@
       "onSurface": "#E3E7EE",
       "textSecondary": "#A2B7B9",
       "onPrimary": "#FFFFFF",
-      "buttonBackground": "#04D0E6",
+      "buttonBackground": "#04ce00",
       "buttonText": "#FFFFFF",
       "focusRing": "#F5BF44",
       "error": "#FF5A6E"
@@ -31,16 +31,16 @@
     "background": {
       "style": "solid",
       "gradientStart": "#071112",
-      "gradientEnd": "#0C2D31"
+      "gradientEnd": "#0D310C"
     },
     "typography": {
-      "family": "inter",
+      "family": "system",
       "scale": 1
     },
     "shape": {
-      "cardRadius": 6,
-      "buttonRadius": 6,
-      "bannerRadius": 8
+      "cardRadius": 4,
+      "buttonRadius": 4,
+      "bannerRadius": 6
     },
     "spacing": {
       "screenPadding": 20,
@@ -51,19 +51,19 @@
       "enabled": true,
       "intensity": 0.35
     },
-    "buttonStyle": "filled",
+    "buttonStyle": "outlined",
     "navigation": {
-      "style": "side_rail",
+      "style": "top_tabs",
       "showLabels": true
     }
   },
   "themes": [
     {
       "id": "vendor",
-      "name": "Cine Rojo",
+      "name": "Stream Pro",
       "palette": {
-        "primary": "#04D0E6",
-        "secondary": "#038796",
+        "primary": "#04ce00",
+        "secondary": "#027C00",
         "accent": "#F5BF44",
         "background": "#071112",
         "surface": "#0E2224",
@@ -72,7 +72,7 @@
         "onSurface": "#E3E7EE",
         "textSecondary": "#A2B7B9",
         "onPrimary": "#FFFFFF",
-        "buttonBackground": "#04D0E6",
+        "buttonBackground": "#04ce00",
         "buttonText": "#FFFFFF",
         "focusRing": "#F5BF44",
         "error": "#FF5A6E"
@@ -233,9 +233,11 @@
     "season": "auto",
     "support.whatsapp": "4442011541",
     "season.every": "24",
-    "style.default": "style_cine_rojo",
+    "style.default": "style_verde_neon",
     "style.brandColors": "1",
-    "splash.welcome": "Bienvenid@  Lo nuevo llega primero aquí..."
+    "splash.welcome": "Bienvenid@  Lo nuevo llega primero aquí...",
+    "login.otherServer": "0",
+    "login.m3u": "1"
   },
   "messages": []
 }
