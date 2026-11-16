@@ -146,7 +146,6 @@ fun SettingsScreen(nav: Navigator) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val cfg by c.config.config.collectAsStateWithLifecycle()
-    val helpNumber = cfg.texts["support.whatsapp"]?.filter(Char::isDigit)
     var fontDialog by remember { mutableStateOf(false) }
     var whatsNew by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
@@ -182,11 +181,6 @@ fun SettingsScreen(nav: Navigator) {
             item { SettingsItem(Icons.Rounded.NewReleases, stringResource(R.string.wn_menu), stringResource(R.string.wn_menu_sub, BuildConfig.VERSION_NAME)) { whatsNew = true } }
             item { SettingsItem(Icons.Rounded.Policy, stringResource(R.string.privacy_title), null) { nav.go(Routes.PRIVACY) } }
             item { SettingsItem(Icons.Rounded.Gavel, stringResource(R.string.terms_title), null) { nav.go(Routes.TERMS) } }
-            if (!helpNumber.isNullOrBlank()) item {
-                SettingsItem(Icons.Rounded.SupportAgent, stringResource(R.string.help_whatsapp), stringResource(R.string.help_whatsapp_sub)) {
-                    scope.launch { openWhatsAppHelp(context, c, helpNumber) }
-                }
-            }
             item { SettingsItem(Icons.Rounded.Info, stringResource(R.string.about_title), stringResource(R.string.settings_about_sub, BuildConfig.VERSION_NAME)) { nav.go(Routes.ABOUT) } }
         }
     }
@@ -752,7 +746,7 @@ private val FAQ = listOf(
     R.string.faq7_q to R.string.faq7_a, R.string.faq8_q to R.string.faq8_a,
 )
 
-/** Ayuda: preguntas frecuentes y contacto directo con el proveedor por WhatsApp. */
+/** Ayuda: preguntas frecuentes y «Contacta a tu vendedor». */
 @Composable
 fun HelpScreen(nav: Navigator) {
     val t = LocalEmby.current
@@ -760,13 +754,16 @@ fun HelpScreen(nav: Navigator) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val cfg by c.config.config.collectAsStateWithLifecycle()
-    val helpNumber = cfg.texts["support.whatsapp"]?.filter(Char::isDigit)
     var open by remember { mutableStateOf(-1) }
     Column(Modifier.fillMaxSize().testTag("help_screen")) {
         SubScreenTop(stringResource(R.string.help_title), nav::back)
         SettingsList {
-            if (!helpNumber.isNullOrBlank()) item {
-                EmbyButton(stringResource(R.string.help_whatsapp), { scope.launch { openWhatsAppHelp(context, c, helpNumber) } }, icon = Icons.Rounded.SupportAgent)
+            // Ayuda: con quien le vendió la cuenta (sin enlace directo a WhatsApp).
+            item {
+                Row(Modifier.fillMaxWidth().background(t.primary.copy(alpha = 0.12f), RoundedCornerShape(t.cardRadius)).padding(16.dp).testTag("help_contact"), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.SupportAgent, null, tint = t.primary); Spacer(Modifier.width(12.dp))
+                    Text(com.embyverse.app.ui.components.helpContactText(cfg), style = MaterialTheme.typography.titleSmall, color = t.onBackground)
+                }
             }
             FAQ.forEachIndexed { i, (q, a) ->
                 if (BuildConfig.VENDOR.isNotBlank() && q == R.string.faq7_q) return@forEachIndexed

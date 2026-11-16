@@ -249,13 +249,10 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
                         secondary = true, modifier = Modifier.testTag("player_next_channel"))
                     else EmbyButton(stringResource(R.string.action_close), onClose, secondary = true)
                 }
-                cfg.texts["support.whatsapp"]?.filter { it.isDigit() }?.takeIf { it.length >= 8 }?.let { n ->
-                    androidx.compose.material3.TextButton(onClick = {
-                        val msg = ctx.getString(R.string.player_report_msg, np?.title ?: "", ctx.getString(e.messageRes))
-                        runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
-                            android.net.Uri.parse("https://wa.me/$n?text=" + android.net.Uri.encode(msg))).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                    }) { Text(stringResource(R.string.player_report), color = t.accent) }
-                }
+                // Películas y series: si este equipo no puede con el formato, que lo abra otro reproductor (VLC, MX…).
+                if (!vm.isLive) EmbyButton(stringResource(R.string.player_open_external), { vm.error.value = null; vm.openExternal() },
+                    icon = Icons.Rounded.SkipNext, modifier = Modifier.testTag("player_error_external"))
+                Text(com.embyverse.app.ui.components.helpContactText(cfg), style = MaterialTheme.typography.bodySmall, color = t.textSecondary)
             }
         }
 
@@ -330,17 +327,21 @@ private fun EpisodeExtras(vm: PlayerViewModel, player: androidx.media3.exoplayer
                 icon = Icons.Rounded.SkipNext, modifier = Modifier.focusRequester(skipFocus).testTag("skip_intro"))
         }
         val n = upNext
-        if (n != null && !cancelled && vm.autoplayNext && remaining <= 20) {
+        // Sale cuando empiezan los créditos (no hasta el último segundo) y cuenta 10 s para seguir solo.
+        val creditsLeft = vm.creditsLeftMs(dur)
+        if (n != null && !cancelled && vm.autoplayNext && dur > 0 && dur - pos <= creditsLeft) {
             val focus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
+            var count by androidx.compose.runtime.remember(n.first) { androidx.compose.runtime.mutableIntStateOf(10) }
             LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+            LaunchedEffect(n.first) { while (count > 0) { kotlinx.coroutines.delay(1_000); count-- }; vm.playUpNext() }
             Column(Modifier.widthIn(max = 380.dp).background(t.surface.copy(alpha = 0.95f), RoundedCornerShape(t.cardRadius)).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.player_up_next_in, remaining.coerceAtLeast(0)), style = MaterialTheme.typography.labelLarge, color = t.primary)
+                Text(stringResource(R.string.player_up_next_in, minOf(count.toLong(), remaining).coerceAtLeast(0)), style = MaterialTheme.typography.labelLarge, color = t.primary)
                 Text(n.second, style = MaterialTheme.typography.titleMedium, color = t.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     EmbyButton(stringResource(R.string.action_watch), { vm.playUpNext() }, icon = Icons.Rounded.SkipNext,
                         modifier = Modifier.focusRequester(focus))
-                    EmbyButton(stringResource(R.string.action_cancel), { vm.cancelUpNext() }, secondary = true)
+                    EmbyButton(stringResource(R.string.action_cancel), { vm.cancelUpNext(dur - pos) }, secondary = true, modifier = Modifier.testTag("up_next_cancel"))
                 }
             }
         }

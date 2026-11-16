@@ -61,7 +61,12 @@ object PlaybackProbe {
     @Volatile var audioUnsupported = false
     /** Lo que se está reproduciendo (para las pruebas del siguiente episodio). */
     @Volatile var nowId: String? = null
-    fun reset() { readyCount = 0; lastError = null; reconnects = 0; lastReconnectReason = null; lastAutoTrack = null; audioDecoder = null; audioUnsupported = false }
+    /** Solo pruebas: mover el video a un punto (ms antes del final). */
+    @Volatile var seekFromEnd: Long? = null
+    /** Decodificador de video en uso y si el video (p. ej. AVI DivX 3) no se puede decodificar aquí. */
+    @Volatile var videoDecoder: String? = null
+    @Volatile var videoUnsupported = false
+    fun reset() { readyCount = 0; lastError = null; reconnects = 0; lastReconnectReason = null; lastAutoTrack = null; audioDecoder = null; audioUnsupported = false; videoDecoder = null; videoUnsupported = false }
 }
 
 /** Pista de audio o subtítulos que se puede elegir en el panel de opciones. */
@@ -316,6 +321,9 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
                 addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
                     override fun onAudioDecoderInitialized(e: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
                         PlaybackProbe.audioDecoder = decoderName
+                    }
+                    override fun onVideoDecoderInitialized(e: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
+                        PlaybackProbe.videoDecoder = decoderName
                     }
                 })
                 playWhenReady = true
@@ -737,7 +745,25 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         upNext.value = next?.let { ItemRef(ContentKind.EPISODE, it.sourceId, it.providerId) to "T${it.season} · E${it.episode} — ${it.title}" }
     }
 
-    fun cancelUpNext() { upNextCancelled.value = true }
+    /**
+     * Cuánto antes del final aparece «Siguiente episodio» (cuando empiezan los créditos). Se aprende por serie:
+     * si el cliente lo cancela para ver más, la próxima vez sale un poco más tarde. Sin aprender: ~3.5 % del
+     * episodio (entre 45 s y 2½ min), que es lo que suelen durar los créditos.
+     */
+    fun creditsLeftMs(durMs: Long): Long {
+        if (durMs <= 0) return 0
+        if (durMs < 10 * 60_000L) return minOf(15_000L, durMs / 2)
+        val learned = introSeries?.let { sp.getLong("credits.$it", 0L) }?.takeIf { it > 0 }
+        return learned ?: (durMs * 35 / 1000).coerceIn(45_000L, 150_000L)
+    }
+    private val sp = c.app.getSharedPreferences("credits", android.content.Context.MODE_PRIVATE)
+
+    fun cancelUpNext(remainingMs: Long = 0) {
+        upNextCancelled.value = true
+        // Lo canceló porque aún no eran los créditos: para esta serie sale más cerca del final.
+        val s = introSeries
+        if (s != null && remainingMs > 30_000) sp.edit().putLong("credits.$s", (remainingMs - 15_000).coerceAtLeast(20_000)).apply()
+    }
     fun playUpNext() { val n = upNext.value?.first ?: return; upNext.value = null; viewModelScope.launch { load(n) } }
 
     /** Para no avisar dos veces el final del mismo video. */
@@ -793,11 +819,22 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
                 learnIntro(a, b); intro.value = null
             }
         }
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (com.embyverse.app.BuildConfig.DEBUG) PlaybackProbe.seekFromEnd?.let { back -> player.value?.let { p -> if (p.duration > 0) { PlaybackProbe.seekFromEnd = null; p.seekTo((p.duration - back).coerceAtLeast(0)) } } }
+        }
         override fun onTracksChanged(tracks: Tracks) {
             player.value?.let { runCatching { autoPickTracks(it) } }; refreshTracks()
             val audioGroups = tracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
             audioUnsupported.value = audioGroups.isNotEmpty() && audioGroups.none { g -> (0 until g.length).any { g.isTrackSupported(it) } }
             PlaybackProbe.audioUnsupported = audioUnsupported.value
+            // Video que este equipo no sabe decodificar (p. ej. AVI con DivX 3 o WMV): aviso con «Abrir en otro reproductor».
+            val videoGroups = tracks.groups.filter { it.type == C.TRACK_TYPE_VIDEO }
+            if (!isLive && videoGroups.isNotEmpty() && videoGroups.none { g -> (0 until g.length).any { g.isTrackSupported(it) } }) {
+                PlaybackProbe.videoUnsupported = true
+                PlaybackProbe.lastError = "VIDEO_SIN_DECODIFICADOR: " + videoGroups.joinToString { g -> g.getTrackFormat(0).sampleMimeType ?: g.getTrackFormat(0).codecs.orEmpty() }
+                buffering.value = false; player.value?.pause()
+                error.value = PlayerUiError.Message(R.string.player_video_unsupported, "VIDEO_UNSUPPORTED")
+            }
             if (audioUnsupported.value) PlaybackProbe.lastError = "AUDIO_SIN_DECODIFICADOR: " + audioGroups.joinToString { g -> g.getTrackFormat(0).sampleMimeType.orEmpty() }
         }
         override fun onTrackSelectionParametersChanged(parameters: androidx.media3.common.TrackSelectionParameters) { refreshTracks() }
@@ -882,7 +919,8 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
             e.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ||
                 e.errorCode == PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED ||
                 e.errorCode == PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED ||
-                e.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> R.string.player_error_format
+                e.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED ||
+                e.errorCode == PlaybackException.ERROR_CODE_DECODING_FAILED -> R.string.player_video_unsupported
             else -> R.string.player_error_generic
         }
     }

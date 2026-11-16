@@ -155,7 +155,8 @@ class PreferencesRepository(private val context: Context) {
     private val NIGHT = booleanPreferencesKey("play.night2")
     private val DATA_SAVER = booleanPreferencesKey("play.dataSaver")
     private val ASPECT = intPreferencesKey("play.aspect")
-    private val LITE = booleanPreferencesKey("app.lite")
+    // «lite2»: nueva llave para que en celular quede activado también en quien ya tenía la app.
+    private val LITE = booleanPreferencesKey("app.lite2")
     private val NIGHT_AUTO = booleanPreferencesKey("play.nightAuto")
     private val NIGHT_FROM = intPreferencesKey("play.nightFrom")
     private val NIGHT_TO = intPreferencesKey("play.nightTo")

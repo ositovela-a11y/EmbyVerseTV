@@ -441,12 +441,16 @@ fun FeaturedChannelsRow(texts: Map<String, String>, onChannel: (ItemRef) -> Unit
 }
 
 
+/** Texto de ayuda: «Contacta a tu vendedor» (o el que pongas en el panel con «support.message»). */
+@Composable
+fun helpContactText(cfg: com.embyverse.core.config.RemoteConfig): String =
+    cfg.texts["support.message"]?.trim()?.ifEmpty { null } ?: stringResource(R.string.help_contact_seller)
+
 /** Pantalla de servicio suspendido (cliente bloqueado desde el panel). */
 @Composable
 fun SuspendedScreen(cfg: com.embyverse.core.config.RemoteConfig) {
     val t = LocalEmby.current
     val context = androidx.compose.ui.platform.LocalContext.current
-    val wa = cfg.texts["support.whatsapp"]?.filter(Char::isDigit)
     val focus = remember { androidx.compose.ui.focus.FocusRequester() }
     LaunchedEffect(Unit) { delay(200); runCatching { focus.requestFocus() } }
     Column(Modifier.fillMaxSize().background(t.background).padding(32.dp).testTag("suspended"), horizontalAlignment = Alignment.CenterHorizontally,
@@ -459,13 +463,11 @@ fun SuspendedScreen(cfg: com.embyverse.core.config.RemoteConfig) {
             color = t.textSecondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.width(520.dp))
         Spacer(Modifier.height(24.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (!wa.isNullOrBlank()) EmbyButton(stringResource(R.string.help_whatsapp), {
-                runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://wa.me/$wa"))
-                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            }, modifier = Modifier.focusRequester(focus))
             EmbyButton(stringResource(R.string.suspended_uninstall), { com.embyverse.app.data.repo.AccountBlock.uninstall(context) }, secondary = true,
-                modifier = if (wa.isNullOrBlank()) Modifier.focusRequester(focus) else Modifier)
+                modifier = Modifier.focusRequester(focus))
         }
+        Spacer(Modifier.height(16.dp))
+        Text(helpContactText(cfg), style = MaterialTheme.typography.bodyMedium, color = t.textSecondary)
     }
 }
 

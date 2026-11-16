@@ -276,21 +276,22 @@ function AppLookEditor({ slug, name, onClose }: { slug: string; name: string; on
   const [curLogo, setCurLogo] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [saved, setSaved] = useState('');
+  const [login, setLogin] = useState({ otherServer: false, m3u: true }); // formas de entrar que ofrece la app
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   useEffect(() => {
-    void githubApi.appLook(slug).then((l) => { look.load(l.themeId, l.colors); setCurLogo(l.logo); setSaved(JSON.stringify([l.themeId, l.colors])); setLoaded(true); })
+    void githubApi.appLook(slug).then((l) => { look.load(l.themeId, l.colors); setCurLogo(l.logo); const lg = { otherServer: l.otherServer, m3u: l.m3u }; setLogin(lg); setSaved(JSON.stringify([l.themeId, l.colors, lg])); setLoaded(true); })
       .catch((e) => setMsg({ kind: 'error', text: e instanceof Error ? e.message : 'No se pudo leer la app.' }));
   }, [slug]); // eslint-disable-line
   const [newPrev, setNewPrev] = useState('');
   useEffect(() => { if (!logoFile) { setNewPrev(''); return; } const u = URL.createObjectURL(logoFile); setNewPrev(u); return () => URL.revokeObjectURL(u); }, [logoFile]);
-  const dirty = !!logoFile || JSON.stringify([look.themeId, look.colors]) !== saved;
+  const dirty = !!logoFile || JSON.stringify([look.themeId, look.colors, login]) !== saved;
   const save = async () => {
     setBusy(true); setMsg(null);
     try {
-      const r = await githubApi.restyleApp(slug, { themeId: look.themeId, colors: look.colors, logo: logoFile });
+      const r = await githubApi.restyleApp(slug, { themeId: look.themeId, colors: look.colors, logo: logoFile, texts: { 'login.otherServer': login.otherServer ? '1' : '0', 'login.m3u': login.m3u ? '1' : '0' } });
       setMsg({ kind: 'ok', text: `✓ Publicado (versión ${r.version}). Sus clientes lo ven al abrir la app.${slug && logoFile ? ' El ícono de su APK se actualiza en unos 10 minutos.' : ''}` });
-      setSaved(JSON.stringify([look.themeId, look.colors]));
+      setSaved(JSON.stringify([look.themeId, look.colors, login]));
       if (currentTarget() === slug) setTimeout(() => location.reload(), 1500); // el estudio estaba abierto en esta app
     } catch (e) { setMsg({ kind: 'error', text: e instanceof Error ? e.message : 'No se pudo publicar.' }); }
     finally { setBusy(false); }
@@ -305,6 +306,12 @@ function AppLookEditor({ slug, name, onClose }: { slug: string; name: string; on
           <LogoField look={look} current={curLogo} onFile={setLogoFile} />
           <ColorFields look={look} name={name} logoSrc={newPrev || curLogo} />
         </div>
+        <fieldset className="login-opts">
+          <legend><b>Formas de entrar en la app</b></legend>
+          <label><input type="checkbox" checked disabled /> Usuario y contraseña (con tu servidor)</label>
+          <label><input type="checkbox" checked={login.otherServer} onChange={(e) => setLogin((l) => ({ ...l, otherServer: e.target.checked }))} aria-label="Otro servidor (Xtream)" /> Otro servidor (Xtream): el cliente escribe la dirección de otro servidor</label>
+          <label><input type="checkbox" checked={login.m3u} onChange={(e) => setLogin((l) => ({ ...l, m3u: e.target.checked }))} aria-label="Lista M3U" /> Lista M3U</label>
+        </fieldset>
         <div className="dl-row">
           <button className="btn" disabled={busy || !dirty || !look.themeId} onClick={() => void save()}>{busy ? 'Publicando…' : 'Guardar y publicar'}</button>
           <button className="btn-ghost" onClick={onClose}>Cerrar</button>
@@ -374,7 +381,7 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
       <Group title="Tus apps" hint="«Editar su app» abre su diseño en el estudio; al publicar solo cambia esa app.">
         <div className={`vendor ${cur === '' ? 'on' : ''}`}>
           <div className="vendor-head"><b>App principal</b>{cur === '' ? <span className="pill pill-ok">Editando</span> : <button className="btn-ghost" onClick={() => { setTarget(''); location.reload(); }}>Editar su app</button>}
-            <button className="btn-ghost" onClick={() => setLook(look === '' ? null : '')} aria-expanded={look === ''}>🎨 Tema y logotipo</button></div>
+            <button className="btn-ghost" onClick={() => setLook(look === '' ? null : '')} aria-expanded={look === ''}>⚙️ Editar app</button></div>
           {look === '' && <AppLookEditor slug="" name="App principal" onClose={() => setLook(null)} />}
           <Links slug="" />
         </div>
@@ -384,7 +391,7 @@ export function VendorsPanel({ vendors, reload }: { vendors: Vendor[]; reload: (
             <div className="vendor-head">
               <b>{v.name}</b><span className="hint">id: {v.slug}</span>
               {cur === v.slug ? <span className="pill pill-ok">Editando</span> : <button className="btn-ghost" onClick={() => { setTarget(v.slug); location.reload(); }}>Editar su app</button>}
-              <button className="btn-ghost" onClick={() => setLook(look === v.slug ? null : v.slug)} aria-expanded={look === v.slug}>🎨 Tema y logotipo</button>
+              <button className="btn-ghost" onClick={() => setLook(look === v.slug ? null : v.slug)} aria-expanded={look === v.slug}>⚙️ Editar app</button>
               <button className="link danger" disabled={busy} onClick={() => { if (confirm(`¿Eliminar la app de ${v.name}? Su APK dejará de actualizarse.`)) void run(() => githubApi.deleteVendor(v.slug), `${v.name} eliminado`); }}>Eliminar</button>
             </div>
             {look === v.slug && <AppLookEditor slug={v.slug} name={v.name} onClose={() => setLook(null)} />}

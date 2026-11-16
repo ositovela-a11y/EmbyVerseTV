@@ -262,7 +262,7 @@ export const githubApi = {
     return v;
   },
   /** Cómo se ve hoy una app (para el editor rápido de tema y logotipo). */
-  async appLook(slug: string): Promise<{ logo: string | null; style: string; colors: { primary: string; accent: string; background: string }; themeId: string | null }> {
+  async appLook(slug: string): Promise<{ logo: string | null; style: string; colors: { primary: string; accent: string; background: string }; themeId: string | null; otherServer: boolean; m3u: boolean }> {
     const r = await readConfig(GH.branch, cfgPath(slug));
     if (!r) throw new ApiError(404, 'github', 'No se encontró el diseño de esa app.');
     const c = r.config; const p = c.theme.palette as unknown as Record<string, string>;
@@ -270,14 +270,15 @@ export const githubApi = {
     const style = c.texts?.['style.default'] ?? '';
     const themeName = (c as unknown as { themes?: { id?: string; name?: string }[] }).themes?.find((t) => t.id === 'vendor')?.name;
     const th = VENDOR_THEMES.find((t) => t.name === themeName) ?? VENDOR_THEMES.find((t) => t.style === style && t.palette.primary === p.primary) ?? VENDOR_THEMES.find((t) => t.style === style) ?? null;
-    return { logo, style, colors: { primary: p.primary!, accent: p.accent!, background: p.background! }, themeId: th?.id ?? null };
+    return { logo, style, colors: { primary: p.primary!, accent: p.accent!, background: p.background! }, themeId: th?.id ?? null,
+      otherServer: c.texts?.['login.otherServer'] === '1', m3u: c.texts?.['login.m3u'] !== '0' };
   },
   /**
    * Cambia el tema (colores, fondo, letra, bordes, botones y distribución), los colores y/o el logotipo de
    * una app ya creada (la principal o la de un vendedor) y lo publica. Si había cambios sin publicar de
    * esa app en el estudio, también se les aplica, para que no regresen el tema anterior.
    */
-  async restyleApp(slug: string, opts: { themeId?: string | null; colors?: { primary: string; accent: string; background: string }; logo?: File | null }) {
+  async restyleApp(slug: string, opts: { themeId?: string | null; colors?: { primary: string; accent: string; background: string }; logo?: File | null; texts?: Record<string, string> }) {
     const path = cfgPath(slug);
     const pub = await readConfig(GH.branch, path);
     if (!pub) throw new ApiError(404, 'github', 'No se encontró el diseño de esa app.');
@@ -285,7 +286,7 @@ export const githubApi = {
     if (opts.logo) logoUrl = (await githubApi.upload(opts.logo, 'logo')).asset.url;
     const th = VENDOR_THEMES.find((x) => x.id === opts.themeId);
     const change = (c: RemoteConfig) => {
-      c.texts = { ...(c.texts ?? {}) };
+      c.texts = { ...(c.texts ?? {}), ...(opts.texts ?? {}) };
       if (logoUrl) c.brand.logo = { variant: 'asset', url: logoUrl };
       if (th) {
         applyVendorTheme(c as unknown as { theme: Record<string, unknown>; texts: Record<string, string> }, th, opts.colors);

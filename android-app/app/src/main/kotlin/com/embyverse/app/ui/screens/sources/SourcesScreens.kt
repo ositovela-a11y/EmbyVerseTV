@@ -336,13 +336,18 @@ fun SourceEditScreen(nav: Navigator, id: String?, firstRun: Boolean, onDone: () 
         ) {
             val mode by vm.mode.collectAsStateWithLifecycle()
             val locked = vm.lockedHost != null && mode == SourceEditViewModel.Mode.PROVIDER
-            if (vm.lockedHost != null) {
+            // Qué formas de entrar se ofrecen lo decide el panel de cada app: «Otro servidor» viene apagado
+            // y «Lista M3U» encendida (texts login.otherServer / login.m3u).
+            val lcfg by com.embyverse.app.ui.LocalAppContainer.current.config.config.collectAsStateWithLifecycle()
+            val modes = listOfNotNull(SourceEditViewModel.Mode.PROVIDER to R.string.login_mode_account,
+                (SourceEditViewModel.Mode.XTREAM to R.string.login_mode_xtream).takeIf { lcfg.texts["login.otherServer"] == "1" },
+                (SourceEditViewModel.Mode.M3U to R.string.login_mode_m3u).takeIf { lcfg.texts["login.m3u"] != "0" })
+            if (vm.lockedHost != null && modes.size > 1) {
                 Text(stringResource(R.string.login_how), style = MaterialTheme.typography.titleSmall, color = t.textSecondary)
-                // Las 3 opciones siempre a la vista (en celular bajan al siguiente renglón).
+                // Las opciones siempre a la vista (en celular bajan al siguiente renglón).
                 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(SourceEditViewModel.Mode.PROVIDER to R.string.login_mode_account, SourceEditViewModel.Mode.XTREAM to R.string.login_mode_xtream,
-                        SourceEditViewModel.Mode.M3U to R.string.login_mode_m3u).forEach { (m, label) ->
+                    modes.forEach { (m, label) ->
                         Box(Modifier.testTag("login_mode_${m.name.lowercase()}")) { CategoryChip(stringResource(label), mode == m) { vm.setMode(m) } }
                     }
                 }
@@ -429,15 +434,9 @@ private fun TestResult(test: TestState) {
                 Icon(Icons.Rounded.ErrorOutline, null, tint = t.error); Spacer(Modifier.size(10.dp))
                 Text(test.message, color = t.onSurface, style = MaterialTheme.typography.bodyMedium)
             }
-            // Ayuda directa con el proveedor (número de WhatsApp del panel).
+            // Ayuda: con quien le vendió la cuenta.
             val cfg by com.embyverse.app.ui.LocalAppContainer.current.config.config.collectAsStateWithLifecycle()
-            val ctx = LocalContext.current
-            cfg.texts["support.whatsapp"]?.filter { it.isDigit() }?.takeIf { it.length >= 8 }?.let { n ->
-                TextButton(onClick = { runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
-                    Uri.parse("https://wa.me/$n?text=" + Uri.encode(ctx.getString(R.string.login_help_msg, test.message)))).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }) {
-                    Text(stringResource(R.string.help_whatsapp_short), color = t.accent)
-                }
-            }
+            Text(com.embyverse.app.ui.components.helpContactText(cfg), color = t.accent, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
         }
         is TestState.Ok -> Column(Modifier.fillMaxWidth().background(t.primary.copy(alpha = 0.12f), RoundedCornerShape(t.cardRadius)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
