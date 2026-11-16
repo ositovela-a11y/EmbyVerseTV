@@ -1,0 +1,11 @@
+name: Consulta temporal
+on: { push: { branches: [probe-ffv] } }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          git clone -q --depth 1 --branch 1.11.1 https://github.com/androidx/media.git m
+          ls m/libraries/decoder_ffmpeg/src/main/java/androidx/media3/decoder/ffmpeg/
+          ls m/libraries/decoder_ffmpeg/src/main/jni/
+          grep -n "Video" m/libraries/decoder_ffmpeg/README.md | head
