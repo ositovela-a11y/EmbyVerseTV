@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": 4,
-  "publishedAt": "2026-11-17T00:58:56Z",
+  "version": 5,
+  "publishedAt": "2026-11-17T00:59:29Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "stream PRO ⭐️",
@@ -77,6 +77,11 @@
         "focusRing": "#780090",
         "error": "#FF5A6E"
       }
+    },
+    {
+      "id": "tema_ir3n",
+      "name": "Nuevo tema",
+      "palette": {}
     }
   ],
   "userCustomization": {
