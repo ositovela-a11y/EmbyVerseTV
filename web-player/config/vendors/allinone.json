@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": 5,
-  "publishedAt": "2026-11-17T17:25:24Z",
+  "version": 6,
+  "publishedAt": "2026-11-17T17:25:53Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "All IN ONE",
@@ -13,25 +13,25 @@
   },
   "theme": {
     "palette": {
-      "primary": "#fe4f00",
-      "secondary": "#AC3600",
-      "accent": "#ed8a00",
-      "background": "#050805",
-      "surface": "#0F180F",
-      "surfaceVariant": "#192719",
+      "primary": "#F7A40F",
+      "secondary": "#AF7206",
+      "accent": "#fa8c00",
+      "background": "#071208",
+      "surface": "#0E2410",
+      "surfaceVariant": "#153718",
       "onBackground": "#F2F4F8",
       "onSurface": "#E3E7EE",
-      "textSecondary": "#A2B9A2",
-      "onPrimary": "#FFFFFF",
-      "buttonBackground": "#fe4f00",
-      "buttonText": "#FFFFFF",
-      "focusRing": "#ed8a00",
+      "textSecondary": "#A2B9A4",
+      "onPrimary": "#0A0F18",
+      "buttonBackground": "#F7A40F",
+      "buttonText": "#0A0F18",
+      "focusRing": "#fa8c00",
       "error": "#FF5A6E"
     },
     "background": {
       "style": "solid",
-      "gradientStart": "#050805",
-      "gradientEnd": "#31180C"
+      "gradientStart": "#071208",
+      "gradientEnd": "#31240C"
     },
     "typography": {
       "family": "system",
@@ -62,19 +62,19 @@
       "id": "vendor",
       "name": "All in One",
       "palette": {
-        "primary": "#fe4f00",
-        "secondary": "#AC3600",
-        "accent": "#ed8a00",
-        "background": "#050805",
-        "surface": "#0F180F",
-        "surfaceVariant": "#192719",
+        "primary": "#F7A40F",
+        "secondary": "#AF7206",
+        "accent": "#fa8c00",
+        "background": "#071208",
+        "surface": "#0E2410",
+        "surfaceVariant": "#153718",
         "onBackground": "#F2F4F8",
         "onSurface": "#E3E7EE",
-        "textSecondary": "#A2B9A2",
-        "onPrimary": "#FFFFFF",
-        "buttonBackground": "#fe4f00",
-        "buttonText": "#FFFFFF",
-        "focusRing": "#ed8a00",
+        "textSecondary": "#A2B9A4",
+        "onPrimary": "#0A0F18",
+        "buttonBackground": "#F7A40F",
+        "buttonText": "#0A0F18",
+        "focusRing": "#fa8c00",
         "error": "#FF5A6E"
       }
     }
