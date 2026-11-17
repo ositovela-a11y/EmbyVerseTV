@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": 2,
-  "publishedAt": "2026-11-16T21:44:30Z",
+  "version": 3,
+  "publishedAt": "2026-11-17T00:56:36Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "stream PRO ⭐️",
@@ -13,9 +13,9 @@
   },
   "theme": {
     "palette": {
-      "primary": "#04ce00",
-      "secondary": "#027C00",
-      "accent": "#F5BF44",
+      "primary": "#04D0E6",
+      "secondary": "#038796",
+      "accent": "#8f00a1",
       "background": "#071112",
       "surface": "#0E2224",
       "surfaceVariant": "#153437",
@@ -23,15 +23,15 @@
       "onSurface": "#E3E7EE",
       "textSecondary": "#A2B7B9",
       "onPrimary": "#FFFFFF",
-      "buttonBackground": "#04ce00",
+      "buttonBackground": "#04D0E6",
       "buttonText": "#FFFFFF",
-      "focusRing": "#F5BF44",
+      "focusRing": "#8f00a1",
       "error": "#FF5A6E"
     },
     "background": {
       "style": "solid",
       "gradientStart": "#071112",
-      "gradientEnd": "#0D310C"
+      "gradientEnd": "#0C2D31"
     },
     "typography": {
       "family": "system",
@@ -62,9 +62,9 @@
       "id": "vendor",
       "name": "Stream Pro",
       "palette": {
-        "primary": "#04ce00",
-        "secondary": "#027C00",
-        "accent": "#F5BF44",
+        "primary": "#04D0E6",
+        "secondary": "#038796",
+        "accent": "#8f00a1",
         "background": "#071112",
         "surface": "#0E2224",
         "surfaceVariant": "#153437",
@@ -72,9 +72,9 @@
         "onSurface": "#E3E7EE",
         "textSecondary": "#A2B7B9",
         "onPrimary": "#FFFFFF",
-        "buttonBackground": "#04ce00",
+        "buttonBackground": "#04D0E6",
         "buttonText": "#FFFFFF",
-        "focusRing": "#F5BF44",
+        "focusRing": "#8f00a1",
         "error": "#FF5A6E"
       }
     }
