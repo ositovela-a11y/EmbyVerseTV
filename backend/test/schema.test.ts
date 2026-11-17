@@ -62,7 +62,7 @@ describe('resolución de preferencias de usuario (misma lógica que ConfigResolv
 
   it('ocultar y reordenar respeta las secciones bloqueadas', () => {
     const prefs = { hiddenSections: ['hero', 'promos', 'recommended'], sectionOrder: ['series', 'movies', 'hero', 'live'] };
-    assert.deepEqual(resolveSections(cfg, prefs).map((s) => s.id), ['hero', 'series', 'movies', 'live', 'continue', 'new', 'favorites']);
+    assert.deepEqual(resolveSections(cfg, prefs).map((s) => s.id), ['hero', 'series', 'movies', 'live', 'continue', 'new', 'favorites', 'sagas']);
   });
 
   it('banners por ventana de publicación', () => {
