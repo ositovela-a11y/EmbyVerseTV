@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": 1,
-  "publishedAt": "2026-11-17T07:00:58Z",
+  "version": 2,
+  "publishedAt": "2026-11-17T07:01:42Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "All IN ONE",
@@ -14,33 +14,33 @@
   "theme": {
     "palette": {
       "primary": "#39FF14",
-      "secondary": "#16A34A",
+      "secondary": "#1EC100",
       "accent": "#FF8A00",
       "background": "#050805",
-      "surface": "#0E140E",
-      "surfaceVariant": "#182218",
+      "surface": "#0F180F",
+      "surfaceVariant": "#192719",
       "onBackground": "#F2F4F8",
       "onSurface": "#E3E7EE",
-      "textSecondary": "#9DB59A",
-      "onPrimary": "#041004",
+      "textSecondary": "#A2B9A2",
+      "onPrimary": "#0A0F18",
       "buttonBackground": "#39FF14",
-      "buttonText": "#041004",
+      "buttonText": "#0A0F18",
       "focusRing": "#FF8A00",
       "error": "#FF5A6E"
     },
     "background": {
       "style": "solid",
       "gradientStart": "#050805",
-      "gradientEnd": "#0A1A0A"
+      "gradientEnd": "#12310C"
     },
     "typography": {
-      "family": "system",
+      "family": "inter",
       "scale": 1
     },
     "shape": {
-      "cardRadius": 4,
-      "buttonRadius": 4,
-      "bannerRadius": 6
+      "cardRadius": 6,
+      "buttonRadius": 6,
+      "bannerRadius": 8
     },
     "spacing": {
       "screenPadding": 20,
@@ -51,29 +51,29 @@
       "enabled": true,
       "intensity": 0.35
     },
-    "buttonStyle": "outlined",
+    "buttonStyle": "filled",
     "navigation": {
-      "style": "top_tabs",
+      "style": "side_rail",
       "showLabels": true
     }
   },
   "themes": [
     {
       "id": "vendor",
-      "name": "All in One",
+      "name": "Cine Rojo",
       "palette": {
         "primary": "#39FF14",
-        "secondary": "#16A34A",
+        "secondary": "#1EC100",
         "accent": "#FF8A00",
         "background": "#050805",
-        "surface": "#0E140E",
-        "surfaceVariant": "#182218",
+        "surface": "#0F180F",
+        "surfaceVariant": "#192719",
         "onBackground": "#F2F4F8",
         "onSurface": "#E3E7EE",
-        "textSecondary": "#9DB59A",
-        "onPrimary": "#041004",
+        "textSecondary": "#A2B9A2",
+        "onPrimary": "#0A0F18",
         "buttonBackground": "#39FF14",
-        "buttonText": "#041004",
+        "buttonText": "#0A0F18",
         "focusRing": "#FF8A00",
         "error": "#FF5A6E"
       }
@@ -233,9 +233,11 @@
     "season": "auto",
     "support.whatsapp": "4442011541",
     "season.every": "24",
-    "style.default": "style_verde_neon",
+    "style.default": "style_cine_rojo",
     "style.brandColors": "1",
-    "splash.welcome": "Bienvenido a ALL IN ONE"
+    "splash.welcome": "Bienvenido a ALL IN ONE",
+    "login.otherServer": "0",
+    "login.m3u": "1"
   },
   "messages": []
 }
