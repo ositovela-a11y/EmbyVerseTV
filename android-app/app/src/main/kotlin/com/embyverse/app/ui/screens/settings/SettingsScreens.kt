@@ -299,7 +299,8 @@ fun AppearanceScreen(nav: Navigator) {
                     }
                 }
             }
-            if (uc.allowAccentColor && uc.accentChoices.isNotEmpty()) {
+            // En apps con colores de la marca (puestos en el panel) el acento lo decide el panel.
+            if (uc.allowAccentColor && uc.accentChoices.isNotEmpty() && cfg.texts["style.brandColors"] != "1") {
                 item { Text(stringResource(R.string.appearance_accent), style = MaterialTheme.typography.titleMedium, color = t.onBackground) }
                 item {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

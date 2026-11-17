@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": 1,
-  "publishedAt": "2026-11-16T10:35:21Z",
+  "version": 2,
+  "publishedAt": "2026-11-17T02:43:20Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "stream PRO ⭐️",
@@ -15,7 +15,7 @@
     "palette": {
       "primary": "#04D0E6",
       "secondary": "#038796",
-      "accent": "#F5BF44",
+      "accent": "#A855F7",
       "background": "#071112",
       "surface": "#0E2224",
       "surfaceVariant": "#153437",
@@ -25,7 +25,7 @@
       "onPrimary": "#FFFFFF",
       "buttonBackground": "#04D0E6",
       "buttonText": "#FFFFFF",
-      "focusRing": "#F5BF44",
+      "focusRing": "#A855F7",
       "error": "#FF5A6E"
     },
     "background": {
@@ -64,7 +64,7 @@
       "palette": {
         "primary": "#04D0E6",
         "secondary": "#038796",
-        "accent": "#F5BF44",
+        "accent": "#A855F7",
         "background": "#071112",
         "surface": "#0E2224",
         "surfaceVariant": "#153437",
@@ -74,7 +74,7 @@
         "onPrimary": "#FFFFFF",
         "buttonBackground": "#04D0E6",
         "buttonText": "#FFFFFF",
-        "focusRing": "#F5BF44",
+        "focusRing": "#A855F7",
         "error": "#FF5A6E"
       }
     }
