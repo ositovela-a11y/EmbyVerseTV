@@ -1346,7 +1346,8 @@ class SmokeFlowTest {
                     catch (e: ComposeTimeoutException) { shot("fallo-eventos"); fail("$what: debía ir al evento $expect y fue a ${PlaybackProbe.nowId} (fuera de los eventos: ${PlaybackProbe.nowId !in ids})") }
                     seen += PlaybackProbe.nowId; Thread.sleep(900)
                 }
-                press(android.view.KeyEvent.KEYCODE_DPAD_DOWN, ids[1], "▼"); shot("48-evento-siguiente")
+                press(android.view.KeyEvent.KEYCODE_DPAD_DOWN, ids[1], "▼")
+                waitText(events[1].channel.name.take(18), 10_000); Thread.sleep(400); shot("48-evento-siguiente")
                 press(android.view.KeyEvent.KEYCODE_CHANNEL_UP, ids[2], "CH+")
                 press(android.view.KeyEvent.KEYCODE_DPAD_DOWN, ids[3], "▼")
                 press(android.view.KeyEvent.KEYCODE_DPAD_DOWN, ids[0], "▼ (del último vuelve al primero)")
