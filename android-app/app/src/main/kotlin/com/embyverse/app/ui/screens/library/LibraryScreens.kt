@@ -237,7 +237,8 @@ fun LiveScreen(nav: Navigator, initialCategory: String?) {
     }
     val fullscreen: (ChannelEntity) -> Unit = { ch ->
         preview.release()
-        nav.play(ItemRef(ContentKind.LIVE, ch.sourceId, ch.providerId), s.category?.takeIf { !it.startsWith("\u0000") })
+        // «Eventos de hoy» también viaja al reproductor: ahí ▲▼ solo pasan entre eventos.
+        nav.play(ItemRef(ContentKind.LIVE, ch.sourceId, ch.providerId), s.category?.takeIf { !it.startsWith("\u0000") || it == CATEGORY_EVENTS })
     }
     val onChannel: (ChannelEntity) -> Unit = { ch -> if (preview.isPreviewing(ch)) fullscreen(ch) else preview.play(ch) }
 

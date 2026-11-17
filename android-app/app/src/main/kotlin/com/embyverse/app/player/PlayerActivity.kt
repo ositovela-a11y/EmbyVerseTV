@@ -169,6 +169,9 @@ class PlayerActivity : AppCompatActivity() {
                 if (code != KeyEvent.KEYCODE_MEDIA_SKIP_FORWARD && idle && vm.isLive) { vm.showOptions(true); return true }
             }
         }
+        if (handleMediaKey(code)) return true
+        if (!vm.isLive && handleVodKey(code, idle)) return true
+        if (ctl && !list && !opts && isDpad(code) && rescueControllerFocus()) return code != KeyEvent.KEYCODE_DPAD_CENTER && code != KeyEvent.KEYCODE_ENTER
         if (!vm.isLive) return false
         // Teclear el número del canal (0-9 del control o teclado numérico).
         val digit = when (code) {
@@ -194,4 +197,70 @@ class PlayerActivity : AppCompatActivity() {
         }
         return true
     }
+
+    private fun isDpad(code: Int) = code == KeyEvent.KEYCODE_DPAD_UP || code == KeyEvent.KEYCODE_DPAD_DOWN || code == KeyEvent.KEYCODE_DPAD_LEFT ||
+        code == KeyEvent.KEYCODE_DPAD_RIGHT || code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER
+
+    /**
+     * En algunos Fire TV Stick (y otros Android TV) al abrir el video nada de la pantalla tiene el foco:
+     * Android solo entrega VOLUMEN y ATRÁS, y las flechas, OK, ▶❚❚, ⏪ ⏩ «no hacen nada». Por eso las
+     * teclas del reproductor se atienden aquí mismo, sin depender de quién tenga el foco.
+     */
+    private fun handleMediaKey(code: Int): Boolean {
+        val p = vm.player.value ?: return false
+        when (code) {
+            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_HEADSETHOOK -> { if (p.isPlaying) p.pause() else p.play() }
+            KeyEvent.KEYCODE_MEDIA_PLAY -> p.play()
+            KeyEvent.KEYCODE_MEDIA_PAUSE -> p.pause()
+            KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> if (vm.isLive) return false else seekBy(+SEEK_MS)
+            KeyEvent.KEYCODE_MEDIA_REWIND -> if (vm.isLive) return false else seekBy(-SEEK_MS)
+            else -> return false
+        }
+        if (!vm.isLive) showControls(focus = false)
+        return true
+    }
+
+    /** Película o serie sin nada en pantalla: ◀ ▶ retroceden/adelantan 10 s, ▲ ▼ y OK muestran los controles. */
+    private fun handleVodKey(code: Int, idle: Boolean): Boolean {
+        if (!idle || vm.error.value != null || vm.upNext.value != null || vm.nextEpisode.value != null || vm.player.value == null) return false
+        when (code) {
+            KeyEvent.KEYCODE_DPAD_LEFT -> { seekBy(-SEEK_MS); showControls(focus = true) }
+            KeyEvent.KEYCODE_DPAD_RIGHT -> { seekBy(+SEEK_MS); showControls(focus = true) }
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> showControls(focus = true)
+            else -> return false
+        }
+        return true
+    }
+
+    private fun seekBy(ms: Long) {
+        val p = vm.player.value ?: return
+        val d = p.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+        p.seekTo((p.currentPosition + ms).coerceIn(0L, d))
+    }
+
+    private fun showControls(focus: Boolean) {
+        val v = vm.playerView?.get() ?: return
+        if (!v.useController) return
+        v.showController()
+        vm.controlsVisible.value = true
+        if (focus) v.post { rescueControllerFocus() }
+    }
+
+    /** Si los controles están visibles pero el foco no está en ellos, se lleva a ▶❚❚. Devuelve true si tuvo que moverlo. */
+    private fun rescueControllerFocus(): Boolean {
+        val v = vm.playerView?.get() ?: return false
+        val focused = currentFocus
+        var f: android.view.View? = focused
+        while (f != null) { if (f === v) return false; f = f.parent as? android.view.View }
+        // Un botón de la pantalla (atrás, opciones, siguiente episodio…) tiene el foco: no se le quita.
+        if (focused != null && vm.screenHasFocus && !vm.videoHasFocus) return false
+        val target = v.findViewById<android.view.View>(androidx.media3.ui.R.id.exo_play_pause)?.takeIf { it.isShown }
+            ?: v.findViewById<android.view.View>(androidx.media3.ui.R.id.exo_play)?.takeIf { it.isShown }
+            ?: v.findViewById<android.view.View>(androidx.media3.ui.R.id.exo_pause)?.takeIf { it.isShown }
+        val ok = target?.requestFocus() == true || v.requestFocus()
+        if (ok) PlaybackProbe.focusRescues++
+        return ok
+    }
 }
+
+private const val SEEK_MS = 10_000L

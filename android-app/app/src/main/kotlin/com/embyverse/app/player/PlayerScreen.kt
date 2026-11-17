@@ -51,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -119,11 +120,12 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
     var locked by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val viewRef = androidx.compose.runtime.remember { arrayOfNulls<PlayerView>(1) }
 
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    Box(Modifier.fillMaxSize().background(Color.Black).onFocusChanged { vm.screenHasFocus = it.hasFocus }) {
         // Formato de pantalla: ajustar / llenar / zoom / 16:9 / 4:3 (para canales con bordes negros o estirados).
         AndroidView(
             modifier = (when (aspectMode) { 3 -> Modifier.fillMaxHeight().aspectRatio(16f / 9f, matchHeightConstraintsFirst = true)
-                4 -> Modifier.fillMaxHeight().aspectRatio(4f / 3f, matchHeightConstraintsFirst = true); else -> Modifier.fillMaxSize() }).align(Alignment.Center),
+                4 -> Modifier.fillMaxHeight().aspectRatio(4f / 3f, matchHeightConstraintsFirst = true); else -> Modifier.fillMaxSize() }).align(Alignment.Center)
+                .onFocusChanged { vm.videoHasFocus = it.hasFocus },
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     useController = true
@@ -134,7 +136,7 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
                     keepScreenOn = true
                     controllerAutoShow = !vm.isLive
                     setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { v -> vm.controlsVisible.value = v == View.VISIBLE })
-                }.also { viewRef[0] = it }
+                }.also { viewRef[0] = it; vm.playerView = java.lang.ref.WeakReference(it) }
             },
             update = { view ->
                 view.resizeMode = when (aspectMode) { 1, 3, 4 -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL

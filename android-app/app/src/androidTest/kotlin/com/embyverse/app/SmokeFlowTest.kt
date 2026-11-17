@@ -1253,4 +1253,113 @@ class SmokeFlowTest {
         }
         assertTrue("AVI con Xvid y H.264 deben reproducirse: $results", results.filter { "se reproduce" in it }.map { it.substringBefore(':') }.containsAll(listOf("avi_xvid", "avi_h264")))
     }
+
+    /**
+     * Fire TV Stick: en algunos el video abre sin que nada tenga el foco y solo servían VOLUMEN y ATRÁS.
+     * Aquí se quita el foco a propósito y se comprueba que ▶❚❚, ⏩, ◀ ▶ y OK funcionen igual.
+     */
+    @Test fun ze_mandoSinFocoFireTv() {
+        val c = app.container
+        val movie = runBlocking { c.database.movies().observeAll(1).first().first() }
+        val inst = InstrumentationRegistry.getInstrumentation()
+        com.embyverse.app.data.prefs.UiPrefs.setForceTv(app, true)
+        mock("/__vod?file=long")
+        try {
+            PlaybackProbe.reset(); PlaybackProbe.focusRescues = 0
+            ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("MOVIE", movie.sourceId, movie.providerId, "restart")).use { sc ->
+                compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 }
+                Thread.sleep(2_000)
+                lateinit var vm: com.embyverse.app.player.PlayerViewModel
+                sc.onActivity { vm = androidx.lifecycle.ViewModelProvider(it)[com.embyverse.app.player.PlayerViewModel::class.java] }
+                fun <T> onMain(f: () -> T): T { var r: T? = null; inst.runOnMainSync { r = f() }; @Suppress("UNCHECKED_CAST") return r as T }
+                fun playing() = onMain { vm.player.value?.isPlaying == true }
+                fun pos() = onMain { vm.player.value?.currentPosition ?: 0L }
+                fun focusDesc(): String { var d = ""; sc.onActivity { a -> d = a.currentFocus?.let { it.javaClass.simpleName + "#" + runCatching { a.resources.getResourceEntryName(it.id) }.getOrDefault("?") } ?: "nada" }; return d }
+                fun focusInVideo(): Boolean { var ok = false; sc.onActivity { a -> var f: android.view.View? = a.currentFocus; val v = vm.playerView?.get()
+                    while (f != null) { if (f === v) { ok = true; break }; f = f.parent as? android.view.View } }; return ok }
+                /** Como en el Fire TV: nada de la pantalla tiene el foco y los controles están ocultos. */
+                fun sinFoco() { sc.onActivity { a -> vm.playerView?.get()?.hideController(); a.currentFocus?.clearFocus(); a.window.decorView.clearFocus() }; Thread.sleep(700)
+                    log("Mando: foco antes de la tecla → ${focusDesc()}") }
+                log("Mando: al abrir la película el foco está en ${focusDesc()}")
+
+                sinFoco()
+                inst.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
+                compose.waitUntil(5_000) { !playing() }
+                inst.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
+                compose.waitUntil(5_000) { playing() }
+                log("Mando sin foco: ▶❚❚ pausa y reanuda")
+
+                sinFoco(); var p0 = pos()
+                inst.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD)
+                compose.waitUntil(5_000) { pos() >= p0 + 8_000 }
+                log("Mando sin foco: ⏩ adelanta 10 s (${p0 / 1000}s → ${pos() / 1000}s)")
+
+                sinFoco(); p0 = pos()
+                inst.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_RIGHT)
+                compose.waitUntil(5_000) { pos() >= p0 + 8_000 && vm.controlsVisible.value }
+                Thread.sleep(600)
+                compose.waitUntil(5_000) { focusInVideo() }
+                log("Mando sin foco: ▶ adelanta 10 s y muestra los controles con el foco en ${focusDesc()}")
+                shot("45-mando-sin-foco-controles")
+
+                // Controles visibles pero el foco se perdió (lo que pasaba en el Fire TV): ◀ lo recupera y OK pausa.
+                sc.onActivity { a -> a.currentFocus?.clearFocus(); a.window.decorView.clearFocus() }; Thread.sleep(400)
+                sc.onActivity { vm.playerView?.get()?.showController() }; Thread.sleep(400)
+                inst.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_LEFT)
+                compose.waitUntil(5_000) { focusInVideo() }
+                val before = playing()
+                inst.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_CENTER)
+                compose.waitUntil(5_000) { playing() != before }
+                log("Mando con controles sin foco: ◀ devuelve el foco a ${focusDesc()} y OK ${if (before) "pausa" else "reanuda"} (rescates de foco: ${PlaybackProbe.focusRescues})")
+                Thread.sleep(500); shot("46-mando-ok-pausa")
+            }
+        } finally { mock("/__vod?file="); com.embyverse.app.data.prefs.UiPrefs.setForceTv(app, false) }
+    }
+
+    /** Desde «Eventos de hoy» ▲▼ y CH± solo pasan entre eventos (antes se iba a la carpeta del canal). */
+    @Test fun zf_canalesSoloEntreEventos() {
+        val c = app.container
+        val events = runBlocking { com.embyverse.app.data.repo.Events.today(c.catalog.eventCandidates().first(), limit = 300) }
+        log("Eventos de hoy: ${events.map { it.title }}")
+        assertTrue("el proveedor de prueba trae 4 eventos en carpetas distintas: ${events.size}", events.size >= 4 && events.map { it.channel.category }.distinct().size >= 4)
+        val ids = events.map { it.channel.providerId }
+        val inst = InstrumentationRegistry.getInstrumentation()
+        com.embyverse.app.data.prefs.UiPrefs.setForceTv(app, true)
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use {
+                waitFor("inicio o perfiles", 30_000) { listOf("nav_settings", "profile").any { t -> compose.onAllNodesWithTag(t, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() } }
+                if (compose.onAllNodesWithTag("nav_settings", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+                    compose.onAllNodesWithTag("profile", useUnmergedTree = true)[0].performClick()
+                waitFor("fila Eventos de hoy", 40_000) {
+                    (0 until 4).any { i -> runCatching { compose.onAllNodes(androidx.compose.ui.test.hasScrollAction(), useUnmergedTree = true)[i].performScrollToNode(androidx.compose.ui.test.hasTestTag("event")) }.isSuccess } ||
+                        compose.onAllNodesWithTag("event", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+                }
+                Thread.sleep(1_000); shot("47-eventos-de-hoy-inicio")
+                PlaybackProbe.reset()
+                compose.onAllNodesWithTag("event", useUnmergedTree = true)[0].performClick()
+                compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 && PlaybackProbe.nowId == ids[0] }
+                Thread.sleep(5_000) // que se quite el aviso inicial del canal
+                val seen = mutableListOf(PlaybackProbe.nowId)
+                fun press(code: Int, expect: String, what: String) {
+                    inst.sendKeyDownUpSync(code)
+                    try { compose.waitUntil(15_000) { PlaybackProbe.nowId == expect } }
+                    catch (e: ComposeTimeoutException) { shot("fallo-eventos"); fail("$what: debía ir al evento $expect y fue a ${PlaybackProbe.nowId} (fuera de los eventos: ${PlaybackProbe.nowId !in ids})") }
+                    seen += PlaybackProbe.nowId; Thread.sleep(900)
+                }
+                press(android.view.KeyEvent.KEYCODE_DPAD_DOWN, ids[1], "▼"); shot("48-evento-siguiente")
+                press(android.view.KeyEvent.KEYCODE_CHANNEL_UP, ids[2], "CH+")
+                press(android.view.KeyEvent.KEYCODE_DPAD_DOWN, ids[3], "▼")
+                press(android.view.KeyEvent.KEYCODE_DPAD_DOWN, ids[0], "▼ (del último vuelve al primero)")
+                press(android.view.KeyEvent.KEYCODE_DPAD_UP, ids[ids.size - 1], "▲ (del primero va al último)")
+                assertTrue("todo lo visitado son eventos: $seen", seen.all { it in ids })
+                log("Eventos: ▲▼ y CH± solo pasan entre eventos → ${seen.map { id -> events.first { it.channel.providerId == id }.title }}")
+                // Lista de canales (◀): muestra «Eventos de hoy».
+                Thread.sleep(3_000)
+                inst.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_LEFT)
+                waitText(app.getString(R.string.events_today), 10_000)
+                Thread.sleep(800); shot("49-lista-eventos-en-reproductor")
+                back()
+            }
+        } finally { com.embyverse.app.data.prefs.UiPrefs.setForceTv(app, false) }
+    }
 }
