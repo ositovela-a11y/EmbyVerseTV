@@ -20,7 +20,7 @@ import { Search, Favorites, Guide, Settings, Profiles } from './screens/Misc';
 import { Player } from './screens/Player';
 import { Splash, Login, Suspended } from './screens/Start';
 import { Activation } from './screens/Activation';
-import { checkLicense, licenseRequired, type LicState } from './license';
+import { checkLicense, deviceCode, expiryWarning, licenseRequired, markWarned, type LicState } from './license';
 import { Season, seasonFor } from './season';
 import { lgDevDue, renewLgDevMode } from './lgdev';
 
@@ -41,6 +41,7 @@ function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ id: string; title: string; body: string } | null>(null);
   const [saver, setSaver] = useState(false);
+  const [licWarn, setLicWarn] = useState<{ days: number; exp: string } | null>(null);
   const idle = useRef(Date.now());
   const route = stack[stack.length - 1];
 
@@ -108,12 +109,18 @@ function App() {
       .catch(() => setPhase('activate'));
   }, [config, continueStart]);
 
-  // Si vence mientras se usa (o el administrador la quita), se revisa cada 6 horas.
+  // Si vence mientras se usa (o el administrador la quita), la app se bloquea: se revisa cada hora y al volver a la app.
   useEffect(() => {
     if (!licenseRequired(config.texts)) return;
-    const i = setInterval(() => { checkLicense(config.texts).then((r) => { setLic(r); if (r.state === 'expired' || r.state === 'none') { setPlaying(null); setPhase('activate'); } }).catch(() => {}); }, 6 * 3600_000);
-    return () => clearInterval(i);
+    const recheck = () => { checkLicense(config.texts).then((r) => { setLic(r); if (r.state === 'expired' || r.state === 'none') { setPlaying(null); setLicWarn(null); setPhase('activate'); } }).catch(() => {}); };
+    const onShow = () => { if (!document.hidden) recheck(); };
+    const i = setInterval(recheck, 3600_000);
+    document.addEventListener('visibilitychange', onShow);
+    return () => { clearInterval(i); document.removeEventListener('visibilitychange', onShow); };
   }, [config]);
+
+  // Aviso los últimos días antes de vencer (una vez al día, al entrar).
+  useEffect(() => { if (phase === 'app') setLicWarn(expiryWarning(lic, config.texts)); }, [phase, lic, config]);
 
   useEffect(() => {
     if (phase !== 'app') return;
@@ -217,6 +224,11 @@ function App() {
         {playing && <Player key={playing.kind + playing.id} req={playing} onClose={() => setPlaying(null)} />}
         {notice && !playing && <div className="dialog" data-fx-layer=""><div className="dialog-box"><h2>📢 {notice.title}</h2><p>{notice.body}</p>
           <Fx className="btn primary" def onClick={() => { store.markSeen(notice.id); setNotice(null); }}>Entendido</Fx></div></div>}
+        {licWarn && !playing && phase === 'app' && <div className="dialog" data-fx-layer=""><div className="dialog-box" id="lic-warn"><h2>⏳ Tu activación está por vencer</h2>
+          <p>{licWarn.days === 0 ? 'Vence hoy' : `Vence en ${licWarn.days} ${licWarn.days === 1 ? 'día' : 'días'}`} ({licWarn.exp}). Para no quedarte sin la app, envía a tu proveedor este código para renovarla:</p>
+          <div className="act-code">{deviceCode()}</div>
+          {(() => { const wa = (config.texts['license.whatsapp'] || config.texts['support.whatsapp'] || '').replace(/\D/g, ''); return wa ? <p className="act-wa">WhatsApp: <b>+{wa}</b></p> : null; })()}
+          <Fx className="btn primary" def onClick={() => { markWarned(); setLicWarn(null); }}>Entendido</Fx></div></div>}
         {saver && <Screensaver />}
         {toast && <div className="toast">{toast}</div>}
         <NetBanner />

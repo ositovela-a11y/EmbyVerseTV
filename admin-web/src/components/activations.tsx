@@ -19,9 +19,13 @@ export async function licHash(code: string): Promise<string> {
   const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('lic:' + code.replace('-', '')));
   return Array.from(new Uint8Array(d)).map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
 }
+// «1 año» primero: es la opción por defecto al activar.
 const DURATIONS: { label: string; months: number }[] = [
-  { label: '1 mes', months: 1 }, { label: '3 meses', months: 3 }, { label: '6 meses', months: 6 }, { label: '1 año', months: 12 }, { label: 'De por vida', months: 0 },
+  { label: '1 año', months: 12 }, { label: '6 meses', months: 6 }, { label: '3 meses', months: 3 }, { label: '1 mes', months: 1 }, { label: 'De por vida', months: 0 },
 ];
+type Side = 'mine' | 'vendors';
+/** Activaciones tuyas (app principal) o de vendedores; sin datos en el registro cuentan como tuyas. */
+export const sideOf = (app: string | undefined | null): Side => (app ? 'vendors' : 'mine');
 const DEVICES: Device[] = ['PC', 'TV', 'Celular', 'Otro'];
 const addMonths = (from: Date, m: number) => { const d = new Date(from); d.setMonth(d.getMonth() + m); return d.toISOString().slice(0, 10); };
 const STATUS: Record<Status, { label: string; color: string }> = {
@@ -47,6 +51,7 @@ export function ActivationsPanel() {
   const [code, setCode] = useState(''); const [name, setName] = useState(''); const [phone, setPhone] = useState('');
   const [app, setApp] = useState(''); const [device, setDevice] = useState<Device>('PC'); const [months, setMonths] = useState(12); const [price, setPrice] = useState('');
   // Lista
+  const [side, setSide] = useState<Side>('mine');
   const [filter, setFilter] = useState(''); const [show, setShow] = useState<'all' | Status>('all'); const [appFilter, setAppFilter] = useState('*');
 
   const appName = (slug: string) => (slug ? vendors.find((v) => v.slug === slug)?.name ?? slug : 'Principal');
@@ -129,7 +134,7 @@ export function ActivationsPanel() {
         first: prev?.first ?? today(), history: [...(prev?.history ?? []), { at: today(), months: m, exp, ...(info.price?.trim() ? { price: info.price.trim() } : {}) }],
       };
     }, `${prev(h) ? 'renueva' : 'activa'} un equipo`);
-    setCode(''); setName(''); setPhone(''); setPrice('');
+    setCode(''); setName(''); setPhone(''); setPrice(''); setMonths(12);
     return `✓ ${c} activado ${exp ? `hasta el ${exp}` : 'de por vida'}. El equipo se desbloquea en 1–3 minutos (o al pulsar «Ya me activaron: revisar»).`;
   });
   const prev = (h: string) => !!reg.entries[h];
@@ -144,16 +149,17 @@ export function ActivationsPanel() {
   const rows: Row[] = useMemo(() => {
     const list = Object.entries(lic?.devices ?? {}).map(([h, v]) => ({ h, exp: v.exp, st: statusOf(v.exp), e: reg.entries[h] ?? null }));
     const f = filter.trim().toLowerCase();
-    return list.filter((r) => (show === 'all' || r.st === show || (show === 'active' && r.st === 'life'))
+    return list.filter((r) => sideOf(r.e?.app) === side && (show === 'all' || r.st === show || (show === 'active' && r.st === 'life'))
       && (appFilter === '*' || (r.e?.app ?? '') === appFilter)
       && (!f || [r.e?.code, r.e?.name, r.e?.phone, r.e?.note].some((x) => (x ?? '').toLowerCase().includes(f))))
       .sort((a, b) => (a.exp ?? '9999').localeCompare(b.exp ?? '9999'));
-  }, [lic, reg, filter, show, appFilter]);
+  }, [lic, reg, filter, show, appFilter, side]);
 
-  const all = useMemo(() => Object.values(lic?.devices ?? {}).map((v) => statusOf(v.exp)), [lic]);
+  const all = useMemo(() => Object.entries(lic?.devices ?? {}).filter(([h]) => sideOf(reg.entries[h]?.app) === side).map(([, v]) => statusOf(v.exp)), [lic, reg, side]);
+  const sideCount = (sd: Side) => Object.keys(lic?.devices ?? {}).filter((h) => sideOf(reg.entries[h]?.app) === sd).length;
   const count = (s: Status | 'on') => all.filter((x) => (s === 'on' ? x !== 'expired' : x === s)).length;
   const month = today().slice(0, 7);
-  const income = Object.values(reg.entries).flatMap((e) => e.history).filter((h) => h.at.startsWith(month)).reduce((t, h) => t + money(h.price), 0);
+  const income = Object.values(reg.entries).filter((e) => sideOf(e.app) === side).flatMap((e) => e.history).filter((h) => h.at.startsWith(month)).reduce((t, h) => t + money(h.price), 0);
 
   const csv = () => {
     const data = [['Código', 'Cliente', 'Teléfono', 'App', 'Equipo', 'Primera activación', 'Última renovación', 'Vence', 'Estado', 'Pagos', 'Total pagado']];
@@ -209,6 +215,10 @@ export function ActivationsPanel() {
 
   return (
     <div className="panel">
+      <div className="seg act-side" role="tablist" aria-label="De quién son las activaciones">
+        <button role="tab" id="act-side-mine" aria-selected={side === 'mine'} className={side === 'mine' ? 'on' : ''} onClick={() => { setSide('mine'); setOk(''); setApp(''); setAppFilter('*'); }}>Mis activaciones ({sideCount('mine')})</button>
+        <button role="tab" id="act-side-vendors" aria-selected={side === 'vendors'} className={side === 'vendors' ? 'on' : ''} onClick={() => { setSide('vendors'); setOk(''); setAppFilter('*'); if (!app && vendors[0]) setApp(vendors[0].slug); }}>De vendedores ({sideCount('vendors')})</button>
+      </div>
       <div className="act-stats">
         <div><b>{count('on')}</b><span>activos</span></div>
         <div style={{ color: STATUS.soon.color }}><b>{count('soon')}</b><span>vencen en 7 días</span></div>
@@ -216,16 +226,16 @@ export function ActivationsPanel() {
         <div><b>{income ? `$${income.toLocaleString('es-MX')}` : '—'}</b><span>cobrado este mes</span></div>
       </div>
 
-      <Group title="Activar o renovar un equipo" hint="El cliente (o vendedor) abre la app en su PC o TV, ve un código de 8 caracteres y te lo manda por WhatsApp. Tú cobras por fuera y lo activas aquí. Si el código ya existe, se renueva sumando desde su vencimiento.">
+      <Group title={side === 'mine' ? 'Activar o renovar un equipo (tu app)' : 'Activar o renovar un equipo de un vendedor'} hint="El cliente (o vendedor) abre la app en su PC o TV, ve un código de 8 caracteres y te lo manda por WhatsApp. Tú cobras por fuera y lo activas aquí. Por defecto es 1 año y empieza a contar el día que lo activas. Si el código ya está activo, se renueva sumando desde su vencimiento (no pierde días). Los últimos 7 días la app le avisa que está por vencer y, al vencer, se bloquea hasta que lo renueves.">
         <div className="act-form act-form-wide">
           <label>Código del equipo<input className="input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="K7M4-2QXA" aria-label="Código del equipo" style={{ textTransform: 'uppercase', fontSize: 20, letterSpacing: 2 }} /></label>
           <label>Cliente<input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Juan Pérez" aria-label="Cliente" /></label>
           <label>WhatsApp<input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="52 55 1234 5678" aria-label="WhatsApp" inputMode="tel" /></label>
-          <label>App
-            <select className="input" value={app} onChange={(e) => setApp(e.target.value)} aria-label="App">
-              <option value="">Principal</option>{vendors.map((v) => <option key={v.slug} value={v.slug}>{v.name} (vendedor)</option>)}
+          {side === 'vendors' && <label>Vendedor
+            <select className="input" value={app} onChange={(e) => setApp(e.target.value)} aria-label="Vendedor">
+              {!app && <option value="">Elige el vendedor…</option>}{vendors.map((v) => <option key={v.slug} value={v.slug}>{v.name}</option>)}
             </select>
-          </label>
+          </label>}
           <label>Equipo
             <select className="input" value={device} onChange={(e) => setDevice(e.target.value as Device)} aria-label="Equipo">{DEVICES.map((d) => <option key={d}>{d}</option>)}</select>
           </label>
@@ -235,14 +245,14 @@ export function ActivationsPanel() {
             </select>
           </label>
           <label>Cobrado (opcional)<input className="input" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="$50" aria-label="Cobrado" inputMode="decimal" /></label>
-          <button className="btn" disabled={busy || !normCode(code)} onClick={() => void activate(code, months, { name, phone, app, device, price })} id="act-activate">{busy ? 'Guardando…' : 'Activar'}</button>
+          <button className="btn" disabled={busy || !normCode(code) || (side === 'vendors' && !app)} onClick={() => void activate(code, months, { name, phone, app: side === 'mine' ? '' : app, device, price })} id="act-activate">{busy ? 'Guardando…' : 'Activar'}</button>
         </div>
         {code && !normCode(code) && <span className="hint">Faltan caracteres: el código tiene 8 (letras y números).</span>}
         {ok && <Notice kind="ok">{ok}</Notice>}
         {err && <Notice kind="error">{err}</Notice>}
       </Group>
 
-      <Group title={`Registro de equipos (${rows.length})`} hint="Ordenados por fecha de vencimiento. «Avisar» abre WhatsApp con un mensaje listo para que renueven."
+      <Group title={`${side === "mine" ? "Tus equipos" : "Equipos de vendedores"} (${rows.length})`} hint="Ordenados por fecha de vencimiento. «Avisar» abre WhatsApp con un mensaje listo para que renueven."
         actions={<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="btn" onClick={csv} disabled={!rows.length}>Descargar Excel (CSV)</button>
           <button className="link" onClick={lock}>Cerrar registro</button>
@@ -252,9 +262,9 @@ export function ActivationsPanel() {
             {([['all', 'Todos'], ['active', 'Activos'], ['soon', 'Por vencer'], ['expired', 'Vencidos']] as const).map(([k, l]) =>
               <button key={k} className={show === k ? 'on' : ''} onClick={() => setShow(k)}>{l}</button>)}
           </div>
-          <select className="input" value={appFilter} onChange={(e) => setAppFilter(e.target.value)} aria-label="Filtrar por app" style={{ maxWidth: 220 }}>
-            <option value="*">Todas las apps</option><option value="">Principal</option>{vendors.map((v) => <option key={v.slug} value={v.slug}>{v.name}</option>)}
-          </select>
+          {side === 'vendors' && <select className="input" value={appFilter} onChange={(e) => setAppFilter(e.target.value)} aria-label="Filtrar por vendedor" style={{ maxWidth: 220 }}>
+            <option value="*">Todos los vendedores</option>{vendors.map((v) => <option key={v.slug} value={v.slug}>{v.name}</option>)}
+          </select>}
           <input className="input" placeholder="Buscar código, cliente o teléfono" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ maxWidth: 280 }} aria-label="Buscar" />
         </div>
         {!lic ? <p className="hint">Cargando…</p> : rows.length === 0 ? <p className="hint">No hay equipos con ese filtro.</p> : (
