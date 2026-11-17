@@ -135,7 +135,7 @@ class ConfigResolverTest {
             sectionOrder = listOf("series", "movies", "hero", "live"))
         val ids = ConfigResolver.sections(cfg, prefs).map { it.id }
         // "hero" está bloqueada: no se puede ocultar ni mover de la primera posición
-        assertEquals(listOf("hero", "series", "movies", "live", "continue", "new", "favorites"), ids)
+        assertEquals(listOf("hero", "series", "movies", "live", "continue", "new", "favorites", "sagas"), ids)
 
         val noPerms = cfg.copy(userCustomization = cfg.userCustomization.copy(allowHideSections = false, allowReorderSections = false))
         assertEquals(cfg.sections.map { it.id }, ConfigResolver.sections(noPerms, prefs).map { it.id })
