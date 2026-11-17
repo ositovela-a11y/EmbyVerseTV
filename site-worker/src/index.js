@@ -13,6 +13,60 @@ const page = (status, title, msg) => new Response(
   + `<body><h1>${title}</h1><p>${msg}</p><p><a href="/">Ir al inicio</a></p></body></html>`,
   { status, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
 
+// Páginas de descarga con marca: /?v=<vendedor>, /a/?v=… y /pc/?v=… salen desde el servidor ya con el
+// nombre y el logo de esa marca (sin el logo de EmbyVerse un instante antes) y con vista previa propia
+// al compartir el enlace (WhatsApp, Facebook, Telegram…). Sin ?v= es tu app principal.
+const BRANDED = new Set(['/', '/index.html', '/a/', '/a/index.html', '/pc/', '/pc/index.html']);
+const SLUG = /^[a-z][a-z0-9]{1,30}$/;
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+export async function brandFor(slug, site) {
+  let c = null;
+  try {
+    const r = await fetch(`${ORIGIN}/config/${slug ? `vendors/${slug}` : 'app'}.json`, { headers: { accept: 'application/json' } });
+    if (r.ok) c = await r.json();
+  } catch { c = null; }
+  const b = (c && c.brand) || {};
+  if (slug && !c) return null; // vendedor inexistente: la página queda como está
+  const name = (b.appName || (slug ? slug : 'EmbyVerse')).trim();
+  const url = b.logo && b.logo.variant === 'asset' && /^https:\/\//.test(b.logo.url || '') ? b.logo.url.split(ORIGIN).join(site) : '';
+  // La app principal usa su logo; un vendedor solo el suyo (si no subió logo, ninguno, nunca el de EmbyVerse).
+  const logo = slug ? url : (url || `${site}/logo.png`);
+  return { name, tagline: b.tagline || (slug ? '' : 'Tu universo de entretenimiento'), logo, own: !!url, slug };
+}
+
+export function applyBrand(html, br, path, site, search) {
+  const title = path.startsWith('/pc/') ? `${br.name} — App para PC` : `${br.name} — Descargar`;
+  const desc = br.tagline || `Descarga la app de ${br.name}`;
+  const pageUrl = site + path + search;
+  const meta = [
+    `<meta name="description" content="${esc(desc)}">`,
+    `<meta property="og:type" content="website">`,
+    `<meta property="og:site_name" content="${esc(br.name)}">`,
+    `<meta property="og:title" content="${esc(title)}">`,
+    `<meta property="og:description" content="${esc(desc)}">`,
+    `<meta property="og:url" content="${esc(pageUrl)}">`,
+    ...(br.logo ? [`<meta property="og:image" content="${esc(br.logo)}">`, `<meta name="twitter:image" content="${esc(br.logo)}">`] : []),
+    `<meta name="twitter:card" content="summary">`,
+    `<meta name="twitter:title" content="${esc(title)}">`,
+    `<meta name="twitter:description" content="${esc(desc)}">`,
+    ...(br.logo ? [`<link rel="icon" href="${esc(br.logo)}">`, `<link rel="apple-touch-icon" href="${esc(br.logo)}">`] : []),
+  ].join('');
+  let out = html
+    .replace(/<link rel="icon"[^>]*>/g, '')
+    .replace(/<title>[^<]*<\/title>/, `<title>${esc(title)}</title>${meta}`)
+    .replace(/<html lang="es"/, `<html lang="es" data-brand="${esc(br.slug || 'main')}"`);
+  if (path === '/' || path === '/index.html') {
+    out = out
+      .replace(/<h1 id="name">[^<]*<\/h1>/, `<h1 id="name">${esc(br.name)}</h1>`)
+      .replace(/<p id="tagline">[^<]*<\/p>/, `<p id="tagline">${esc(br.tagline)}</p>`)
+      .replace(/<img class="logo"[^>]*>/, br.slug
+        ? (br.own ? `<img class="logo" alt="${esc(br.name)}" src="${esc(br.logo)}">` : '')
+        : (br.own ? `<img class="logo" alt="${esc(br.name)}" src="${esc(br.logo)}">` : (m) => m));
+  }
+  return out;
+}
+
 function cleanHeaders(h) {
   const out = new Headers(h);
   for (const k of DROP) out.delete(k);
@@ -56,7 +110,16 @@ export default {
     const type = h.get('content-type') || '';
     if (req.method === 'GET' && r.ok && TEXT.test(type) && !h.get('content-range')) {
       // Por si alguna página trae la dirección completa de GitHub, se cambia por la tuya.
-      const body = (await r.text()).split(ORIGIN).join(site);
+      let body = (await r.text()).split(ORIGIN).join(site);
+      if (BRANDED.has(u.pathname) && type.startsWith('text/html')) {
+        const v = (u.searchParams.get('v') || '').toLowerCase();
+        const br = await brandFor(SLUG.test(v) ? v : '', site);
+        if (br) {
+          body = applyBrand(body, br, u.pathname, site, u.search);
+          // El nombre y logo cambian desde el panel: que no se quede guardada una versión vieja.
+          h.set('cache-control', 'no-cache');
+        }
+      }
       h.delete('content-length'); h.delete('content-encoding'); h.delete('etag');
       return new Response(body, { status: r.status, headers: h });
     }
