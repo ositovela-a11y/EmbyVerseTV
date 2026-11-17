@@ -105,6 +105,17 @@ class ConfigResolverTest {
         assertEquals(rojo.homeTemplate, marca.homeTemplate)
     }
 
+    @Test fun `colores de la marca - el acento elegido por el cliente no tapa el del panel`() {
+        val morado = 0xFFA855F7.toInt()
+        val c = cfg.copy(theme = cfg.theme.copy(palette = cfg.theme.palette.copy(accent = morado, focusRing = morado)),
+            texts = cfg.texts + ("style.default" to "style_verde_neon") + ("style.brandColors" to "1"))
+        val verde = cfg.userCustomization.accentChoices.first()
+        val t = ConfigResolver.theme(c, UserAppearance.ORIGINAL.copy(accentColor = verde))
+        assertEquals("foco morado del panel", morado, t.palette.focusRing)
+        val sinMarca = ConfigResolver.theme(c.copy(texts = c.texts - "style.brandColors"), UserAppearance.ORIGINAL.copy(accentColor = verde))
+        assertEquals("sin la marca, el del cliente", verde, sinMarca.palette.focusRing)
+    }
+
     @Test fun `tema y color de acento solo si el administrador lo permite`() {
         val prefs = UserAppearance(themeId = "electric", accentColor = 0xFFA855F7.toInt())
         val t = ConfigResolver.theme(cfg, prefs)

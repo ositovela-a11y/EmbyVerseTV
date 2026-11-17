@@ -30,7 +30,8 @@ object ConfigResolver {
         val styled = style?.transform?.invoke(config.theme) ?: config.theme
         // Colores de la marca (elegidos en el panel: del logotipo o propios): el estilo solo pone la FORMA
         // (menú, bordes, letra, botones, plantillas) y los colores siguen siendo los de la app.
-        val base = if (style != null && config.texts["style.brandColors"] == "1")
+        val brand = config.texts["style.brandColors"] == "1"
+        val base = if (style != null && brand)
             styled.copy(palette = config.theme.palette, gradientStart = config.theme.gradientStart, gradientEnd = config.theme.gradientEnd)
         else styled
         var palette = base.palette
@@ -38,7 +39,8 @@ object ConfigResolver {
             config.themes.firstOrNull { it.id == prefs.themeId }?.let { palette = palette.merge(it.palette) }
         }
         val accent = prefs.accentColor
-        if (uc.allowAccentColor && accent != null && accent in uc.accentChoices) {
+        // Con colores de la marca (panel) mandan los del panel: el acento que el cliente haya elegido antes no los tapa.
+        if (!brand && uc.allowAccentColor && accent != null && accent in uc.accentChoices) {
             palette = palette.copy(primary = accent, buttonBackground = accent, focusRing = accent,
                 onPrimary = readableOn(accent), buttonText = readableOn(accent))
         }
