@@ -34,6 +34,7 @@ import kotlinx.coroutines.launch
  * El reproductor se crea en onStart y se libera en onStop para no retener decodificadores ni
  * memoria cuando la actividad no está visible.
  */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlayerActivity : AppCompatActivity() {
 
     companion object {
@@ -159,7 +160,8 @@ class PlayerActivity : AppCompatActivity() {
         val code = event.keyCode
         val list = vm.channelListVisible.value
         val opts = vm.optionsVisible.value
-        val ctl = vm.controlsVisible.value
+        // Estado REAL de los controles en pantalla (el aviso de «visibles/ocultos» llega tarde mientras se animan).
+        val ctl = vm.playerView?.get()?.let { it.useController && it.isControllerFullyVisible } ?: vm.controlsVisible.value
         val idle = !list && !opts && !ctl
         when (code) {
             KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SETTINGS, KeyEvent.KEYCODE_CAPTIONS -> { vm.showOptions(!opts); return true }
