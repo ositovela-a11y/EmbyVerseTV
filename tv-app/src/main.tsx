@@ -44,11 +44,14 @@ function App() {
   const idle = useRef(Date.now());
   const route = stack[stack.length - 1];
 
-  // Diseño del panel: al abrir y cada 10 min (mensajes nuevos sin reiniciar la app).
+  // Diseño del panel: al abrir, al volver a la app y cada 2 min (los cambios del panel llegan en 1–2 min).
   useEffect(() => {
     registerKeys();
     const load = () => fetchConfig().then((c) => c && setConfig(c));
-    load(); const i = setInterval(load, 10 * 60_000); return () => clearInterval(i);
+    const onShow = () => { if (!document.hidden) void load(); };
+    load(); const i = setInterval(load, 2 * 60_000);
+    document.addEventListener('visibilitychange', onShow);
+    return () => { clearInterval(i); document.removeEventListener('visibilitychange', onShow); };
   }, []);
   useEffect(() => {
     applyTheme(config, profile.kids ? KIDS_PALETTE : undefined);

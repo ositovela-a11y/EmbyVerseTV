@@ -290,7 +290,7 @@ function AppLookEditor({ slug, name, onClose }: { slug: string; name: string; on
     setBusy(true); setMsg(null);
     try {
       const r = await githubApi.restyleApp(slug, { themeId: look.themeId, colors: look.colors, logo: logoFile, texts: { 'login.otherServer': login.otherServer ? '1' : '0', 'login.m3u': login.m3u ? '1' : '0' } });
-      setMsg({ kind: 'ok', text: `✓ Publicado (versión ${r.version}). Sus clientes lo ven al abrir la app.${slug && logoFile ? ' El ícono de su APK se actualiza en unos 10 minutos.' : ''}` });
+      setMsg({ kind: 'ok', text: `✓ Publicado (versión ${r.version}). En 1–2 minutos lo ven sus clientes al abrir la app o volver a ella.${slug && logoFile ? ' El ícono de su APK se actualiza en unos 10 minutos.' : ''}` });
       setSaved(JSON.stringify([look.themeId, look.colors, login]));
       if (currentTarget() === slug) setTimeout(() => location.reload(), 1500); // el estudio estaba abierto en esta app
     } catch (e) { setMsg({ kind: 'error', text: e instanceof Error ? e.message : 'No se pudo publicar.' }); }

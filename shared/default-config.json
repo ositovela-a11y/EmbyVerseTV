@@ -58,7 +58,8 @@
       { "id": "series", "type": "series", "enabled": true, "title": "SERIES", "layout": "carousel", "card": { "aspect": "poster", "size": "m" }, "maxItems": 30 },
       { "id": "new", "type": "recently_added", "enabled": true, "title": "Novedades", "subtitle": "Lo último añadido", "layout": "carousel", "card": { "aspect": "poster", "size": "m" }, "maxItems": 20 },
       { "id": "favorites", "type": "favorites", "enabled": true, "title": "Favoritos", "layout": "carousel", "card": { "aspect": "poster", "size": "m" }, "maxItems": 30 },
-      { "id": "recommended", "type": "recommended", "enabled": true, "title": "Recomendado para ti", "layout": "grid", "card": { "aspect": "poster", "size": "s" }, "maxItems": 12 }
+      { "id": "recommended", "type": "recommended", "enabled": true, "title": "Recomendado para ti", "layout": "grid", "card": { "aspect": "poster", "size": "s" }, "maxItems": 12 },
+      { "id": "sagas", "type": "sagas", "enabled": true, "title": "Sagas", "layout": "carousel", "card": { "aspect": "poster", "size": "m" }, "maxItems": 20 }
     ]
   },
   "banners": [

@@ -30,7 +30,7 @@ class RemoteConfigParserTest {
         assertEquals("EmbyVerse", c.brand.appName)
         assertEquals("#FF7BE52F", c.theme.palette.primary.toHexColor())
         assertEquals(FontChoice.POPPINS, c.theme.font)
-        assertEquals(9, c.sections.size); assertEquals(4, c.themes.size)
+        assertEquals(10, c.sections.size); assertEquals(4, c.themes.size)
         assertEquals(setOf("hero"), c.userCustomization.lockedSections)
         assertEquals(AppRoute.SOURCES, c.banners.single().route)
     }

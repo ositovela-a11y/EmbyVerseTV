@@ -25,7 +25,7 @@ export type Palette = Record<PaletteKey, string>;
 
 export const SECTION_TYPES = [
   'hero_banner', 'promo_banners', 'continue_watching', 'live_tv', 'movies', 'series',
-  'recently_added', 'favorites', 'recommended',
+  'recently_added', 'favorites', 'recommended', 'sagas',
 ] as const;
 export type SectionType = (typeof SECTION_TYPES)[number];
 

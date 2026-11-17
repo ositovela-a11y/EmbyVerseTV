@@ -165,7 +165,7 @@ data class UserCustomization(
 enum class SectionType(val wire: String) {
     HERO_BANNER("hero_banner"), PROMO_BANNERS("promo_banners"), CONTINUE_WATCHING("continue_watching"),
     LIVE_TV("live_tv"), MOVIES("movies"), SERIES("series"), RECENTLY_ADDED("recently_added"),
-    FAVORITES("favorites"), RECOMMENDED("recommended");
+    FAVORITES("favorites"), RECOMMENDED("recommended"), SAGAS("sagas");
 
     companion object { fun fromWire(s: String) = entries.firstOrNull { it.wire == s } }
 }
@@ -227,4 +227,5 @@ val DEFAULT_SECTIONS = listOf(
     SectionSpec("new", "recently_added", SectionType.RECENTLY_ADDED, title = "Novedades"),
     SectionSpec("favorites", "favorites", SectionType.FAVORITES, title = "Favoritos", maxItems = 30),
     SectionSpec("recommended", "recommended", SectionType.RECOMMENDED, title = "Recomendado para ti", layout = SectionLayout.GRID, size = CardSize.S, maxItems = 12),
+    SectionSpec("sagas", "sagas", SectionType.SAGAS, title = "Sagas", maxItems = 20),
 )

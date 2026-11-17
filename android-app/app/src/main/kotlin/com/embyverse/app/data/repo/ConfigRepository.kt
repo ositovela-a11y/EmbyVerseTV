@@ -94,10 +94,13 @@ class ConfigRepository(context: Context, private val client: OkHttpClient) {
     }
 
     suspend fun refresh(): ConfigStatus = withContext(Dispatchers.IO) {
-        val url = endpoint() ?: return@withContext ConfigStatus.NotConfigured.also { _status.value = it }
+        val base = endpoint() ?: return@withContext ConfigStatus.NotConfigured.also { _status.value = it }
+        // Siempre lo más reciente: sin la copia guardada del teléfono ni la del servidor de GitHub (que guarda
+        // 10 minutos). Así los cambios del panel llegan en 1–2 minutos.
+        val url = if (base.endsWith(".json")) "$base?t=${System.currentTimeMillis() / 30_000}" else base
         _status.value = ConfigStatus.Checking
         val status = try {
-            val req = Request.Builder().url(url).header("Accept", "application/json")
+            val req = Request.Builder().url(url).header("Accept", "application/json").header("Cache-Control", "no-cache")
                 .apply { manager.etag?.let { header("If-None-Match", it) } }.build()
             client.newCall(req).await().use { resp ->
                 when {

@@ -146,6 +146,7 @@ function sample(s: SectionSpec): { title: string; sub?: string; live?: boolean; 
     case 'favorites': return [MOVIES[6]!, CHANNELS[2]!, SERIES[3]!, MOVIES[2]!].map((x) => ({ title: x }));
     case 'recently_added': return [...MOVIES.slice(5), ...SERIES.slice(2)].map((x) => ({ title: x, sub: 'Nuevo' }));
     case 'recommended': return [...MOVIES.slice(0, 4), ...SERIES.slice(0, 4)].map((x) => ({ title: x }));
+    case 'sagas': return ['Saga 1', 'Saga 2', 'Saga 3', 'Saga 4'].map((x) => ({ title: x }));
     default: return MOVIES.map((x, i) => ({ title: x, sub: `${2015 + i}` }));
   }
 }

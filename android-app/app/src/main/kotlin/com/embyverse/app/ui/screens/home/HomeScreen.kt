@@ -95,6 +95,9 @@ fun HomeScreen(nav: Navigator) {
     LaunchedEffect(s.config.version, s.loading) { if (!s.loading) { delay(3_000); vm.markHealthy() } }
 
     val cKids = com.embyverse.app.ui.LocalAppContainer.current
+    val remoteCfg by cKids.config.config.collectAsStateWithLifecycle()
+    // ¿El panel ya tiene la sección «Sagas»? (si el cliente la ocultó, se respeta).
+    val panelHasSagas = remoteCfg.sections.any { it.rawType == "sagas" }
     val kidsFlow = androidx.compose.runtime.remember { cKids.parental.activeLock }
     val kidsLock by kidsFlow.collectAsStateWithLifecycle(initialValue = null)
     val kidsMode = kidsLock?.second?.kids == true
@@ -180,6 +183,8 @@ fun HomeScreen(nav: Navigator) {
                         }
                     }
                 }
+                // Sagas en el lugar que tenga en el panel (se puede mover u ocultar como cualquier sección).
+                SectionType.SAGAS -> if (s.hasSources) item(key = sec.id) { SagasRow(nav) }
                 SectionType.PROMO_BANNERS -> if (s.promos.isNotEmpty()) item(key = sec.id) {
                     Column { SectionHeader(sec.title, sec.subtitle, null); Spacer(Modifier.height(8.dp)); PromoRow(s.promos.take(sec.maxItems), sec, nav) }
                 }
@@ -202,8 +207,8 @@ fun HomeScreen(nav: Navigator) {
                 }
             }
         }
-        // Sagas siempre hasta abajo del inicio, con cualquier estilo o tema (y en las apps de vendedores).
-        if (s.hasSources) item(key = "sagas") { SagasRow(nav) }
+        // Diseños sin la sección «Sagas» (anteriores): van siempre hasta abajo del inicio.
+        if (s.hasSources && !panelHasSagas) item(key = "sagas") { SagasRow(nav) }
     }
     }
     }

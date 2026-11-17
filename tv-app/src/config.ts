@@ -38,7 +38,7 @@ export function cachedConfig(): RemoteConfig {
 
 export async function fetchConfig(): Promise<RemoteConfig | null> {
   try {
-    const r = await fetch(`${CONFIG_URL}?t=${Math.floor(Date.now() / 60000)}`, { cache: 'no-store' });
+    const r = await fetch(`${CONFIG_URL}?t=${Math.floor(Date.now() / 30000)}`, { cache: 'no-store' });
     if (!r.ok) return null;
     const j = await r.json();
     const cfg: RemoteConfig = {

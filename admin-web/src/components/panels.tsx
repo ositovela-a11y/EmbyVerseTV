@@ -11,7 +11,7 @@ export interface PanelProps { ed: Editor; canEdit: boolean; assets: Asset[]; pub
 const SECTION_NAMES: Record<string, string> = {
   hero_banner: 'Banner principal', promo_banners: 'Banners promocionales', continue_watching: 'Continuar viendo',
   live_tv: 'TV en vivo', movies: 'Películas', series: 'Series', recently_added: 'Novedades (contenido nuevo)',
-  favorites: 'Favoritos', recommended: 'Recomendaciones',
+  favorites: 'Favoritos', recommended: 'Recomendaciones', sagas: 'Sagas (colecciones de películas)',
 };
 const ROUTE_NAMES: Record<string, string> = {
   home: 'Inicio', live: 'TV en vivo', movies: 'Películas', series: 'Series', search: 'Buscar',

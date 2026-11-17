@@ -1,5 +1,9 @@
 {
   "_info": "Notas de cada versión. Se muestran al ofrecer la actualización (update.json) y en «Novedades» después de actualizar. Escribir SIN el nombre de la app (las ven también las apps de vendedores). Agregar una entrada en cada versión nueva.",
+  "1.15.12": {
+    "es": ["Los cambios de diseño de tu proveedor llegan en 1–2 minutos.", "Sagas como sección del inicio (se puede mover u ocultar)."],
+    "en": ["Your provider's design changes arrive within 1–2 minutes.", "Sagas as a Home section (can be moved or hidden)."]
+  },
   "1.15.11": {
     "es": ["Los colores que elige tu proveedor (botones, lo seleccionado y los recuadros) se ven siempre igual en tu app."],
     "en": ["The colors chosen by your provider (buttons, selection and boxes) always show the same in your app."]

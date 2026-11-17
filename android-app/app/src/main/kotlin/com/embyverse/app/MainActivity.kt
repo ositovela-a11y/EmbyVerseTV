@@ -297,7 +297,7 @@ class MainActivity : AppCompatActivity() {
                         // Se revisa cada minuto: un mensaje programado aparece a su hora aunque la app ya esté abierta.
                         var now by remember { mutableStateOf(System.currentTimeMillis() / 1000) }
                         // Con la app abierta también se consulta el diseño cada 10 min (mensajes nuevos sin reiniciar).
-                        androidx.compose.runtime.LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(10 * 60_000L); runCatching { container.config.refresh() } } }
+                        androidx.compose.runtime.LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(2 * 60_000L); runCatching { container.config.refresh() } } }
                         androidx.compose.runtime.LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(60_000); now = System.currentTimeMillis() / 1000 } }
                         val notice = seen?.let { s -> config.messages.firstOrNull { it.isActive(now) && it.id !in s } }
                         val scope = androidx.compose.runtime.rememberCoroutineScope()

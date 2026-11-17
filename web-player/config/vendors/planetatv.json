@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": 7,
-  "publishedAt": "2026-11-15T19:15:41Z",
+  "version": 8,
+  "publishedAt": "2026-11-17T07:43:27Z",
   "minAppVersionCode": 1,
   "brand": {
     "appName": "Planetatv",
@@ -208,6 +208,18 @@
           "size": "s"
         },
         "maxItems": 12
+      },
+      {
+        "id": "sagas",
+        "type": "sagas",
+        "enabled": true,
+        "title": "Sagas",
+        "layout": "carousel",
+        "card": {
+          "aspect": "poster",
+          "size": "m"
+        },
+        "maxItems": 20
       }
     ]
   },

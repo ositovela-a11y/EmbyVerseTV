@@ -34,7 +34,7 @@ export function resolvePalette(cfg: RemoteConfig, prefs: UserAppearance): Palett
   return p;
 }
 
-const KNOWN = new Set(['hero_banner', 'promo_banners', 'continue_watching', 'live_tv', 'movies', 'series', 'recently_added', 'favorites', 'recommended']);
+const KNOWN = new Set(['hero_banner', 'promo_banners', 'continue_watching', 'live_tv', 'movies', 'series', 'recently_added', 'favorites', 'recommended', 'sagas']);
 
 export function resolveSections(cfg: RemoteConfig, prefs: UserAppearance): SectionSpec[] {
   const uc = cfg.userCustomization;
