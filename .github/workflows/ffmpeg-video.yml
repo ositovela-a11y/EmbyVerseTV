@@ -1,0 +1,88 @@
+# Decodificador FFmpeg con VIDEO para el reproductor Android (Media3 1.11.1): además del audio (AC3, DTS…),
+# reproduce video que muchos celulares y Fire TV no traen: MPEG-2 (canales de TV), DivX 3, MPEG-4 ASP, VC-1/WMV.
+# Usa el renderizador de video propuesto para Media3 (androidx/media PR 1591, Apache 2.0) sobre la versión 1.11.1
+# y FFmpeg 6.0 compilado SIN --enable-gpl (LGPL 2.1), más libyuv (BSD) para copiar la imagen a la pantalla.
+# Resultado: publicación «ffmpeg-media3-<versión>-video» con lib-decoder-ffmpeg-release.aar; las compilaciones de
+# la app la prefieren sobre la de solo audio.
+name: Decodificador de video (FFmpeg)
+on:
+  workflow_dispatch:
+    inputs:
+      force: { description: 'Volver a compilar aunque ya exista', default: '0' }
+  push:
+    branches: [beta]
+    paths: ['.github/workflows/ffmpeg-video.yml']
+permissions:
+  contents: write
+jobs:
+  aar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      MEDIA3: '1.11.1'
+      PR_REF: 'refs/pull/1591/head'
+      FFMPEG_BRANCH: 'release/6.0'
+      TAG: 'ffmpeg-media3-1.11.1-video'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: '21' }
+      - name: ¿Ya existe?
+        id: have
+        run: |
+          if [ "${{ github.event.inputs.force }}" != "1" ] && gh release view "$TAG" -R ${{ github.repository }} --json assets -q '.assets[].name' 2>/dev/null | grep -q '\.aar$'; then echo "ok=1" >> $GITHUB_OUTPUT; echo "::notice::Ya está compilado"; fi
+      - name: Código de Media3, renderizador de video, FFmpeg y libyuv
+        if: steps.have.outputs.ok != '1'
+        run: |
+          git clone -q --depth 1 --branch "$MEDIA3" https://github.com/androidx/media.git media
+          git init -q pr && cd pr && git remote add o https://github.com/androidx/media.git
+          git fetch -q --depth 1 --filter=blob:none o "$PR_REF:pr" && git sparse-checkout set libraries/decoder_ffmpeg && git checkout -q pr && cd ..
+          git clone -q --depth 1 --branch "$FFMPEG_BRANCH" https://github.com/FFmpeg/FFmpeg.git ffmpeg
+          git clone -q --depth 1 https://chromium.googlesource.com/libyuv/libyuv libyuv
+          MOD=media/libraries/decoder_ffmpeg/src/main; P=pr/libraries/decoder_ffmpeg/src/main
+          # Java y JNI del renderizador de video sobre el módulo de 1.11.1 (el archivo de compilación se queda el de 1.11.1).
+          cp $P/java/androidx/media3/decoder/ffmpeg/*.java $MOD/java/androidx/media3/decoder/ffmpeg/
+          cp $P/jni/ffmpeg_jni.cc $P/jni/CMakeLists.txt $P/jni/build_ffmpeg.sh $P/jni/build_yuv.sh $MOD/jni/
+          chmod +x $MOD/jni/*.sh
+          # Constantes de formatos que aún no existen en 1.11.1: se cambian por textos que nunca coinciden.
+          MT=media/libraries/common/src/main/java/androidx/media3/common/MimeTypes.java
+          for f in $MOD/java/androidx/media3/decoder/ffmpeg/*.java; do
+            for c in $(grep -o 'MimeTypes\.[A-Z0-9_]*' "$f" | sort -u | cut -d. -f2); do
+              grep -q "String $c\b" "$MT" || { echo "::notice::$c no existe en 1.11.1 → se omite"; sed -i "s/MimeTypes\.$c\b/\"x-sin-soporte\/$c\"/g" "$f"; }
+            done
+          done
+          git -C pr log -1 --format='Renderizador: PR 1591 %h (%cd)'
+      - name: Compilar FFmpeg (LGPL) y libyuv
+        if: steps.have.outputs.ok != '1'
+        run: |
+          NDK="${ANDROID_NDK_LATEST_HOME:-$ANDROID_NDK_HOME}"; echo "NDK: $NDK"
+          MOD="$PWD/media/libraries/decoder_ffmpeg/src/main"
+          ln -s "$PWD/ffmpeg" "$MOD/jni/ffmpeg"; ln -s "$PWD/libyuv" "$MOD/jni/libyuv"
+          cd "$MOD/jni"
+          ./build_ffmpeg.sh "$MOD" "$NDK" linux-x86_64 21 \
+            vorbis opus flac alac pcm_mulaw pcm_alaw mp3 mp2 aac ac3 eac3 dca mlp truehd \
+            mpeg2video mpeg1video mpeg4 msmpeg4v3 msmpeg4v2 vc1 wmv3 h263
+          ./build_yuv.sh "$MOD" "$NDK" 21
+          ls -R ffmpeg/android-libs libyuv/android-libs | head -40
+          grep -q -- '--enable-gpl' build_ffmpeg.sh && { echo "::error::El script activa GPL"; exit 1; } || echo "FFmpeg sin GPL (LGPL)"
+      - name: Compilar la librería (AAR)
+        if: steps.have.outputs.ok != '1'
+        working-directory: media
+        run: |
+          ./gradlew --no-daemon -q lib-decoder-ffmpeg:assembleRelease 2>&1 | tail -60
+          AAR=$(find libraries/decoder_ffmpeg -name '*release*.aar' | head -1); echo "AAR: $AAR"; ls -la "$AAR"
+          unzip -l "$AAR" | grep -E '\.so|classes' || true
+          unzip -l "$AAR" | grep -q libyuv.so || { echo "::error::falta libyuv.so en el AAR"; exit 1; }
+          unzip -p "$AAR" classes.jar > /tmp/c.jar && unzip -l /tmp/c.jar | grep -q ExperimentalFfmpegVideoRenderer || { echo "::error::falta el renderizador de video"; exit 1; }
+          cp "$AAR" ../lib-decoder-ffmpeg-release.aar
+      - name: Publicar
+        if: steps.have.outputs.ok != '1'
+        run: |
+          cat > notes.md <<NOTES
+          FFmpeg para Media3 $MEDIA3 con audio (AC3, E-AC3, DTS, TrueHD, AAC, MP3, MP2, Opus, Vorbis, FLAC, ALAC) y video
+          (MPEG-2, MPEG-1, MPEG-4 ASP/DivX, DivX 3, VC-1/WMV, H.263). FFmpeg $FFMPEG_BRANCH sin --enable-gpl (LGPL 2.1):
+          https://github.com/FFmpeg/FFmpeg/tree/$FFMPEG_BRANCH · libyuv (BSD): https://chromium.googlesource.com/libyuv/libyuv ·
+          extensión de Media3 (Apache 2.0) con el renderizador de video de https://github.com/androidx/media/pull/1591
+          NOTES
+          gh release delete "$TAG" -R ${{ github.repository }} -y 2>/dev/null || true
+          gh release create "$TAG" lib-decoder-ffmpeg-release.aar -R ${{ github.repository }} --title "Audio y video FFmpeg (Media3 $MEDIA3)" --notes-file notes.md --prerelease
