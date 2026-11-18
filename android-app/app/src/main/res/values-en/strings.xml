@@ -501,4 +501,7 @@
     <string name="device_blocked_title">This device was blocked</string>
     <string name="device_blocked_message">Your provider blocked the app on this device. If you think this is a mistake, contact them and give them this code:</string>
     <string name="device_blocked_retry">Check again</string>
+    <string name="player_live_no_video_title">This channel plays sound but no picture on this device</string>
+    <string name="player_live_no_video_body">Its video is in %1$s format and this device cannot display it. Open it in another player (VLC or MX Player can play it).</string>
+    <string name="player_live_no_video_audio">Keep audio only</string>
 </resources>

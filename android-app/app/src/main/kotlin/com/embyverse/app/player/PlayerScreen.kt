@@ -256,6 +256,27 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
             }
         }
 
+        // Canal en vivo que se oye pero no se ve en este equipo (p. ej. MPEG-2): aviso con «Abrir en otro reproductor».
+        val noVideo by vm.liveNoVideo.collectAsStateWithLifecycle()
+        var noVideoClosed by androidx.compose.runtime.remember(np?.ref) { androidx.compose.runtime.mutableStateOf(false) }
+        if (noVideo != null && !noVideoClosed && error == null && !listVisible && !optionsVisible) {
+            val f = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
+            LaunchedEffect(noVideo) { kotlinx.coroutines.delay(200); runCatching { f.requestFocus() } }
+            Column(Modifier.align(Alignment.Center).widthIn(max = 520.dp).padding(24.dp)
+                .background(t.surface.copy(alpha = 0.96f), RoundedCornerShape(t.cardRadius)).padding(22.dp).testTag("live_no_video"),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(stringResource(R.string.player_live_no_video_title), style = MaterialTheme.typography.titleMedium, color = t.onBackground,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Text(stringResource(R.string.player_live_no_video_body, noVideo!!), style = MaterialTheme.typography.bodyMedium, color = t.textSecondary,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    EmbyButton(stringResource(R.string.player_open_external), { vm.openExternal() }, icon = Icons.Rounded.SkipNext,
+                        modifier = Modifier.focusRequester(f).testTag("live_no_video_external"))
+                    EmbyButton(stringResource(R.string.player_live_no_video_audio), { noVideoClosed = true }, secondary = true)
+                }
+            }
+        }
+
         // Episodios: «Saltar intro» al inicio y cuenta regresiva del siguiente al final.
         if (!vm.isLive) EpisodeExtras(vm, player, np?.ref?.kind == ContentKind.EPISODE, Modifier.align(Alignment.BottomEnd))
 
