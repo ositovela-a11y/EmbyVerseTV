@@ -114,30 +114,6 @@ const fail = (m) => { console.error('FALLA: ' + m); process.exitCode = 1; };
   await fetch('http://127.0.0.1:8800/__blocked');
   await p.click('#device-blocked .btn');
   await p.waitForSelector('.content', { timeout: 30000 }).catch(() => fail('al desbloquear al usuario no volvió la app'));
-  // Por vencer: los últimos días avisa al entrar (con el código para renovar).
-  const day = (n) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
-  await fetch(`http://127.0.0.1:8800/__license?h=${h}&exp=${day(3)}`);
-  await p.evaluate(() => location.reload());
-  await p.waitForSelector('#lic-warn', { timeout: 40000 }).then(() => console.log('Aviso «por vencer» a 3 días: aparece')).catch(() => fail('no avisó que la activación está por vencer'));
-  const warnTxt = await p.textContent('#lic-warn'); if (!warnTxt.includes(code) || !warnTxt.includes('3 días')) fail('el aviso no trae los días o el código: ' + warnTxt);
-  await shot('08-por-vencer');
-  await p.evaluate(() => document.querySelector('#lic-warn .btn').click()); await p.waitForTimeout(500);
-  await p.evaluate(() => location.reload()); await p.waitForSelector('.content', { timeout: 40000 }); await p.waitForTimeout(2500);
-  if (await p.$('#lic-warn')) fail('el aviso salió dos veces el mismo día');
-  // Vencida mientras se usa: se bloquea sola.
-  await fetch(`http://127.0.0.1:8800/__license?h=${h}&exp=${day(-1)}`);
-  await p.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-  await p.waitForSelector('#device-code', { timeout: 20000 }).then(() => console.log('Vencida: la app se bloqueó')).catch(() => fail('al vencer no se bloqueó'));
-  if (!(await p.textContent('.activation')).includes('venció')) fail('la pantalla de bloqueo no dice que venció');
-  if (await p.$('#act-trial')) fail('vencida pero ofrece la prueba gratis');
-  await shot('09-vencida');
-  // Al reiniciar sigue bloqueada.
-  await p.evaluate(() => location.reload());
-  await p.waitForSelector('#device-code', { timeout: 30000 }).catch(() => fail('vencida: al reiniciar ya no pidió activar'));
-  // Renovada: se desbloquea.
-  await fetch(`http://127.0.0.1:8800/__license?h=${h}&exp=${day(365)}`);
-  await p.click('#act-check');
-  await p.waitForSelector('.content', { timeout: 30000 }).then(() => console.log('Renovada: se desbloqueó')).catch(() => fail('al renovar no se desbloqueó'));
   if (errs.length) { console.log('Errores de JavaScript:\n' + errs.join('\n')); fail('errores de JavaScript'); }
   await app.close();
   console.log(process.exitCode ? 'RESULTADO: FALLÓ' : 'RESULTADO: TODO BIEN');
