@@ -412,7 +412,7 @@ private fun EventsRow(events: List<com.embyverse.app.data.repo.LiveEvent>, nav: 
     LazyRow(contentPadding = PaddingValues(horizontal = t.screenPadding, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(t.cardGap)) {
         items(events, key = { "${it.channel.sourceId}|${it.channel.providerId}" }) { e ->
             val reminded = com.embyverse.app.data.repo.Reminders.key(e) in reminders
-            FocusableSurface(onClick = { nav.play(com.embyverse.app.data.repo.ItemRef(ContentKind.LIVE, e.channel.sourceId, e.channel.providerId)) },
+            FocusableSurface(onClick = { nav.play(com.embyverse.app.data.repo.ItemRef(ContentKind.LIVE, e.channel.sourceId, e.channel.providerId), com.embyverse.app.ui.screens.library.CATEGORY_EVENTS) },
                 onLongClick = {
                     val r = com.embyverse.app.data.repo.Reminders.toggle(context, e)
                     if (r == true && android.os.Build.VERSION.SDK_INT >= 33 &&

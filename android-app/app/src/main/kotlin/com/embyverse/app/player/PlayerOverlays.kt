@@ -62,7 +62,7 @@ internal fun PlayerChannelList(vm: PlayerViewModel, channels: List<ChannelEntity
         // Cabecera: ◀ Carpeta ▶
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { vm.shiftListCategory(-1) }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, null, tint = t.onBackground) }
-            Text(category ?: stringResource(R.string.category_all), style = MaterialTheme.typography.titleMedium, color = t.primary,
+            Text(if (category == com.embyverse.app.ui.screens.library.CATEGORY_EVENTS) "⚽ " + stringResource(R.string.events_today) else category ?: stringResource(R.string.category_all), style = MaterialTheme.typography.titleMedium, color = t.primary,
                 fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
                 modifier = Modifier.weight(1f).testTag("channel_list_folder"))
             IconButton(onClick = { vm.shiftListCategory(+1) }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = t.onBackground) }

@@ -1253,4 +1253,52 @@ class SmokeFlowTest {
         }
         assertTrue("AVI con Xvid y H.264 deben reproducirse: $results", results.filter { "se reproduce" in it }.map { it.substringBefore(':') }.containsAll(listOf("avi_xvid", "avi_h264")))
     }
+
+    /** Desde «Eventos de hoy» ▲▼ y CH± solo pasan entre eventos (antes se iba a la carpeta del canal). */
+    @Test fun zf_canalesSoloEntreEventos() {
+        val c = app.container
+        val events = runBlocking { com.embyverse.app.data.repo.Events.today(c.catalog.eventCandidates().first(), limit = 300) }
+        log("Eventos de hoy: ${events.map { it.title }}")
+        assertTrue("el proveedor de prueba trae 4 eventos en carpetas distintas: ${events.size}", events.size >= 4 && events.map { it.channel.category }.distinct().size >= 4)
+        val ids = events.map { it.channel.providerId }
+        val inst = InstrumentationRegistry.getInstrumentation()
+        com.embyverse.app.data.prefs.UiPrefs.setForceTv(app, true)
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use {
+                waitFor("inicio o perfiles", 30_000) { listOf("nav_settings", "profile").any { t -> compose.onAllNodesWithTag(t, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() } }
+                if (compose.onAllNodesWithTag("nav_settings", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+                    compose.onAllNodesWithTag("profile", useUnmergedTree = true)[0].performClick()
+                waitFor("fila Eventos de hoy", 40_000) {
+                    (0 until 4).any { i -> runCatching { compose.onAllNodes(androidx.compose.ui.test.hasScrollAction(), useUnmergedTree = true)[i].performScrollToNode(androidx.compose.ui.test.hasTestTag("event")) }.isSuccess } ||
+                        compose.onAllNodesWithTag("event", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+                }
+                Thread.sleep(1_000); shot("47-eventos-de-hoy-inicio")
+                PlaybackProbe.reset()
+                compose.onAllNodesWithTag("event", useUnmergedTree = true)[0].performClick()
+                compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 && PlaybackProbe.nowId == ids[0] }
+                Thread.sleep(5_000) // que se quite el aviso inicial del canal
+                val seen = mutableListOf(PlaybackProbe.nowId)
+                fun press(code: Int, expect: String, what: String) {
+                    inst.sendKeyDownUpSync(code)
+                    try { compose.waitUntil(15_000) { PlaybackProbe.nowId == expect } }
+                    catch (e: ComposeTimeoutException) { shot("fallo-eventos"); fail("$what: debía ir al evento $expect y fue a ${PlaybackProbe.nowId} (fuera de los eventos: ${PlaybackProbe.nowId !in ids})") }
+                    seen += PlaybackProbe.nowId; Thread.sleep(900)
+                }
+                press(android.view.KeyEvent.KEYCODE_DPAD_DOWN, ids[1], "▼")
+                waitText(events[1].channel.name.take(18), 10_000); Thread.sleep(400); shot("48-evento-siguiente")
+                press(android.view.KeyEvent.KEYCODE_CHANNEL_UP, ids[2], "CH+")
+                press(android.view.KeyEvent.KEYCODE_DPAD_DOWN, ids[3], "▼")
+                press(android.view.KeyEvent.KEYCODE_DPAD_DOWN, ids[0], "▼ (del último vuelve al primero)")
+                press(android.view.KeyEvent.KEYCODE_DPAD_UP, ids[ids.size - 1], "▲ (del primero va al último)")
+                assertTrue("todo lo visitado son eventos: $seen", seen.all { it in ids })
+                log("Eventos: ▲▼ y CH± solo pasan entre eventos → ${seen.map { id -> events.first { it.channel.providerId == id }.title }}")
+                // Lista de canales (◀): muestra «Eventos de hoy».
+                Thread.sleep(3_000)
+                inst.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_LEFT)
+                waitText(app.getString(R.string.events_today), 10_000)
+                Thread.sleep(800); shot("49-lista-eventos-en-reproductor")
+                back()
+            }
+        } finally { com.embyverse.app.data.prefs.UiPrefs.setForceTv(app, false) }
+    }
 }

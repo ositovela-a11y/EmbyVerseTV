@@ -274,7 +274,8 @@ class MainActivity : AppCompatActivity() {
                             text = { androidx.compose.material3.Text(d.title) },
                             confirmButton = { androidx.compose.material3.TextButton(onClick = {
                                 com.embyverse.app.data.repo.Reminders.due.value = null
-                                com.embyverse.app.player.PlayerActivity.start(this@MainActivity, com.embyverse.app.data.repo.ItemRef(com.embyverse.core.model.ContentKind.LIVE, d.sourceId, d.channelId))
+                                com.embyverse.app.player.PlayerActivity.start(this@MainActivity, com.embyverse.app.data.repo.ItemRef(com.embyverse.core.model.ContentKind.LIVE, d.sourceId, d.channelId),
+                                    com.embyverse.app.ui.screens.library.CATEGORY_EVENTS)
                             }) { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.action_watch)) } },
                             dismissButton = { androidx.compose.material3.TextButton(onClick = { com.embyverse.app.data.repo.Reminders.due.value = null }) {
                                 androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.action_close)) } },

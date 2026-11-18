@@ -21,8 +21,10 @@ liveCats.push({ category_id: '999', category_name: 'Todas' }); // nombre que coi
 const pick = (arr, i) => arr[i % arr.length].category_id;
 const weird = (i) => [null, '', 'N/A', '8,5', 7.4, '11', '-1'][i % 7];
 
+// Partidos de hoy repartidos en carpetas distintas (para «Eventos de hoy» y el cambio de canal entre eventos).
+const EVENTS = { 1000: 'Liga MX: América vs Chivas', 2000: 'Nations League: Hungría vs Irlanda', 3000: 'NFL: Chiefs vs Bills', 4000: 'Box: Canelo vs Benavidez' };
 const live = Array.from({ length: N_LIVE }, (_, i) => ({
-  num: i + 1, name: i % 500 === 7 ? null : `Canal ${i + 1}${i % 13 === 0 ? ' HD ⚽' : ''}`, stream_type: 'live',
+  num: i + 1, name: EVENTS[i] ?? (i % 500 === 7 ? null : `Canal ${i + 1}${i % 13 === 0 ? ' HD ⚽' : ''}`), stream_type: 'live',
   stream_id: i % 1000 === 999 ? i : i + 1, // algunos ids repetidos
   stream_icon: i % 3 ? `http://HOST/img/${i}.png` : '', epg_channel_id: i < 300 ? `ch${i + 1}` : null,
   added: String(now - i * 60), category_id: i % 97 === 0 ? null : pick(liveCats, i), tv_archive: i % 50 === 0 ? 1 : 0, tv_archive_duration: i % 50 === 0 ? '3' : 0,

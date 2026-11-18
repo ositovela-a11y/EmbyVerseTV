@@ -302,7 +302,8 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
             if (isLive) {
                 val cat = context?.takeIf { it != "restart" }
                 listCategory.value = cat
-                channels.value = visible(c.database.channels().listForZapping(cat))
+                fromEvents = cat == com.embyverse.app.ui.screens.library.CATEGORY_EVENTS
+                channels.value = channelsFor(cat)
                 zapList = channels.value
                 launch { categories.value = c.catalog.categories(ContentKind.LIVE).first() }
             }
@@ -557,6 +558,14 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     }
 
     private var categoryJob: Job? = null
+    /** Se entró desde «Eventos de hoy»: ▲▼ / CH± solo pasan por los eventos (no por la carpeta de cada canal). */
+    private var fromEvents = false
+
+    /** Canales de una carpeta; «Eventos de hoy» son los partidos de hoy en el mismo orden que en Inicio. */
+    private suspend fun channelsFor(cat: String?): List<ChannelEntity> =
+        if (cat == com.embyverse.app.ui.screens.library.CATEGORY_EVENTS)
+            visible(com.embyverse.app.data.repo.Events.today(c.catalog.eventCandidates().first(), limit = 300).map { it.channel })
+        else visible(c.database.channels().listForZapping(cat))
 
     /** El control parental del perfil también aplica a la lista de canales del reproductor. */
     private suspend fun visible(list: List<ChannelEntity>): List<ChannelEntity> {
@@ -566,7 +575,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
 
     /** ◀ ▶ dentro de la lista de canales: carpeta anterior / siguiente (Todos, Entretenimiento, Premium…). */
     fun shiftListCategory(delta: Int) {
-        val options = listOf<String?>(null) + categories.value
+        val options = (if (fromEvents) listOf<String?>(com.embyverse.app.ui.screens.library.CATEGORY_EVENTS) else emptyList()) + listOf<String?>(null) + categories.value
         if (options.size < 2) return
         val idx = options.indexOf(listCategory.value).coerceAtLeast(0)
         val target = options[(idx + delta).mod(options.size)]
@@ -574,7 +583,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         categoryJob?.cancel()
         categoryJob = viewModelScope.launch {
             delay(120) // si se pulsa varias veces seguidas solo se consulta la última carpeta
-            channels.value = visible(c.database.channels().listForZapping(target))
+            channels.value = channelsFor(target)
         }
     }
 
