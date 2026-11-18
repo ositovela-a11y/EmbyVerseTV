@@ -335,6 +335,7 @@ private fun EpisodeExtras(vm: PlayerViewModel, player: androidx.media3.exoplayer
             val focus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
             var count by androidx.compose.runtime.remember(n.first) { androidx.compose.runtime.mutableIntStateOf(10) }
             LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+            androidx.compose.runtime.DisposableEffect(Unit) { vm.upNextShowing = true; onDispose { vm.upNextShowing = false } }
             LaunchedEffect(n.first) { while (count > 0) { kotlinx.coroutines.delay(1_000); count-- }; vm.playUpNext() }
             Column(Modifier.widthIn(max = 380.dp).background(t.surface.copy(alpha = 0.95f), RoundedCornerShape(t.cardRadius)).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {

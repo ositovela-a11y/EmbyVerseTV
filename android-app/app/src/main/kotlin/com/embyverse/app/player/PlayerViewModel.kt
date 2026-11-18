@@ -92,6 +92,8 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     @Volatile var screenHasFocus = false
     /** Compose cree que el foco está en la vista del video (aunque Android no se lo haya dado a ningún botón). */
     @Volatile var videoHasFocus = false
+    /** La tarjeta «Siguiente episodio en…» está en pantalla (upNext solo dice cuál es el siguiente, desde el inicio). */
+    @Volatile var upNextShowing = false
     val channelListVisible = MutableStateFlow(false)
     /** Panel de opciones (audio, subtítulos, lista de canales). Se abre con OK en vivo o con MENÚ. */
     val optionsVisible = MutableStateFlow(false)

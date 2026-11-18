@@ -230,7 +230,7 @@ class PlayerActivity : AppCompatActivity() {
      * las flechas se mueven entre sus botones como siempre.
      */
     private fun handleVodKey(code: Int, panelOpen: Boolean): Boolean {
-        if (panelOpen || vm.error.value != null || vm.upNext.value != null || vm.nextEpisode.value != null || vm.player.value == null) return false
+        if (panelOpen || vm.error.value != null || vm.upNextShowing || vm.nextEpisode.value != null || vm.player.value == null) return false
         if (focusInVideo() || (currentFocus != null && vm.screenHasFocus && !vm.videoHasFocus)) return false
         when (code) {
             KeyEvent.KEYCODE_DPAD_LEFT -> { seekBy(-SEEK_MS); showControls(focus = true) }
