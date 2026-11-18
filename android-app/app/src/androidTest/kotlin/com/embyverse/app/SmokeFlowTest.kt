@@ -1284,6 +1284,7 @@ class SmokeFlowTest {
                     // Espera a que termine de cargar tras adelantar (el reproductor vuelve a mostrar los controles solo) y los oculta de verdad.
                     compose.waitUntil(10_000) { onMain { vm.player.value?.playbackState == androidx.media3.common.Player.STATE_READY } }
                     var tries = 0
+                    sc.onActivity { vm.playerView?.get()?.controllerAutoShow = false }
                     while (tries++ < 15) { var shown = false; sc.onActivity { vm.playerView?.get()?.let { v -> v.hideController(); shown = v.isControllerFullyVisible } }; Thread.sleep(300); if (!shown && !vm.controlsVisible.value) break }
                     sc.onActivity { a -> a.currentFocus?.clearFocus(); a.window.decorView.clearFocus() }; Thread.sleep(700)
                     log("Mando: foco antes de la tecla → ${focusDesc()}") }

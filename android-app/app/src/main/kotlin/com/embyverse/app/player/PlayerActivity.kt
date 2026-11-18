@@ -140,7 +140,7 @@ class PlayerActivity : AppCompatActivity() {
     private val consumed = mutableSetOf<Int>()
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        PlaybackProbe.lastKey = "${event.keyCode}/${event.action} live=${vm.isLive} list=${vm.channelListVisible.value} ctl=${vm.controlsVisible.value}"
+        PlaybackProbe.lastKey = "${event.keyCode}/${event.action} live=${vm.isLive} list=${vm.channelListVisible.value} ctl=${vm.controlsVisible.value} enPantalla=${vm.playerView?.get()?.isControllerFullyVisible} foco=${currentFocus?.javaClass?.simpleName}"
         if (repeatGate.shouldDrop(event)) return true
         // Nada tiene el foco (pasa en algunos Fire TV): se le da al video para que las siguientes teclas lleguen.
         if (event.action == KeyEvent.ACTION_DOWN && currentFocus == null) vm.playerView?.get()?.let { v -> v.post { if (currentFocus == null) v.requestFocus() } }
