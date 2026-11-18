@@ -1258,6 +1258,7 @@ class SmokeFlowTest {
      * Fire TV Stick: en algunos el video abre sin que nada tenga el foco y solo servían VOLUMEN y ATRÁS.
      * Aquí se quita el foco a propósito y se comprueba que ▶❚❚, ⏩, ◀ ▶ y OK funcionen igual.
      */
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     @Test fun ze_mandoSinFocoFireTv() {
         val c = app.container
         val movie = runBlocking { c.database.movies().observeAll(1).first().first() }
@@ -1280,7 +1281,11 @@ class SmokeFlowTest {
                 /** Como en el Fire TV: nada de la pantalla tiene el foco y los controles están ocultos. */
                 // Un Fire TV nunca está en «modo táctil» (las otras pruebas tocan la pantalla y lo dejan activo).
                 fun sinFoco() { inst.setInTouchMode(false); Thread.sleep(200)
-                    sc.onActivity { a -> vm.playerView?.get()?.hideController(); a.currentFocus?.clearFocus(); a.window.decorView.clearFocus() }; Thread.sleep(700)
+                    // Espera a que termine de cargar tras adelantar (el reproductor vuelve a mostrar los controles solo) y los oculta de verdad.
+                    compose.waitUntil(10_000) { onMain { vm.player.value?.playbackState == androidx.media3.common.Player.STATE_READY } }
+                    var tries = 0
+                    while (tries++ < 15) { var shown = false; sc.onActivity { vm.playerView?.get()?.let { v -> v.hideController(); shown = v.isControllerFullyVisible } }; Thread.sleep(300); if (!shown && !vm.controlsVisible.value) break }
+                    sc.onActivity { a -> a.currentFocus?.clearFocus(); a.window.decorView.clearFocus() }; Thread.sleep(700)
                     log("Mando: foco antes de la tecla → ${focusDesc()}") }
                 log("Mando: al abrir la película el foco está en ${focusDesc()}")
 
