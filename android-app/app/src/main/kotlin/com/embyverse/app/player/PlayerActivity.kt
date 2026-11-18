@@ -174,7 +174,7 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
         if (handleMediaKey(code)) return true
-        if (!vm.isLive && handleVodKey(code, idle)) return true
+        if (!vm.isLive && handleVodKey(code, list || opts)) return true
         if (ctl && !list && !opts && isDpad(code) && rescueControllerFocus()) return code != KeyEvent.KEYCODE_DPAD_CENTER && code != KeyEvent.KEYCODE_ENTER
         if (!vm.isLive) return false
         // Teclear el número del canal (0-9 del control o teclado numérico).
@@ -224,9 +224,14 @@ class PlayerActivity : AppCompatActivity() {
         return true
     }
 
-    /** Película o serie sin nada en pantalla: ◀ ▶ retroceden/adelantan 10 s, ▲ ▼ y OK muestran los controles. */
-    private fun handleVodKey(code: Int, idle: Boolean): Boolean {
-        if (!idle || vm.error.value != null || vm.upNext.value != null || vm.nextEpisode.value != null || vm.player.value == null) return false
+    /**
+     * Película o serie cuando el foco NO está en los controles (estén o no en pantalla): ◀ ▶ retroceden /
+     * adelantan 10 s y ▲ ▼ OK muestran los controles con el foco en ▶❚❚. Con el foco ya en los controles,
+     * las flechas se mueven entre sus botones como siempre.
+     */
+    private fun handleVodKey(code: Int, panelOpen: Boolean): Boolean {
+        if (panelOpen || vm.error.value != null || vm.upNext.value != null || vm.nextEpisode.value != null || vm.player.value == null) return false
+        if (focusInVideo() || (currentFocus != null && vm.screenHasFocus && !vm.videoHasFocus)) return false
         when (code) {
             KeyEvent.KEYCODE_DPAD_LEFT -> { seekBy(-SEEK_MS); showControls(focus = true) }
             KeyEvent.KEYCODE_DPAD_RIGHT -> { seekBy(+SEEK_MS); showControls(focus = true) }
@@ -248,6 +253,16 @@ class PlayerActivity : AppCompatActivity() {
         v.showController()
         vm.controlsVisible.value = true
         if (focus) v.post { rescueControllerFocus() }
+    }
+
+    /** El foco está dentro de la vista del video o sus controles (no en «nada» ni en la vista misma sin botón). */
+    private fun focusInVideo(): Boolean {
+        val v = vm.playerView?.get() ?: return false
+        val focused = currentFocus
+        if (focused == null || focused === v) return false // la vista sola no es un botón de los controles
+        var f: android.view.View? = focused
+        while (f != null) { if (f === v) return true; f = f.parent as? android.view.View }
+        return false
     }
 
     /** Si los controles están visibles pero el foco no está en ellos, se lleva a ▶❚❚. Devuelve true si tuvo que moverlo. */
