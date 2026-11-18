@@ -413,3 +413,8 @@ ol.steps { margin:0; padding-left:20px; display:grid; gap:8px; line-height:1.5; 
 .vendor-preview .vp-focus { color:#F2F4F8; padding:4px 10px; border-radius:8px; font-size:13px; }
 .login-opts { display:grid; gap:6px; border:1px solid #d0d5dd; border-radius:10px; padding:10px 14px; }
 .login-opts label { display:flex; gap:8px; align-items:center; font-size:14px; }
+.act-table tr.blocked td { background:#fef3f2; }
+.status-blocked { color:#b42318; font-weight:700; white-space:nowrap; }
+.status-ok { color:#067647; font-weight:600; }
+.hint.mono { font-family: ui-monospace, Menlo, monospace; letter-spacing:.5px; white-space:nowrap; }
+.row-actions { display:flex; flex-wrap:wrap; gap:4px 10px; min-width:150px; }

@@ -68,6 +68,28 @@ const fail = (m) => { console.error('FALLA: ' + m); process.exitCode = 1; };
   await p.evaluate(() => [...document.querySelectorAll('.login-form .btn')].find((b) => b.textContent.includes('Entrar'))?.click());
   await p.waitForSelector('.content', { timeout: 40000 }).then(() => console.log('Xtream Codes con URL: entró')).catch(() => fail('no entró con Xtream Codes'));
   await p.waitForTimeout(1500); await shot('07-xtream-inicio');
+  // Bloqueo desde el panel (Estadísticas): por equipo y por usuario; al desbloquear sigue igual.
+  const sha16 = (t) => require('crypto').createHash('sha256').update(t).digest('hex').slice(0, 16);
+  const iid = await p.evaluate(() => JSON.parse(localStorage.getItem('ev.stats') || '{}').id);
+  if (!iid) fail('sin código de instalación');
+  const shortc = iid.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase().replace(/^(.{4})/, '$1-');
+  await fetch(`http://127.0.0.1:8800/__blocked?d=${sha16('blk-dev:' + iid)}`);
+  await p.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await p.waitForSelector('#device-blocked', { timeout: 20000 }).then(() => console.log('Bloqueo de equipo: la app se bloqueó')).catch(() => fail('al bloquear el equipo no se bloqueó'));
+  if (!(await p.textContent('#device-blocked')).includes(shortc)) fail('la pantalla de bloqueo no muestra el código ' + shortc);
+  await shot('08-equipo-bloqueado');
+  await p.evaluate(() => location.reload());
+  await p.waitForSelector('#device-blocked', { timeout: 30000 }).then(() => console.log('Bloqueo: sigue bloqueado al reiniciar')).catch(() => fail('al reiniciar ya no estaba bloqueado'));
+  await fetch('http://127.0.0.1:8800/__blocked');
+  await p.click('#device-blocked .btn');
+  await p.waitForSelector('.content', { timeout: 30000 }).then(() => console.log('Desbloqueo: la app volvió con su cuenta')).catch(() => fail('al desbloquear no volvió la app'));
+  // Por usuario: todos los equipos del usuario «user» de esta app (la prueba usa cfg/vendor.json: cuenta como app principal).
+  await fetch(`http://127.0.0.1:8800/__blocked?u=${sha16('blk-user:|127.0.0.1:8800|user')}`);
+  await p.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await p.waitForSelector('#device-blocked', { timeout: 20000 }).then(() => console.log('Bloqueo de usuario: la app se bloqueó')).catch(() => fail('al bloquear al usuario no se bloqueó'));
+  await fetch('http://127.0.0.1:8800/__blocked');
+  await p.click('#device-blocked .btn');
+  await p.waitForSelector('.content', { timeout: 30000 }).catch(() => fail('al desbloquear al usuario no volvió la app'));
   if (errs.length) { console.log('Errores de JavaScript:\n' + errs.join('\n')); fail('errores de JavaScript'); }
   await app.close();
   console.log(process.exitCode ? 'RESULTADO: FALLÓ' : 'RESULTADO: TODO BIEN');

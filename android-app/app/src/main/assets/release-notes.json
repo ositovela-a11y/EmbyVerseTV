@@ -1,5 +1,9 @@
 {
   "_info": "Notas de cada versión. Se muestran al ofrecer la actualización (update.json) y en «Novedades» después de actualizar. Escribir SIN el nombre de la app (las ven también las apps de vendedores). Agregar una entrada en cada versión nueva.",
+  "1.15.13": {
+    "es": ["Desde «Eventos de hoy», al cambiar de canal solo pasas entre los eventos.", "Tu proveedor puede bloquear o desbloquear un equipo desde su panel."],
+    "en": ["From «Today's events», changing channel only moves between events.", "Your provider can block or unblock a device from their panel."]
+  },
   "1.15.12": {
     "es": ["Los cambios de diseño de tu proveedor llegan en 1–2 minutos.", "Sagas como sección del inicio (se puede mover u ocultar)."],
     "en": ["Your provider's design changes arrive within 1–2 minutes.", "Sagas as a Home section (can be moved or hidden)."]

@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -447,6 +449,31 @@ fun helpContactText(cfg: com.embyverse.core.config.RemoteConfig): String =
     cfg.texts["support.message"]?.trim()?.ifEmpty { null } ?: stringResource(R.string.help_contact_seller)
 
 /** Pantalla de servicio suspendido (cliente bloqueado desde el panel). */
+/** Equipo bloqueado por el proveedor desde su panel. No se borra nada: si lo desbloquean, todo sigue como estaba. */
+@Composable
+fun DeviceBlockedScreen(cfg: com.embyverse.core.config.RemoteConfig, code: String, onRetry: () -> Unit) {
+    val t = LocalEmby.current
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(Unit) { delay(200); runCatching { focus.requestFocus() } }
+    Column(Modifier.fillMaxSize().background(t.background).padding(32.dp).testTag("device_blocked"), horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center) {
+        BrandLogo(cfg.brand.logoVariant, cfg.brand.logoUrl, Modifier.size(110.dp))
+        Spacer(Modifier.height(20.dp))
+        Text(stringResource(R.string.device_blocked_title), style = MaterialTheme.typography.headlineSmall, color = t.onBackground, fontWeight = FontWeight.Bold,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Spacer(Modifier.height(8.dp))
+        Text(stringResource(R.string.device_blocked_message), style = MaterialTheme.typography.bodyLarge, color = t.textSecondary,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.widthIn(max = 520.dp))
+        Spacer(Modifier.height(14.dp))
+        Text(code, style = MaterialTheme.typography.headlineMedium, color = t.primary, fontWeight = FontWeight.Black, letterSpacing = 4.sp,
+            modifier = Modifier.background(t.surface, RoundedCornerShape(12.dp)).padding(horizontal = 22.dp, vertical = 8.dp).testTag("device_code"))
+        Spacer(Modifier.height(22.dp))
+        EmbyButton(stringResource(R.string.device_blocked_retry), onRetry, modifier = Modifier.focusRequester(focus))
+        Spacer(Modifier.height(16.dp))
+        Text(helpContactText(cfg), style = MaterialTheme.typography.bodyMedium, color = t.textSecondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    }
+}
+
 @Composable
 fun SuspendedScreen(cfg: com.embyverse.core.config.RemoteConfig) {
     val t = LocalEmby.current

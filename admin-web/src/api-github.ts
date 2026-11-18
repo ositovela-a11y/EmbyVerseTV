@@ -51,6 +51,21 @@ export function linksFor(slug: string) {
 }
 const API = `https://api.github.com/repos/${GH.owner}/${GH.repo}`;
 const LICENSES = 'web-player/config/licenses.json';
+const BLOCKED = 'web-player/config/blocked.json';
+/**
+ * Equipos y usuarios bloqueados (config/blocked.json). Es público (las apps lo leen cada 2 min), por eso solo
+ * guarda huellas: nadie puede ver qué equipo o usuario es.
+ *  devices: huella del código de instalación · users: huella de app + servidor + usuario.
+ */
+export interface Blocked { v: 1; devices: Record<string, { at: string }>; users: Record<string, { at: string }>; updated?: string }
+async function h16(text: string) {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+}
+export const blockDeviceKey = (installId: string) => h16('blk-dev:' + installId.trim());
+export const blockUserKey = (app: string, host: string, user: string) => h16(`blk-user:${app}|${host.trim().toLowerCase()}|${user.trim().toLowerCase()}`);
+/** Código corto del equipo (el mismo que ve el cliente en la pantalla de bloqueo). */
+export const deviceShortCode = (installId: string) => installId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase().replace(/^(.{4})/, '$1-');
 const REGISTRY = 'admin/registro.enc.json';
 const DL_CODES = 'web-player/config/downloader-codes.json';
 export interface Licenses { v: number; updated?: string; devices: Record<string, { exp: string | null }> }
@@ -327,6 +342,16 @@ export const githubApi = {
     const cur = await githubApi.licenses();
     change(cur.data); cur.data.updated = new Date().toISOString();
     await gh('PUT', `/contents/${LICENSES}`, { message: `Activaciones: ${message}`, content: utf8b64(JSON.stringify(cur.data, null, 1) + '\n'), branch: GH.branch, ...(cur.sha ? { sha: cur.sha } : {}) });
+    return cur.data;
+  },
+  async blocked(): Promise<{ data: Blocked; sha: string | null }> {
+    const f = await readJsonFile<Blocked>(BLOCKED);
+    return f ? { data: { v: 1, devices: {}, users: {}, ...f.data }, sha: f.sha } : { data: { v: 1, devices: {}, users: {} }, sha: null };
+  },
+  async saveBlocked(change: (d: Blocked) => void, message: string): Promise<Blocked> {
+    const cur = await githubApi.blocked(); // se relee justo antes para no pisar otro cambio
+    change(cur.data); cur.data.updated = new Date().toISOString();
+    await gh('PUT', `/contents/${BLOCKED}`, { message: `Bloqueos: ${message}`, content: utf8b64(JSON.stringify(cur.data, null, 1) + '\n'), branch: GH.branch, ...(cur.sha ? { sha: cur.sha } : {}) });
     return cur.data;
   },
   /** Códigos numéricos de Downloader (AFTVnews) de cada app: '' = principal, si no el vendedor. Son públicos. */

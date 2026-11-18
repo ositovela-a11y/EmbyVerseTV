@@ -218,7 +218,19 @@ class MainActivity : AppCompatActivity() {
                                 com.embyverse.app.data.repo.AccountBlock.wipe(this@MainActivity, container.database, h); suspended = true
                             }
                         }
+                        // Equipo bloqueado desde el panel (Estadísticas): al abrir, al cambiar de cuenta y cada 2 min.
+                        val devBlocked by com.embyverse.app.data.repo.DeviceBlock.blocked.collectAsStateWithLifecycle()
+                        androidx.compose.runtime.LaunchedEffect(srcList) {
+                            com.embyverse.app.data.repo.DeviceBlock.init(this@MainActivity)
+                            while (true) {
+                                runCatching { com.embyverse.app.data.repo.DeviceBlock.check(this@MainActivity, container.okHttp, container.stats.installId, srcList.orEmpty()) }
+                                kotlinx.coroutines.delay(2 * 60_000L)
+                            }
+                        }
                         when {
+                            devBlocked == true -> com.embyverse.app.ui.components.DeviceBlockedScreen(config, com.embyverse.app.data.repo.DeviceBlock.shortCode(container.stats.installId)) {
+                                lifecycleScope.launch { com.embyverse.app.data.repo.DeviceBlock.check(this@MainActivity, container.okHttp, container.stats.installId, srcList.orEmpty()) }
+                            }
                             suspended -> com.embyverse.app.ui.components.SuspendedScreen(config)
                             !splashDone -> SplashScreen(config.brand, config.text("splash.welcome", "")) { splashDone = true }
                             hasSources == null -> LoadingBox()

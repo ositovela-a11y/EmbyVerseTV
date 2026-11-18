@@ -101,6 +101,21 @@ export function Login({ onLogged }: { onLogged: () => void }) {
   );
 }
 
+/** Equipo bloqueado desde el panel del proveedor (no se borra nada: si lo desbloquean, sigue como estaba). */
+export function DeviceBlocked({ code, onRetry }: { code: string; onRetry: () => void }) {
+  const { config } = useApp();
+  return (
+    <div className="screen suspended" data-fx-layer="" id="device-blocked">
+      <Logo className="login-logo" />
+      <h1>Este equipo fue bloqueado</h1>
+      <p>Tu proveedor bloqueó el uso de la app en este equipo. Si crees que es un error, comunícate con él y dale este código:</p>
+      <div className="act-code">{code}</div>
+      <p className="muted">{config.texts['support.message']?.trim() || '¿Necesitas ayuda? Contacta a tu vendedor.'}</p>
+      <Fx className="btn" def onClick={onRetry}>Revisar de nuevo</Fx>
+    </div>
+  );
+}
+
 export function Suspended() {
   const { config } = useApp();
   return (

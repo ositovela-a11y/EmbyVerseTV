@@ -498,4 +498,7 @@
     <string name="help_contact_seller">Need help? Contact your seller.</string>
     <string name="sagas_empty">There are no sagas in your movie list yet.</string>
     <string name="player_video_unsupported">This device can\'t play this video\'s format (for example, some AVI files with DivX or WMV). Open it in another player such as VLC.</string>
+    <string name="device_blocked_title">This device was blocked</string>
+    <string name="device_blocked_message">Your provider blocked the app on this device. If you think this is a mistake, contact them and give them this code:</string>
+    <string name="device_blocked_retry">Check again</string>
 </resources>

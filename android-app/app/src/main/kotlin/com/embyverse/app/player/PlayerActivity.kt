@@ -66,6 +66,9 @@ class PlayerActivity : AppCompatActivity() {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
+        // Equipo bloqueado desde el panel mientras ve algo: se cierra el video (la pantalla de bloqueo queda detrás).
+        com.embyverse.app.data.repo.DeviceBlock.init(this)
+        lifecycleScope.launch { com.embyverse.app.data.repo.DeviceBlock.blocked.collect { if (it == true) finish() } }
         lifecycleScope.launch {
             if (container.prefs.playback.first().lockLandscape) requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         }
