@@ -1421,4 +1421,31 @@ class SmokeFlowTest {
             mock("/__blocked"); check()
         } finally { mock("/__blocked"); runCatching { check() }; com.embyverse.app.data.repo.DeviceBlock.testUrl = null }
     }
+
+    /** Canal MPEG-2 en un equipo sin ese decodificador (muchos Fire TV y celulares): se oye y avisa con «Abrir en otro reproductor». */
+    @Test fun zh_canalMpeg2SinDecodificador() {
+        val c = app.container
+        val ch = runBlocking { c.database.channels().listForZapping(null).first() }
+        mock("/__live?file=mpeg2")
+        try {
+            // 1) Equipo que sí lo trae: se ve normal.
+            PlaybackProbe.reset(); PlaybackProbe.hideMpeg2Decoder = false
+            ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("LIVE", ch.sourceId, ch.providerId)).use {
+                compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 || PlaybackProbe.lastError != null }
+                Thread.sleep(3_000)
+                log("MPEG-2 con decodificador del equipo: imagen=${!PlaybackProbe.videoUnsupported} · ${PlaybackProbe.videoDecoder ?: "-"} · ${PlaybackProbe.lastError ?: "sin error"}")
+                shot("51-mpeg2-equipo-con-decodificador")
+            }
+            // 2) Equipo sin decodificador MPEG-2: el audio sigue y sale el aviso.
+            PlaybackProbe.reset(); PlaybackProbe.hideMpeg2Decoder = true
+            ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("LIVE", ch.sourceId, ch.providerId)).use {
+                compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 }
+                waitTag("live_no_video", 20_000)
+                waitText("MPEG-2", 5_000)
+                assertTrue("el audio sigue sonando", PlaybackProbe.audioDecoder != null || !PlaybackProbe.audioUnsupported)
+                Thread.sleep(800); shot("52-mpeg2-sin-decodificador-aviso")
+                log("MPEG-2 sin decodificador: aviso «se oye pero no se ve» con «Abrir en otro reproductor» · audio ${PlaybackProbe.audioDecoder}")
+            }
+        } finally { mock("/__live"); PlaybackProbe.hideMpeg2Decoder = false }
+    }
 }

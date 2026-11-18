@@ -37,13 +37,16 @@ class StatsReporter(private val context: Context, http: OkHttpClient, private va
     private fun endpoint(): String? {
         val now = System.currentTimeMillis()
         val cached = sp.getString("url", null)
-        if (cached != null && now - sp.getLong("urlAt", 0) < 86_400_000L && sp.getString("urlBase", null) == configBase) return cached.ifBlank { null }
+        // «#2»: las versiones anteriores buscaban stats.json en una dirección equivocada y guardaron «sin servidor».
+        val key = "$configBase#2"
+        if (cached != null && now - sp.getLong("urlAt", 0) < 86_400_000L && sp.getString("urlBase", null) == key) return cached.ifBlank { null }
         val url = runCatching {
-            client.newCall(Request.Builder().url("${configBase.trimEnd('/')}/stats.json?t=${now / 3_600_000}").build()).execute().use { r ->
+            // La dirección del diseño es un archivo (…/config/app.json o …/config/vendors/x.json): stats.json está en …/config/.
+            client.newCall(Request.Builder().url("${com.embyverse.core.config.ConfigUrls.file(configBase, "stats.json")}?t=${now / 3_600_000}").build()).execute().use { r ->
                 if (!r.isSuccessful) "" else JSONObject(r.body.string()).optString("url").trim().trimEnd('/')
             }
-        }.getOrNull() ?: return cached?.ifBlank { null }
-        sp.edit().putString("url", url).putLong("urlAt", now).putString("urlBase", configBase).apply()
+        }.getOrNull() ?: return cached?.takeIf { sp.getString("urlBase", null) == key }?.ifBlank { null }
+        sp.edit().putString("url", url).putLong("urlAt", now).putString("urlBase", key).apply()
         return url.takeIf { it.startsWith("https://") || (BuildConfig.DEBUG && it.startsWith("http://")) }
     }
 

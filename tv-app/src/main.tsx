@@ -53,6 +53,7 @@ function App() {
     return () => { clearInterval(i); document.removeEventListener('visibilitychange', onShow); };
   }, []);
   useEffect(() => { if (devBlocked) setPlaying(null); }, [devBlocked]);
+  const [licWarn, setLicWarn] = useState<{ days: number; exp: string } | null>(null);
   const idle = useRef(Date.now());
   const route = stack[stack.length - 1];
 

@@ -30,6 +30,11 @@ object StreamSource {
         val renderers = androidx.media3.exoplayer.DefaultRenderersFactory(context.applicationContext)
             .setExtensionRendererMode(androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
             .setEnableDecoderFallback(true)
+            // Solo pruebas: simular un equipo sin decodificador de video MPEG-2 (muchos Fire TV y celulares).
+            .apply { if (com.embyverse.app.BuildConfig.DEBUG) setMediaCodecSelector { mime, secure, tunneling ->
+                if (PlaybackProbe.hideMpeg2Decoder && mime == MimeTypes.VIDEO_MPEG2) emptyList()
+                else androidx.media3.exoplayer.mediacodec.MediaCodecSelector.DEFAULT.getDecoderInfos(mime, secure, tunneling)
+            } }
         return ExoPlayer.Builder(context.applicationContext, renderers).setLoadControl(loadControl)
             // Mantiene CPU y Wi-Fi activos mientras se reproduce, aunque no se toque el control.
             .setWakeMode(C.WAKE_MODE_NETWORK)

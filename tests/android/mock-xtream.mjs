@@ -79,8 +79,10 @@ let vodFile = null;
 // Lista de equipos bloqueados (config/blocked.json del sitio). /__blocked?d=<huella>&u=<huella> la cambia; vacío = lista vacía.
 let blockedJson = null;
 const licenses = { v: 1, devices: {} };
+// /__live?file=mpeg2 → los canales en vivo mandan video MPEG-2 entrelazado (720x480i, como muchos canales de TV).
+let liveFile = null;
 function liveTs(res) {
-  const data = readFileSync(join(MEDIA, 'live.ts'));
+  const data = readFileSync(join(MEDIA, liveFile === 'mpeg2' ? 'mpeg2.ts' : 'live.ts'));
   res.writeHead(200, { 'content-type': 'video/mp2t' });
   let off = 0, alive = true, sent = 0;
   const mode = stallNext; stallNext = null;
@@ -109,6 +111,8 @@ createServer((req, res) => {
   if (u.pathname === '/cfg/stats.json') return json(JSON.stringify({ url: 'http://10.0.2.2:8788' }));
   if (u.pathname === '/licenses.json') return json(JSON.stringify(licenses));
   if (u.pathname === '/__license') { licenses.devices[u.searchParams.get('h')] = { exp: u.searchParams.get('exp') || null }; return json('{"ok":true}'); }
+  if (u.pathname === '/mpeg2seg.ts') { res.writeHead(200, { 'content-type': 'video/mp2t' }); return res.end(readFileSync(join(MEDIA, 'mpeg2.ts'))); }
+  if (u.pathname === '/__live') { liveFile = u.searchParams.get('file') || null; return json('{"ok":true}'); }
   if (u.pathname === '/__blocked') {
     const d = u.searchParams.get('d'), us = u.searchParams.get('u');
     blockedJson = d || us ? JSON.stringify({ v: 1, devices: d ? { [d]: { at: 'x' } } : {}, users: us ? { [us]: { at: 'x' } } : {} }) : null;
@@ -198,7 +202,7 @@ createServer((req, res) => {
       res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl', 'cache-control': 'no-cache' });
       const seq = Math.floor(Date.now() / 10_000);
       const lines = ['#EXTM3U', '#EXT-X-VERSION:3', '#EXT-X-TARGETDURATION:10', `#EXT-X-MEDIA-SEQUENCE:${seq}`, `#EXT-X-DISCONTINUITY-SEQUENCE:${seq}`];
-      for (let k = 0; k < 3; k++) lines.push('#EXT-X-DISCONTINUITY', '#EXTINF:10.000000,', `/hls/seg${(seq + k) % 2}.ts`);
+      for (let k = 0; k < 3; k++) lines.push('#EXT-X-DISCONTINUITY', '#EXTINF:10.000000,', liveFile === 'mpeg2' ? `/mpeg2seg.ts?n=${seq + k}` : `/hls/seg${(seq + k) % 2}.ts`);
       return res.end(lines.join('\n') + '\n');
     }
     // Canal 2: se pide .ts pero el proveedor responde una lista HLS (caso real que daba

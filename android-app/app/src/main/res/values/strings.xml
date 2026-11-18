@@ -502,4 +502,7 @@
     <string name="device_blocked_title">Este equipo fue bloqueado</string>
     <string name="device_blocked_message">Tu proveedor bloqueó el uso de la app en este equipo. Si crees que es un error, comunícate con él y dale este código:</string>
     <string name="device_blocked_retry">Revisar de nuevo</string>
+    <string name="player_live_no_video_title">Este canal se oye pero no se ve en este equipo</string>
+    <string name="player_live_no_video_body">Su video viene en formato %1$s y este equipo no trae cómo mostrarlo. Ábrelo en otro reproductor (VLC o MX Player lo reproducen).</string>
+    <string name="player_live_no_video_audio">Seguir solo con audio</string>
 </resources>

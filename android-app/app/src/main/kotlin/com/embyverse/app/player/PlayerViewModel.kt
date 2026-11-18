@@ -68,6 +68,8 @@ object PlaybackProbe {
     @Volatile var videoUnsupported = false
     /** Solo pruebas: cuántas veces el mando tuvo que llevar el foco a los controles (equipos que lo pierden, p. ej. algunos Fire TV). */
     @Volatile var focusRescues = 0
+    /** Solo pruebas: el reproductor no ve el decodificador MPEG-2 del equipo. */
+    @Volatile var hideMpeg2Decoder = false
     fun reset() { readyCount = 0; lastError = null; reconnects = 0; lastReconnectReason = null; lastAutoTrack = null; audioDecoder = null; audioUnsupported = false; videoDecoder = null; videoUnsupported = false }
 }
 
@@ -94,6 +96,8 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     @Volatile var videoHasFocus = false
     /** La tarjeta «Siguiente episodio en…» está en pantalla (upNext solo dice cuál es el siguiente, desde el inicio). */
     @Volatile var upNextShowing = false
+    /** Canal en vivo cuyo video este equipo no sabe mostrar (p. ej. MPEG-2 en muchos Fire TV y celulares): se oye pero no se ve. */
+    val liveNoVideo = MutableStateFlow<String?>(null)
     val channelListVisible = MutableStateFlow(false)
     /** Panel de opciones (audio, subtítulos, lista de canales). Se abre con OK en vivo o con MENÚ. */
     val optionsVisible = MutableStateFlow(false)
@@ -377,7 +381,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
 
     // ---------------------------------------------------------------- carga de contenido
     private suspend fun load(target: ItemRef, firstLoad: Boolean = false) {
-        error.value = null; buffering.value = true; nextEpisode.value = null
+        error.value = null; buffering.value = true; nextEpisode.value = null; liveNoVideo.value = null
         val np = resolve(target)
         if (np == null) { error.value = PlayerUiError.Message(R.string.player_error_not_found); buffering.value = false; return }
         if (ref.kind == ContentKind.LIVE && np.ref.kind == ContentKind.LIVE && np.ref != ref) previousLive = ref
@@ -405,6 +409,12 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     }
 
     /** Abrir lo que se está viendo en otro reproductor (se pausa aquí). */
+    private fun codecName(mime: String?): String = when (mime) {
+        androidx.media3.common.MimeTypes.VIDEO_MPEG2 -> "MPEG-2"; androidx.media3.common.MimeTypes.VIDEO_H265 -> "HEVC (H.265)"
+        androidx.media3.common.MimeTypes.VIDEO_VC1 -> "VC-1"; androidx.media3.common.MimeTypes.VIDEO_MP4V -> "MPEG-4"
+        null -> "?"; else -> mime.substringAfter('/').uppercase()
+    }
+
     fun openExternal() { nowPlaying.value?.let { player.value?.pause(); showOptions(false); externalRequest.value = it } }
 
     private suspend fun resolve(r: ItemRef): NowPlaying? {
@@ -854,6 +864,10 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
                 buffering.value = false; player.value?.pause()
                 error.value = PlayerUiError.Message(R.string.player_video_unsupported, "VIDEO_UNSUPPORTED")
             }
+            // En vivo se deja el audio y se avisa con «Abrir en otro reproductor» (VLC, MX… sí traen MPEG-2).
+            val noVideo = isLive && videoGroups.isNotEmpty() && videoGroups.none { g -> (0 until g.length).any { g.isTrackSupported(it) } }
+            liveNoVideo.value = if (noVideo) codecName(videoGroups.firstNotNullOfOrNull { g -> g.getTrackFormat(0).sampleMimeType }) else null
+            if (noVideo) { PlaybackProbe.videoUnsupported = true; PlaybackProbe.lastError = "VIDEO_SIN_DECODIFICADOR_EN_VIVO: ${liveNoVideo.value}" }
             if (audioUnsupported.value) PlaybackProbe.lastError = "AUDIO_SIN_DECODIFICADOR: " + audioGroups.joinToString { g -> g.getTrackFormat(0).sampleMimeType.orEmpty() }
         }
         override fun onTrackSelectionParametersChanged(parameters: androidx.media3.common.TrackSelectionParameters) { refreshTracks() }

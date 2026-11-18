@@ -34,7 +34,7 @@ object DeviceBlock {
 
     /** true bloqueado · false no · null no se pudo revisar (se queda como estaba). */
     suspend fun check(ctx: Context, http: OkHttpClient, installId: String, sources: List<SourceEntity>): Boolean? = withContext(Dispatchers.IO) {
-        val base = testUrl ?: "${BuildConfig.CONFIG_BASE_URL.trimEnd('/')}/blocked.json"
+        val base = testUrl ?: com.embyverse.core.config.ConfigUrls.file(BuildConfig.CONFIG_BASE_URL, "blocked.json").ifEmpty { return@withContext null }
         val res = runCatching {
             http.newCall(Request.Builder().url("$base?t=${System.currentTimeMillis() / 30_000}").header("Cache-Control", "no-cache").build()).execute().use { r ->
                 when {
