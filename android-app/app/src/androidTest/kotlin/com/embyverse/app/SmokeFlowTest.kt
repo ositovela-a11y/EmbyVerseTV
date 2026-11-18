@@ -1436,8 +1436,18 @@ class SmokeFlowTest {
                 log("MPEG-2 con decodificador del equipo: imagen=${!PlaybackProbe.videoUnsupported} · ${PlaybackProbe.videoDecoder ?: "-"} · ${PlaybackProbe.lastError ?: "sin error"}")
                 shot("51-mpeg2-equipo-con-decodificador")
             }
-            // 2) Equipo sin decodificador MPEG-2: el audio sigue y sale el aviso.
+            // 2) Equipo sin decodificador MPEG-2 (Fire TV, muchos celulares): la app usa el suyo (FFmpeg) y se ve.
             PlaybackProbe.reset(); PlaybackProbe.hideMpeg2Decoder = true
+            if (PlaybackProbe.softwareVideo) ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("LIVE", ch.sourceId, ch.providerId)).use {
+                try { compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 && PlaybackProbe.videoDecoder != null } }
+                catch (e: ComposeTimeoutException) { shot("fallo-mpeg2-software"); fail("MPEG-2 con el decodificador de la app: sin video (${PlaybackProbe.lastError}) · aviso=${compose.onAllNodesWithTag("live_no_video", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()}") }
+                Thread.sleep(4_000)
+                assertTrue("con el decodificador de la app no debe salir el aviso", compose.onAllNodesWithTag("live_no_video", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+                assertTrue("decodificador de la app: ${PlaybackProbe.videoDecoder}", PlaybackProbe.videoDecoder!!.contains("ffmpeg", ignoreCase = true))
+                shot("53-mpeg2-decodificador-de-la-app")
+                log("MPEG-2 sin decodificador del equipo: se VE con el de la app (${PlaybackProbe.videoDecoder}) · audio ${PlaybackProbe.audioDecoder}")
+                return
+            }
             ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("LIVE", ch.sourceId, ch.providerId)).use {
                 compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 }
                 waitTag("live_no_video", 20_000)

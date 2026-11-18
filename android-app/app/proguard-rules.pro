@@ -30,3 +30,6 @@
 -keep class com.wireguard.crypto.** { *; }
 -keep class com.wireguard.config.** { *; }
 -dontwarn com.wireguard.**
+
+# Decodificador FFmpeg (audio y video): el reproductor lo carga por su nombre.
+-keep class androidx.media3.decoder.ffmpeg.** { *; }

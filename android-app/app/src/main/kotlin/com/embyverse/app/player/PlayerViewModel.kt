@@ -70,6 +70,8 @@ object PlaybackProbe {
     @Volatile var focusRescues = 0
     /** Solo pruebas: el reproductor no ve el decodificador MPEG-2 del equipo. */
     @Volatile var hideMpeg2Decoder = false
+    /** La app trae el decodificador de video por software (FFmpeg) y el reproductor lo tiene disponible. */
+    @Volatile var softwareVideo = false
     fun reset() { readyCount = 0; lastError = null; reconnects = 0; lastReconnectReason = null; lastAutoTrack = null; audioDecoder = null; audioUnsupported = false; videoDecoder = null; videoUnsupported = false }
 }
 

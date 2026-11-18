@@ -39,7 +39,7 @@ jobs:
         run: |
           mkdir -p android-app/app/libs
           V=$(grep -oP '^media3 = "\K[^"]+' android-app/gradle/libs.versions.toml)
-          if gh release download "ffmpeg-media3-$V" -p 'lib-decoder-ffmpeg-release.aar' -D android-app/app/libs -R ${{ github.repository }} --clobber; then echo "::notice::Audio FFmpeg incluido (Media3 $V)"
+          if gh release download "ffmpeg-media3-$V-video" -p 'lib-decoder-ffmpeg-release.aar' -D android-app/app/libs -R ${{ github.repository }} --clobber && echo "::notice::FFmpeg con video (MPEG-2, DivX 3, VC-1)" || gh release download "ffmpeg-media3-$V" -p 'lib-decoder-ffmpeg-release.aar' -D android-app/app/libs -R ${{ github.repository }} --clobber; then echo "::notice::Audio FFmpeg incluido (Media3 $V)"
           else echo "::warning::Sin decodificador FFmpeg para Media3 $V: corre el flujo «Decodificador de audio (FFmpeg)»"; fi
       - name: Compilar app y pruebas
         working-directory: android-app

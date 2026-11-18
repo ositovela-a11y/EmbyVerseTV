@@ -27,7 +27,7 @@ object StreamSource {
             .build()
         // Audio: primero los decodificadores del equipo y, si no puede (AC3/E-AC3/DTS/TrueHD en muchos
         // celulares y TV), el de FFmpeg incluido en la app. Así se oyen todas las películas.
-        val renderers = androidx.media3.exoplayer.DefaultRenderersFactory(context.applicationContext)
+        val renderers = WithSoftwareVideo(context.applicationContext)
             .setExtensionRendererMode(androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
             .setEnableDecoderFallback(true)
             // Solo pruebas: simular un equipo sin decodificador de video MPEG-2 (muchos Fire TV y celulares).
@@ -74,4 +74,30 @@ object StreamSource {
             .build()
         return DefaultMediaSourceFactory(ds).createMediaSource(item)
     }
+}
+
+/**
+ * Video: primero el decodificador del equipo y, si no tiene uno para ese formato (MPEG-2 de muchos canales de TV,
+ * DivX 3, VC-1… en muchos Fire TV y celulares), el de FFmpeg incluido en la app (por software). Si la app se
+ * compiló sin FFmpeg con video, queda como antes.
+ */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+private class WithSoftwareVideo(context: android.content.Context) : androidx.media3.exoplayer.DefaultRenderersFactory(context) {
+    override fun buildVideoRenderers(
+        context: android.content.Context, extensionRendererMode: Int, mediaCodecSelector: androidx.media3.exoplayer.mediacodec.MediaCodecSelector,
+        enableDecoderFallback: Boolean, eventHandler: android.os.Handler, eventListener: androidx.media3.exoplayer.video.VideoRendererEventListener,
+        allowedVideoJoiningTimeMs: Long, out: java.util.ArrayList<androidx.media3.exoplayer.Renderer>,
+    ) {
+        super.buildVideoRenderers(context, extensionRendererMode, mediaCodecSelector, enableDecoderFallback, eventHandler, eventListener, allowedVideoJoiningTimeMs, out)
+        if (extensionRendererMode == EXTENSION_RENDERER_MODE_OFF) return
+        if (out.any { it.javaClass.name == FFMPEG_VIDEO }) { PlaybackProbe.softwareVideo = true; return }
+        runCatching {
+            val r = Class.forName(FFMPEG_VIDEO)
+                .getConstructor(java.lang.Long.TYPE, android.os.Handler::class.java, androidx.media3.exoplayer.video.VideoRendererEventListener::class.java, Integer.TYPE)
+                .newInstance(allowedVideoJoiningTimeMs, eventHandler, eventListener, 50) as androidx.media3.exoplayer.Renderer
+            out.add(r) // después del del equipo: solo se usa cuando el equipo no puede
+            PlaybackProbe.softwareVideo = true
+        }
+    }
+    companion object { const val FFMPEG_VIDEO = "androidx.media3.decoder.ffmpeg.ExperimentalFfmpegVideoRenderer" }
 }
