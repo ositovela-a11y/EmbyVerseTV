@@ -1313,18 +1313,19 @@ class SmokeFlowTest {
         try {
             mock("/__blocked")
             assertTrue("sin lista: no bloqueado", check() == false)
-            ActivityScenario.launch(MainActivity::class.java).use {
+            ActivityScenario.launch(MainActivity::class.java).use { sc ->
                 waitFor("inicio o perfiles", 30_000) { listOf("nav_settings", "profile").any { t -> compose.onAllNodesWithTag(t, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() } }
                 // Viendo un canal cuando lo bloquean: se cierra el video y queda la pantalla de bloqueo con su código.
                 val ch = runBlocking { c.database.channels().listForZapping(null).first() }
                 PlaybackProbe.reset()
-                ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("LIVE", ch.sourceId, ch.providerId)).use { pl ->
-                    compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 }
-                    mock("/__blocked?d=$dk")
-                    assertTrue("con su huella en la lista: bloqueado", check() == true)
-                    compose.waitUntil(10_000) { pl.state == androidx.lifecycle.Lifecycle.State.DESTROYED }
-                    log("Bloqueo: el video se cerró solo al bloquear el equipo")
-                }
+                sc.onActivity { a -> com.embyverse.app.player.PlayerActivity.start(a, com.embyverse.app.data.repo.ItemRef(com.embyverse.core.model.ContentKind.LIVE, ch.sourceId, ch.providerId)) }
+                compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 }
+                Thread.sleep(1_500)
+                mock("/__blocked?d=$dk")
+                assertTrue("con su huella en la lista: bloqueado", check() == true)
+                val closed = { androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED).none { it is com.embyverse.app.player.PlayerActivity } }
+                compose.waitUntil(10_000) { var ok = false; InstrumentationRegistry.getInstrumentation().runOnMainSync { ok = closed() }; ok }
+                log("Bloqueo: el video se cerró solo al bloquear el equipo")
                 waitTag("device_blocked", 15_000)
                 waitText(code, 5_000)
                 Thread.sleep(800); shot("50-equipo-bloqueado")
