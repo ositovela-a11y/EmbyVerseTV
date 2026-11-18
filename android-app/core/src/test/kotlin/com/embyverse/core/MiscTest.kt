@@ -87,3 +87,13 @@ class SecurityUtilTest {
         assertEquals(0xFFFFFFFF.toInt(), ConfigResolver.readableOn(0xFF1E3A8A.toInt()))
     }
 }
+
+class ConfigUrlsTest {
+    @org.junit.Test fun carpetaConfigDesdeElDiseno() {
+        val s = "https://ositovela-a11y.github.io/EmbyVerseTV/config/"
+        org.junit.Assert.assertEquals(s + "stats.json", com.embyverse.core.config.ConfigUrls.file("https://ositovela-a11y.github.io/EmbyVerseTV/config/app.json", "stats.json"))
+        org.junit.Assert.assertEquals(s + "blocked.json", com.embyverse.core.config.ConfigUrls.file("https://ositovela-a11y.github.io/EmbyVerseTV/config/vendors/planetatv.json", "blocked.json"))
+        org.junit.Assert.assertEquals("http://10.0.2.2:8800/cfg/stats.json", com.embyverse.core.config.ConfigUrls.file("http://10.0.2.2:8800/cfg", "stats.json"))
+        org.junit.Assert.assertEquals("", com.embyverse.core.config.ConfigUrls.file("", "stats.json"))
+    }
+}
