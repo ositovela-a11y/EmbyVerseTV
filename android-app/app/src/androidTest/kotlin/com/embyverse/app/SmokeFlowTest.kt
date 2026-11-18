@@ -1470,4 +1470,55 @@ class SmokeFlowTest {
             }
         } finally { mock("/__live"); PlaybackProbe.hideMpeg2Decoder = false; PlaybackProbe.hideSoftwareVideo = false }
     }
+
+    /**
+     * Todos los formatos comunes de películas y series. MPEG-4 (Xvid/DivX, perfil avanzado) va directo al
+     * decodificador de la app: el MPEG-4 de casi todos los equipos solo entiende el perfil simple y no reproduce nada.
+     * MPEG-2 se prueba como en un equipo sin ese decodificador (Fire TV, muchos celulares).
+     */
+    @Test fun zi_todosLosFormatos() {
+        val c = app.container
+        val movie = runBlocking { c.database.movies().observeAll(1).first().first() }
+        // archivo → (qué es, ¿debe usar el decodificador de la app?)
+        val files = linkedMapOf(
+            "mp4_mpeg4asp" to ("MPEG-4 avanzado (Xvid) en MP4 + AAC" to true),
+            "mkv_mpeg4asp" to ("MPEG-4 avanzado (Xvid) en MKV + AC3" to true),
+            "avi_divx5" to ("DivX 5 en AVI + MP3" to true),
+            "avi_xvid" to ("Xvid en AVI + MP3" to true),
+            "avi_divx3" to ("DivX 3 en AVI" to true),
+            "mkv_mpeg2" to ("MPEG-2 en MKV + MP2 (equipo sin MPEG-2)" to true),
+            "mkv_hevc" to ("HEVC (H.265) en MKV + E-AC3" to false),
+            "webm_vp9" to ("VP9 en WebM + Opus" to false),
+            "mkv_av1" to ("AV1 en MKV + FLAC" to false),
+            "3gp_h263" to ("H.263 en 3GP + AAC" to false),
+            "mkv_h264vorbis" to ("H.264 en MKV + Vorbis" to false),
+            "avi_h264" to ("H.264 en AVI" to false),
+        )
+        val table = mutableListOf<String>(); val bad = mutableListOf<String>()
+        for ((f, info) in files) {
+            val (what, needApp) = info
+            mock("/__vod?file=$f")
+            PlaybackProbe.reset(); PlaybackProbe.hideMpeg2Decoder = f == "mkv_mpeg2"
+            try {
+                ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("MOVIE", movie.sourceId, movie.providerId, "restart")).use { sc ->
+                    lateinit var vm: com.embyverse.app.player.PlayerViewModel
+                    val ok = runCatching { compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 && PlaybackProbe.videoDecoder != null } }.isSuccess
+                    sc.onActivity { vm = androidx.lifecycle.ViewModelProvider(it)[com.embyverse.app.player.PlayerViewModel::class.java] }
+                    fun pos(): Long { var p = 0L; InstrumentationRegistry.getInstrumentation().runOnMainSync { p = vm.player.value?.currentPosition ?: 0L }; return p }
+                    val p0 = pos(); Thread.sleep(3_000); val p1 = pos()
+                    val err = compose.onAllNodesWithTag("player_error", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+                    val vd = PlaybackProbe.videoDecoder ?: "-"; val ad = PlaybackProbe.audioDecoder ?: "-"
+                    val plays = ok && !err && p1 > p0 + 1_500
+                    val viaApp = vd.contains("ffmpeg", ignoreCase = true)
+                    val line = "${if (plays) "✓" else "✗"} $what → video $vd · audio $ad${if (PlaybackProbe.softwareRetries > 0) " (reintento con la app)" else ""}"
+                    table += line; log("Formato $f: $line")
+                    shot("fmt-$f")
+                    if (!plays) bad += "$f no se reprodujo (${PlaybackProbe.lastError}, pos ${p0}→${p1})"
+                    else if (needApp && !viaApp) bad += "$f debía usar el decodificador de la app y usó $vd"
+                }
+            } finally { mock("/__vod?file="); PlaybackProbe.hideMpeg2Decoder = false }
+        }
+        log("FORMATOS:\n" + table.joinToString("\n"))
+        assertTrue("Formatos con problema: $bad", bad.isEmpty())
+    }
 }

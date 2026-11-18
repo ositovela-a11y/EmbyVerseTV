@@ -30,11 +30,15 @@ object StreamSource {
         val renderers = WithSoftwareVideo(context.applicationContext)
             .setExtensionRendererMode(androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
             .setEnableDecoderFallback(true)
-            // Solo pruebas: simular un equipo sin decodificador de video MPEG-2 (muchos Fire TV y celulares).
-            .apply { if (com.embyverse.app.BuildConfig.DEBUG) setMediaCodecSelector { mime, secure, tunneling ->
-                if (PlaybackProbe.hideMpeg2Decoder && mime == MimeTypes.VIDEO_MPEG2) emptyList()
-                else androidx.media3.exoplayer.mediacodec.MediaCodecSelector.DEFAULT.getDecoderInfos(mime, secure, tunneling)
-            } }
+            // Qué decodificador del equipo se usa para cada formato (los que no, van al de la app: FFmpeg).
+            .setMediaCodecSelector { mime, secure, tunneling ->
+                when {
+                    // Solo pruebas: simular un equipo sin decodificador de video MPEG-2 (muchos Fire TV y celulares).
+                    com.embyverse.app.BuildConfig.DEBUG && PlaybackProbe.hideMpeg2Decoder && mime == MimeTypes.VIDEO_MPEG2 -> emptyList()
+                    SoftwareVideo.prefer(mime) -> emptyList()
+                    else -> androidx.media3.exoplayer.mediacodec.MediaCodecSelector.DEFAULT.getDecoderInfos(mime, secure, tunneling)
+                }
+            }
         return ExoPlayer.Builder(context.applicationContext, renderers).setLoadControl(loadControl)
             // Mantiene CPU y Wi-Fi activos mientras se reproduce, aunque no se toque el control.
             .setWakeMode(C.WAKE_MODE_NETWORK)
@@ -102,4 +106,21 @@ private class WithSoftwareVideo(context: android.content.Context) : androidx.med
         }
     }
     companion object { const val FFMPEG_VIDEO = "androidx.media3.decoder.ffmpeg.ExperimentalFfmpegVideoRenderer" }
+}
+
+/**
+ * Formatos de video que se mandan directo al decodificador de la app (FFmpeg) en vez del del equipo.
+ *  - MPEG-4 parte 2 (Xvid, DivX 4/5, «mp4v») y DivX 3 / MS-MPEG4: casi todos los equipos traen un decodificador
+ *    MPEG-4 que dice que sí, pero solo entiende el perfil simple; las películas Xvid/DivX (perfil avanzado, con
+ *    cuadros B) salen en negro o con error. FFmpeg las reproduce todas.
+ *  - Cualquier formato con el que el decodificador del equipo falló en este equipo (se reintenta con FFmpeg).
+ */
+object SoftwareVideo {
+    private val ALWAYS = setOf(MimeTypes.VIDEO_MP4V, MimeTypes.VIDEO_DIVX, MimeTypes.VIDEO_MP42, MimeTypes.VIDEO_MP43)
+    private val failed = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    val available: Boolean by lazy { runCatching { Class.forName("androidx.media3.decoder.ffmpeg.ExperimentalFfmpegVideoRenderer"); true }.getOrDefault(false) }
+    private fun usable() = available && !(com.embyverse.app.BuildConfig.DEBUG && PlaybackProbe.hideSoftwareVideo)
+    fun prefer(mime: String): Boolean = MimeTypes.isVideo(mime) && usable() && (mime in ALWAYS || mime in failed)
+    /** El decodificador del equipo falló con este formato: desde ahora va al de la app. true si vale la pena reintentar. */
+    fun markFailed(mime: String?): Boolean = mime != null && MimeTypes.isVideo(mime) && usable() && mime !in ALWAYS && failed.add(mime)
 }

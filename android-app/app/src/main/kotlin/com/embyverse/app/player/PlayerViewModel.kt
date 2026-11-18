@@ -74,6 +74,8 @@ object PlaybackProbe {
     @Volatile var softwareVideo = false
     /** Solo pruebas: no usar el decodificador de video de la app. */
     @Volatile var hideSoftwareVideo = false
+    /** Veces que se reintentó con el decodificador de la app porque el del equipo falló. */
+    @Volatile var softwareRetries = 0
     fun reset() { readyCount = 0; lastError = null; reconnects = 0; lastReconnectReason = null; lastAutoTrack = null; audioDecoder = null; audioUnsupported = false; videoDecoder = null; videoUnsupported = false }
 }
 
@@ -907,6 +909,15 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
             // Error justo al final de una película o episodio (el servidor cortó el último pedazo): es el final.
             val pe = player.value
             if (!isLive && pe != null && pe.duration > 0 && pe.duration != C.TIME_UNSET && pe.duration - pe.currentPosition <= 5_000) { error.value = null; onEnded(); return }
+            // El decodificador de video del equipo falló con este formato: se reintenta en el mismo punto con el de la app (FFmpeg).
+            val curNp = nowPlaying.value
+            val failedMime = (e as? androidx.media3.exoplayer.ExoPlaybackException)?.takeIf { it.type == androidx.media3.exoplayer.ExoPlaybackException.TYPE_RENDERER }?.rendererFormat?.sampleMimeType
+            if (curNp != null && e.errorCode in DECODER_ERRORS && SoftwareVideo.markFailed(failedMime)) {
+                PlaybackProbe.lastError = "VIDEO_REINTENTO_CON_LA_APP: $failedMime (${e.errorCodeName})"; PlaybackProbe.softwareRetries++
+                error.value = null; buffering.value = true
+                prepare(curNp, if (isLive) null else pe?.currentPosition)
+                return
+            }
             if (isLive && e.errorCode != PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) com.embyverse.app.data.repo.ChannelHealth.failed(ref.sourceId, ref.id)
             val p = player.value
             if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW && p != null) {
@@ -997,3 +1008,9 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
         networkCallback = null
     }
 }
+
+private val DECODER_ERRORS = setOf(
+    PlaybackException.ERROR_CODE_DECODER_INIT_FAILED, PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED,
+    PlaybackException.ERROR_CODE_DECODING_FAILED, PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
+    PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES,
+)

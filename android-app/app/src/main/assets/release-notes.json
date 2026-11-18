@@ -1,8 +1,8 @@
 {
   "_info": "Notas de cada versión. Se muestran al ofrecer la actualización (update.json) y en «Novedades» después de actualizar. Escribir SIN el nombre de la app (las ven también las apps de vendedores). Agregar una entrada en cada versión nueva.",
   "1.15.16": {
-    "es": ["Canales MPEG-2: ya no sale el aviso de «Abrir en otro reproductor» cuando el canal sí se ve.", "Si sale el aviso, ATRÁS lo cierra y te quedas en el canal."],
-    "en": ["MPEG-2 channels: the «Open in another player» notice no longer appears when the channel does play.", "If the notice appears, BACK closes it and you stay on the channel."]
+    "es": ["Películas y series en MPEG-4 (Xvid, DivX) ya se reproducen en todos los equipos; si el equipo falla con un formato, la app lo reintenta con su propio decodificador.", "Canales MPEG-2: ya no sale el aviso de «Abrir en otro reproductor» cuando el canal sí se ve.", "Si sale el aviso, ATRÁS lo cierra y te quedas en el canal."],
+    "en": ["Movies and series in MPEG-4 (Xvid, DivX) now play on every device; if the device fails with a format, the app retries with its own decoder.", "MPEG-2 channels: the «Open in another player» notice no longer appears when the channel does play.", "If the notice appears, BACK closes it and you stay on the channel."]
   },
   "1.15.15": {
     "es": ["En Fire TV Stick el control funciona siempre en películas, series y canales: ▶❚❚, ⏪ ⏩, flechas y OK."],

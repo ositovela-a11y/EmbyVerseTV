@@ -217,6 +217,9 @@ createServer((req, res) => {
     // Películas con audio que muchos equipos no traen: AC3 (Dolby Digital) y DTS (/__vod?file=ac3 | dts).
     // AVI con distintos códecs (Xvid, DivX 3, H.264, MPEG-4 simple): /__vod?file=avi_xvid | avi_divx3 | avi_h264 | avi_mpeg4sp
     if (/^avi_\w+$/.test(vodFile ?? '') && m[1] === 'movie') return sendFile(req, res, join(MEDIA, `${vodFile}.avi`), 'video/x-msvideo');
+    // Un archivo por formato (/__vod?file=mp4_mpeg4asp | mkv_mpeg4asp | mkv_mpeg2 | mkv_hevc | webm_vp9 | mkv_av1 | 3gp_h263 | mkv_h264vorbis).
+    const fm = /^(mp4|mkv|webm|3gp)_\w+$/.exec(vodFile ?? '');
+    if (fm && m[1] === 'movie') return sendFile(req, res, join(MEDIA, `${vodFile}.${fm[1]}`), { mp4: 'video/mp4', mkv: 'video/x-matroska', webm: 'video/webm', '3gp': 'video/3gpp' }[fm[1]]);
     if ((vodFile === 'ac3' || vodFile === 'dts') && m[1] === 'movie') return sendFile(req, res, join(MEDIA, `${vodFile}.mkv`), 'video/x-matroska');
     // Episodio cuyo servidor no cierra el final (manda todo pero anuncia más bytes y deja la conexión abierta):
     // el reproductor se queda cargando en el último segundo (/__vod?file=stall).
