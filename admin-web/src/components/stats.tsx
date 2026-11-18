@@ -1,7 +1,7 @@
 // Estadísticas: quién instaló y usa cada app, separado entre TUS clientes (app principal) y los clientes de
 // cada vendedor (sus apps). Los datos vienen del servidor de estadísticas (Cloudflare) con la clave del panel.
 import { useEffect, useMemo, useState } from 'react';
-import { githubApi, type Vendor } from '../api-github';
+import { githubApi, blockDeviceKey, blockUserKey, deviceShortCode, type Blocked, type Vendor } from '../api-github';
 import { toCsv } from '../registry';
 import { Group, Notice } from './ui';
 
@@ -35,6 +35,21 @@ export function StatsPanel() {
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const [scope, setScope] = useState<Scope>('mine'); const [vendor, setVendor] = useState('*');
   const [q, setQ] = useState(''); const [onlyInactive, setOnlyInactive] = useState(false);
+  // Bloqueos: lista pública con huellas; aquí se calcula la huella de cada equipo para saber si está bloqueado.
+  const [blocked, setBlocked] = useState<Blocked | null>(null);
+  const [keys, setKeys] = useState<Record<string, { d: string; u: string | null }>>({});
+  const [onlyBlocked, setOnlyBlocked] = useState(false);
+  const [msg, setMsg] = useState('');
+  useEffect(() => { void githubApi.blocked().then((b) => setBlocked(b.data)).catch(() => setBlocked({ v: 1, devices: {}, users: {} })); }, []);
+  useEffect(() => { if (!data) return; let live = true; void (async () => {
+    const out: Record<string, { d: string; u: string | null }> = {};
+    for (const x of data.devices) out[x.id] = { d: await blockDeviceKey(x.id), u: x.xuser ? await blockUserKey(x.app, x.host, x.xuser) : null };
+    if (live) setKeys(out);
+  })(); return () => { live = false; }; }, [data]);
+  const blockOf = (id: string): 'device' | 'user' | null => {
+    const k = keys[id]; if (!k || !blocked) return null;
+    return blocked.devices[k.d] ? 'device' : k.u && blocked.users[k.u] ? 'user' : null;
+  };
 
   useEffect(() => { void (async () => {
     try { const [u, v] = await Promise.all([githubApi.statsUrl(), githubApi.vendors().catch(() => [])]); setUrl(u); setVendors(v); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setUrl(null); }
@@ -72,16 +87,17 @@ export function StatsPanel() {
         users: new Set(ds.map((d) => d.xuser).filter(Boolean)).size, downloads: data.downloads.filter((d) => d.app === slug).reduce((t, d) => t + d.n, 0) };
     }).sort((a, b) => b.installs - a.installs);
     const f = q.trim().toLowerCase();
-    const rows = devs.filter((d) => (!onlyInactive || now - d.last_seen > 30 * DAY)
-      && (!f || [d.xuser, d.model, d.host, d.country, vName(d.app), PLAT[d.platform]].some((x) => (x || '').toLowerCase().includes(f))));
+    const rows = devs.filter((d) => (!onlyInactive || now - d.last_seen > 30 * DAY) && (!onlyBlocked || blockOf(d.id))
+      && (!f || [d.xuser, d.model, d.host, d.country, vName(d.app), PLAT[d.platform], deviceShortCode(d.id)].some((x) => (x || '').toLowerCase().includes(f))));
     return {
       now, rows, days, installsByDay, dlByDay, byPlat, perVendor,
       total: devs.length, users: new Set(devs.map((d) => d.xuser).filter(Boolean)).size,
       a1: devs.filter((d) => now - d.last_seen < DAY).length, a7: devs.filter((d) => now - d.last_seen < 7 * DAY).length,
       a30: devs.filter((d) => now - d.last_seen < 30 * DAY).length,
       dl30: dlByDay.reduce((t, n) => t + n, 0), dlAll: dls.reduce((t, d) => t + d.n, 0),
+      nBlocked: devs.filter((d) => blockOf(d.id)).length,
     };
-  }, [data, scope, vendor, q, onlyInactive, vendors]);
+  }, [data, scope, vendor, q, onlyInactive, onlyBlocked, vendors, keys, blocked]);
 
   const csv = () => {
     if (!view) return;
@@ -92,10 +108,28 @@ export function StatsPanel() {
     a.download = `instalaciones-${scope === 'mine' ? 'mis-clientes' : scope === 'vendors' ? 'vendedores' : 'todas'}-${date(Date.now())}.csv`; a.click();
   };
 
-  const remove = async (id: string) => {
-    if (!url || !confirm('¿Quitar este equipo del registro? (Si vuelve a abrir la app, aparece de nuevo.)')) return;
-    await fetch(`${url}/v1/devices/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { authorization: `Bearer ${key}` } });
+  const remove = async (d: DeviceRow) => {
+    if (!url || !confirm(`¿Eliminar el equipo ${deviceShortCode(d.id)} del registro?\n\nSolo se borra de esta lista: si vuelve a abrir la app, aparece de nuevo. Para que ya no pueda usarla, usa «Bloquear».`)) return;
+    await fetch(`${url}/v1/devices/${encodeURIComponent(d.id)}`, { method: 'DELETE', headers: { authorization: `Bearer ${key}` } });
+    setMsg(`Equipo ${deviceShortCode(d.id)} eliminado del registro.`);
     await load();
+  };
+  /** Bloquear / desbloquear un equipo o todos los equipos de un usuario. Las apps lo aplican en 1–3 minutos. */
+  const setBlock = async (d: DeviceRow, what: 'device' | 'user', on: boolean) => {
+    const k = keys[d.id]; if (!k) return;
+    const who = what === 'device' ? `el equipo ${deviceShortCode(d.id)} (${PLAT[d.platform] ?? d.platform} ${d.model})` : `al usuario ${d.xuser} en ${vName(d.app)} (todos sus equipos)`;
+    if (on && !confirm(`¿Bloquear ${who}?\n\nLa app se cierra en ese equipo en 1–3 minutos y muestra «Este equipo fue bloqueado». Puedes desbloquearlo cuando quieras.`)) return;
+    setBusy(true); setErr(''); setMsg('');
+    try {
+      const b = await githubApi.saveBlocked((x) => {
+        const id = what === 'device' ? k.d : k.u; if (!id) return;
+        const bag = what === 'device' ? x.devices : x.users;
+        if (on) bag[id] = { at: new Date().toISOString() }; else delete bag[id];
+      }, `${on ? 'bloquea' : 'desbloquea'} ${what === 'device' ? 'un equipo' : 'un usuario'}`);
+      setBlocked(b);
+      setMsg(`✓ ${on ? 'Bloqueado' : 'Desbloqueado'}: ${who}. Se aplica en la app en 1–3 minutos.`);
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
   };
 
   if (url === undefined) return <div className="panel"><p className="hint">Cargando…</p></div>;
@@ -149,6 +183,7 @@ export function StatsPanel() {
           <div><b>{view.a7}</b><span>activos en 7 días</span></div>
           <div><b>{view.a30}</b><span>activos en 30 días</span></div>
           <div><b>{view.dl30}</b><span>descargas en 30 días ({view.dlAll} en total)</span></div>
+          <div><b id="st-blocked">{view.nBlocked}</b><span>equipos bloqueados</span></div>
         </div>
         <Group title="Últimos 30 días" hint="Instalaciones nuevas (verde) y descargas (azul) por día. Pasa el mouse sobre una barra para ver el número.">
           <Bars days={view.days} values={view.installsByDay} color="#12b76a" />
@@ -165,25 +200,34 @@ export function StatsPanel() {
             </div>
           </Group>
         )}
-        <Group title={`Equipos (${view.rows.length})`} hint="Ordenados por último uso. Un mismo usuario puede tener varios equipos."
+        <Group title={`Equipos (${view.rows.length})`} hint="Ordenados por último uso. Un mismo usuario puede tener varios equipos. «Bloquear» cierra la app en ese equipo (o en todos los del usuario) en 1–3 minutos; «Eliminar» solo lo borra de la lista."
           actions={<button className="btn" onClick={csv} disabled={!view.rows.length}>Descargar Excel (CSV)</button>}>
           <div className="act-filters">
             <input className="input" placeholder="Buscar usuario, modelo, país…" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 300 }} aria-label="Buscar" />
             <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={onlyInactive} onChange={(e) => setOnlyInactive(e.target.checked)} /> Solo sin uso en 30 días</label>
+            <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" id="only-blocked" checked={onlyBlocked} onChange={(e) => setOnlyBlocked(e.target.checked)} /> Solo bloqueados</label>
           </div>
+          {msg && <Notice kind="ok">{msg}</Notice>}
           {view.rows.length === 0 ? <p className="hint">Todavía no hay equipos aquí.</p> : (
             <div style={{ overflowX: 'auto' }}>
               <table className="act-table">
-                <thead><tr><th>Usuario</th>{scope !== 'mine' && <th>App</th>}<th>Equipo</th><th>Versión</th><th>País</th><th>Instalada</th><th>Último uso</th><th></th></tr></thead>
-                <tbody>{view.rows.slice(0, 500).map((d) => (
-                  <tr key={d.id} className={view.now - d.last_seen > 30 * DAY ? 'expired' : ''}>
+                <thead><tr><th>Usuario</th>{scope !== 'mine' && <th>App</th>}<th>Equipo</th><th>Versión</th><th>País</th><th>Instalada</th><th>Último uso</th><th>Estado</th><th></th></tr></thead>
+                <tbody>{view.rows.slice(0, 500).map((d) => { const b = blockOf(d.id); return (
+                  <tr key={d.id} className={b ? 'blocked' : view.now - d.last_seen > 30 * DAY ? 'expired' : ''} data-dev={d.id}>
                     <td>{d.xuser || <span className="hint">sin iniciar sesión</span>}{d.host && <div className="hint">{d.host}</div>}</td>
                     {scope !== 'mine' && <td>{vName(d.app)}</td>}
-                    <td>{PLAT[d.platform] ?? d.platform}<div className="hint">{d.model}</div></td>
+                    <td>{PLAT[d.platform] ?? d.platform}<div className="hint">{d.model}</div><div className="hint mono">Código {deviceShortCode(d.id)}</div></td>
                     <td>{d.version}</td><td>{d.country}</td><td>{date(d.first_seen)}</td>
                     <td>{ago(d.last_seen, view.now)}<div className="hint">{d.opens} aperturas</div></td>
-                    <td><button className="link danger" onClick={() => void remove(d.id)}>Quitar</button></td>
-                  </tr>))}
+                    <td>{b ? <span className="status-blocked">⛔ Bloqueado{b === 'user' ? ' (usuario)' : ''}</span> : <span className="status-ok">Activo</span>}</td>
+                    <td><div className="row-actions">
+                      {b === 'device' && <button className="link" disabled={busy} onClick={() => void setBlock(d, 'device', false)}>Desbloquear</button>}
+                      {b === 'user' && <button className="link" disabled={busy} onClick={() => void setBlock(d, 'user', false)}>Desbloquear usuario</button>}
+                      {!b && <button className="link danger" disabled={busy || !keys[d.id]} onClick={() => void setBlock(d, 'device', true)}>Bloquear</button>}
+                      {!b && d.xuser && <button className="link danger" disabled={busy || !keys[d.id]} onClick={() => void setBlock(d, 'user', true)}>Bloquear usuario</button>}
+                      <button className="link" disabled={busy} onClick={() => void remove(d)}>Eliminar</button>
+                    </div></td>
+                  </tr>); })}
                 </tbody>
               </table>
               {view.rows.length > 500 && <p className="hint">Se muestran 500; descarga el Excel para verlos todos.</p>}

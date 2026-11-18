@@ -35,10 +35,17 @@ async function endpoint(st: Record<string, any>): Promise<string | null> {
   } catch { return typeof st.url === 'string' ? st.url || null : null; }
 }
 
+/** Código al azar de esta instalación (el mismo que se manda a Estadísticas). */
+export function installId(): string {
+  const st = read();
+  if (!st.id) { st.id = newId(); write(st); }
+  return st.id;
+}
+
 export async function reportStats(acc: Account | null, force = false): Promise<void> {
   try {
+    installId();
     const st = read();
-    if (!st.id) { st.id = newId(); write(st); }
     let host = '';
     try { host = acc?.host ? new URL(acc.host).host : acc?.m3u ? new URL(acc.m3u).host : ''; } catch { /* */ }
     const user = acc?.username || '';

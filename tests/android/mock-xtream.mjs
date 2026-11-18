@@ -76,6 +76,8 @@ function sendFile(req, res, file, type) {
 // «end» manda unos segundos y corta, «hang» responde pero nunca manda video.
 let stallNext = null;
 let vodFile = null;
+// Lista de equipos bloqueados (config/blocked.json del sitio). /__blocked?d=<huella>&u=<huella> la cambia; vacío = lista vacía.
+let blockedJson = null;
 const licenses = { v: 1, devices: {} };
 function liveTs(res) {
   const data = readFileSync(join(MEDIA, 'live.ts'));
@@ -107,6 +109,12 @@ createServer((req, res) => {
   if (u.pathname === '/cfg/stats.json') return json(JSON.stringify({ url: 'http://10.0.2.2:8788' }));
   if (u.pathname === '/licenses.json') return json(JSON.stringify(licenses));
   if (u.pathname === '/__license') { licenses.devices[u.searchParams.get('h')] = { exp: u.searchParams.get('exp') || null }; return json('{"ok":true}'); }
+  if (u.pathname === '/__blocked') {
+    const d = u.searchParams.get('d'), us = u.searchParams.get('u');
+    blockedJson = d || us ? JSON.stringify({ v: 1, devices: d ? { [d]: { at: 'x' } } : {}, users: us ? { [us]: { at: 'x' } } : {} }) : null;
+    return json('{"ok":true}');
+  }
+  if (u.pathname === '/blocked.json') return json(blockedJson ?? '{"v":1,"devices":{},"users":{}}');
   if (u.pathname === '/__vod') { vodFile = u.searchParams.get('file') || null; return json('{"ok":true}'); }
   if (u.pathname === '/__stall') { stallNext = u.searchParams.get('mode') || 'freeze'; return json('{"ok":true}'); }
   if (u.pathname === '/player_api.php') {

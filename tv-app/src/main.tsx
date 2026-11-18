@@ -1,4 +1,5 @@
-import { reportStats } from './stats';
+import { reportStats, installId } from './stats';
+import { checkDeviceBlock, shortCode, storedBlocked } from './device-block';
 import { syncAccount } from './account-sync';
 import { clientFor } from './m3u';
 import './polyfills';
@@ -18,7 +19,7 @@ import { Live } from './screens/Live';
 import { Library, MovieDetail, ShowDetail, Saga } from './screens/Library';
 import { Search, Favorites, Guide, Settings, Profiles } from './screens/Misc';
 import { Player } from './screens/Player';
-import { Splash, Login, Suspended } from './screens/Start';
+import { Splash, Login, Suspended, DeviceBlocked } from './screens/Start';
 import { Activation } from './screens/Activation';
 import { checkLicense, deviceCode, expiryWarning, licenseRequired, markWarned, type LicState } from './license';
 import { Season, seasonFor } from './season';
@@ -42,6 +43,16 @@ function App() {
   const [notice, setNotice] = useState<{ id: string; title: string; body: string } | null>(null);
   const [saver, setSaver] = useState(false);
   const [licWarn, setLicWarn] = useState<{ days: number; exp: string } | null>(null);
+  // Equipo bloqueado desde el panel: tapa toda la app (aunque esté viendo algo) hasta que lo desbloqueen.
+  const [devBlocked, setDevBlocked] = useState(storedBlocked);
+  useEffect(() => {
+    const check = () => { void checkDeviceBlock(store.account()).then((b) => { if (b !== null) setDevBlocked(b); }); };
+    const onShow = () => { if (!document.hidden) check(); };
+    check(); const i = setInterval(check, 2 * 60_000);
+    document.addEventListener('visibilitychange', onShow);
+    return () => { clearInterval(i); document.removeEventListener('visibilitychange', onShow); };
+  }, []);
+  useEffect(() => { if (devBlocked) setPlaying(null); }, [devBlocked]);
   const idle = useRef(Date.now());
   const route = stack[stack.length - 1];
 
@@ -200,7 +211,8 @@ function App() {
 
   const season = seasonFor(config.texts, !!profile.kids);
   let body: JSX.Element;
-  if (phase === 'splash') body = <Splash onDone={afterSplash} />;
+  if (devBlocked && phase !== 'splash') body = <DeviceBlocked code={shortCode(installId())} onRetry={() => { void checkDeviceBlock(store.account()).then((b) => { if (b !== null) setDevBlocked(b); }); }} />;
+  else if (phase === 'splash') body = <Splash onDone={afterSplash} />;
   else if (phase === 'activate') body = <Activation status={lic} onActive={continueStart} onTrial={continueStart} />;
   else if (phase === 'suspended') body = <Suspended />;
   else if (phase === 'login') body = <Login onLogged={() => { setClient(clientFor(store.account()!)); void reportStats(store.account()); syncFirst(() => setPhase(store.profiles().length > 1 ? 'profiles' : 'app')); }} />;

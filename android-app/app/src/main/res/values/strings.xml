@@ -499,4 +499,7 @@
     <string name="help_contact_seller">¿Necesitas ayuda? Contacta a tu vendedor.</string>
     <string name="sagas_empty">Todavía no hay sagas en tu lista de películas.</string>
     <string name="player_video_unsupported">Este equipo no puede reproducir el formato de este video (por ejemplo, algunos AVI con DivX o WMV). Ábrelo en otro reproductor como VLC.</string>
+    <string name="device_blocked_title">Este equipo fue bloqueado</string>
+    <string name="device_blocked_message">Tu proveedor bloqueó el uso de la app en este equipo. Si crees que es un error, comunícate con él y dale este código:</string>
+    <string name="device_blocked_retry">Revisar de nuevo</string>
 </resources>

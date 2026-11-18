@@ -1374,4 +1374,51 @@ class SmokeFlowTest {
             }
         } finally { com.embyverse.app.data.prefs.UiPrefs.setForceTv(app, false) }
     }
+
+    /** Bloqueo desde el panel (Estadísticas): por equipo y por usuario. Cierra el video, muestra el código y al desbloquear sigue todo igual. */
+    @Test fun zg_bloqueoDeEquipo() {
+        val c = app.container
+        val id = c.stats.installId
+        val dk = com.embyverse.app.data.repo.DeviceBlock.deviceKey(id)
+        val code = com.embyverse.app.data.repo.DeviceBlock.shortCode(id)
+        com.embyverse.app.data.repo.DeviceBlock.testUrl = "$base/blocked.json"
+        fun check() = runBlocking { com.embyverse.app.data.repo.DeviceBlock.check(app, c.okHttp, id, c.sources.sources.first()) }
+        try {
+            mock("/__blocked")
+            assertTrue("sin lista: no bloqueado", check() == false)
+            ActivityScenario.launch(MainActivity::class.java).use { sc ->
+                waitFor("inicio o perfiles", 30_000) { listOf("nav_settings", "profile").any { t -> compose.onAllNodesWithTag(t, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() } }
+                // Viendo un canal cuando lo bloquean: se cierra el video y queda la pantalla de bloqueo con su código.
+                val ch = runBlocking { c.database.channels().listForZapping(null).first() }
+                PlaybackProbe.reset()
+                sc.onActivity { a -> com.embyverse.app.player.PlayerActivity.start(a, com.embyverse.app.data.repo.ItemRef(com.embyverse.core.model.ContentKind.LIVE, ch.sourceId, ch.providerId)) }
+                compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 }
+                Thread.sleep(1_500)
+                mock("/__blocked?d=$dk")
+                assertTrue("con su huella en la lista: bloqueado", check() == true)
+                val closed = { androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED).none { it is com.embyverse.app.player.PlayerActivity } }
+                compose.waitUntil(10_000) { var ok = false; InstrumentationRegistry.getInstrumentation().runOnMainSync { ok = closed() }; ok }
+                log("Bloqueo: el video se cerró solo al bloquear el equipo")
+                waitTag("device_blocked", 15_000)
+                waitText(code, 5_000)
+                Thread.sleep(800); shot("50-equipo-bloqueado")
+                log("Bloqueo: pantalla «Este equipo fue bloqueado» con el código $code")
+                // Desbloqueado: «Revisar de nuevo» y vuelve la app tal cual (sin borrar cuentas).
+                mock("/__blocked")
+                compose.onNodeWithText(app.getString(R.string.device_blocked_retry), useUnmergedTree = true).performClick()
+                waitFor("app de vuelta", 20_000) { compose.onAllNodesWithTag("device_blocked", useUnmergedTree = true).fetchSemanticsNodes().isEmpty() &&
+                    listOf("nav_settings", "profile").any { t -> compose.onAllNodesWithTag(t, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() } }
+                assertTrue("al desbloquear conserva su cuenta", runBlocking { c.sources.sources.first() }.isNotEmpty())
+                log("Bloqueo: al desbloquear la app vuelve con su cuenta")
+            }
+            // Bloquear al usuario (todos sus equipos de esta app).
+            val src = runBlocking { c.sources.sources.first() }.let { l -> l.firstOrNull { it.type == "XTREAM" } ?: l.first() }
+            val host = java.net.URI(src.location).host
+            mock("/__blocked?u=${com.embyverse.app.data.repo.DeviceBlock.userKey(com.embyverse.app.BuildConfig.VENDOR, host, src.username.orEmpty())}")
+            assertTrue("usuario bloqueado: este equipo también", check() == true)
+            assertTrue("se recuerda sin internet", com.embyverse.app.data.repo.DeviceBlock.stored(app))
+            log("Bloqueo por usuario (${src.username}@$host): también bloquea este equipo")
+            mock("/__blocked"); check()
+        } finally { mock("/__blocked"); runCatching { check() }; com.embyverse.app.data.repo.DeviceBlock.testUrl = null }
+    }
 }
