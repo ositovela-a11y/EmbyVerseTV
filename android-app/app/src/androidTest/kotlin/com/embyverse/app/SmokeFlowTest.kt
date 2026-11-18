@@ -1261,13 +1261,15 @@ class SmokeFlowTest {
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     @Test fun ze_mandoSinFocoFireTv() {
         val c = app.container
-        val movie = runBlocking { c.database.movies().observeAll(1).first().first() }
+        // Episodio de 11 min (el video de prueba de películas dura 20 s y no deja adelantar 10 s varias veces).
+        val s = runBlocking { c.catalog.series(null, 40).first() }.first { ser -> runBlocking { c.sources.loadEpisodes(ser.sourceId, ser.providerId); c.database.episodes().forSeries(ser.sourceId, ser.providerId).isNotEmpty() } }
+        val ep = runBlocking { c.database.episodes().forSeries(s.sourceId, s.providerId) }.first()
         val inst = InstrumentationRegistry.getInstrumentation()
         com.embyverse.app.data.prefs.UiPrefs.setForceTv(app, true)
         mock("/__vod?file=long")
         try {
             PlaybackProbe.reset(); PlaybackProbe.focusRescues = 0
-            ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("MOVIE", movie.sourceId, movie.providerId, "restart")).use { sc ->
+            ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("EPISODE", ep.sourceId, ep.providerId, "restart")).use { sc ->
                 compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 }
                 Thread.sleep(2_000)
                 lateinit var vm: com.embyverse.app.player.PlayerViewModel
