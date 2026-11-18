@@ -1445,7 +1445,19 @@ class SmokeFlowTest {
                 assertTrue("con el decodificador de la app no debe salir el aviso", compose.onAllNodesWithTag("live_no_video", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
                 assertTrue("decodificador de la app: ${PlaybackProbe.videoDecoder}", PlaybackProbe.videoDecoder!!.contains("ffmpeg", ignoreCase = true))
                 shot("53-mpeg2-decodificador-de-la-app")
-                log("MPEG-2 sin decodificador del equipo: se VE con el de la app (${PlaybackProbe.videoDecoder}) · audio ${PlaybackProbe.audioDecoder}")
+                log("MPEG-2 sin decodificador del equipo: se VE con el de la app (${PlaybackProbe.videoDecoder}) y NO sale el aviso · audio ${PlaybackProbe.audioDecoder}")
+            }
+            // 3) Sin ningún decodificador (ni el de la app): sale el aviso; ATRÁS lo cierra y sigue en el canal.
+            PlaybackProbe.reset(); PlaybackProbe.hideMpeg2Decoder = true; PlaybackProbe.hideSoftwareVideo = true
+            if (PlaybackProbe.softwareVideo) ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("LIVE", ch.sourceId, ch.providerId)).use { sc ->
+                compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 }
+                waitTag("live_no_video", 20_000)
+                Thread.sleep(600); shot("54-mpeg2-sin-ningun-decodificador-aviso")
+                InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+                compose.waitUntil(5_000) { compose.onAllNodesWithTag("live_no_video", useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
+                Thread.sleep(1_500)
+                assertTrue("ATRÁS solo cierra el aviso: sigue en el canal", sc.state == androidx.lifecycle.Lifecycle.State.RESUMED)
+                log("MPEG-2 sin ningún decodificador: aviso tras unos segundos; ATRÁS lo cierra y se queda en el canal")
                 return
             }
             ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("LIVE", ch.sourceId, ch.providerId)).use {
@@ -1456,6 +1468,6 @@ class SmokeFlowTest {
                 Thread.sleep(800); shot("52-mpeg2-sin-decodificador-aviso")
                 log("MPEG-2 sin decodificador: aviso «se oye pero no se ve» con «Abrir en otro reproductor» · audio ${PlaybackProbe.audioDecoder}")
             }
-        } finally { mock("/__live"); PlaybackProbe.hideMpeg2Decoder = false }
+        } finally { mock("/__live"); PlaybackProbe.hideMpeg2Decoder = false; PlaybackProbe.hideSoftwareVideo = false }
     }
 }

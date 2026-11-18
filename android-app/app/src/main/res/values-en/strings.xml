@@ -503,5 +503,5 @@
     <string name="device_blocked_retry">Check again</string>
     <string name="player_live_no_video_title">This channel plays sound but no picture on this device</string>
     <string name="player_live_no_video_body">Its video is in %1$s format and this device cannot display it. Open it in another player (VLC or MX Player can play it).</string>
-    <string name="player_live_no_video_audio">Keep audio only</string>
+    <string name="player_live_no_video_audio">Stay on this channel</string>
 </resources>

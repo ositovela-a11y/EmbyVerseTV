@@ -90,6 +90,8 @@ private class WithSoftwareVideo(context: android.content.Context) : androidx.med
     ) {
         super.buildVideoRenderers(context, extensionRendererMode, mediaCodecSelector, enableDecoderFallback, eventHandler, eventListener, allowedVideoJoiningTimeMs, out)
         if (extensionRendererMode == EXTENSION_RENDERER_MODE_OFF) return
+        // Solo pruebas: equipo sin ningún decodificador de ese video (ni el de la app).
+        if (com.embyverse.app.BuildConfig.DEBUG && PlaybackProbe.hideSoftwareVideo) { out.removeAll { it.javaClass.name == FFMPEG_VIDEO }; return }
         if (out.any { it.javaClass.name == FFMPEG_VIDEO }) { PlaybackProbe.softwareVideo = true; return }
         runCatching {
             val r = Class.forName(FFMPEG_VIDEO)

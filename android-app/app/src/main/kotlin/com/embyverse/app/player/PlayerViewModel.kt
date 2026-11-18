@@ -72,6 +72,8 @@ object PlaybackProbe {
     @Volatile var hideMpeg2Decoder = false
     /** La app trae el decodificador de video por software (FFmpeg) y el reproductor lo tiene disponible. */
     @Volatile var softwareVideo = false
+    /** Solo pruebas: no usar el decodificador de video de la app. */
+    @Volatile var hideSoftwareVideo = false
     fun reset() { readyCount = 0; lastError = null; reconnects = 0; lastReconnectReason = null; lastAutoTrack = null; audioDecoder = null; audioUnsupported = false; videoDecoder = null; videoUnsupported = false }
 }
 
@@ -100,6 +102,10 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     @Volatile var upNextShowing = false
     /** Canal en vivo cuyo video este equipo no sabe mostrar (p. ej. MPEG-2 en muchos Fire TV y celulares): se oye pero no se ve. */
     val liveNoVideo = MutableStateFlow<String?>(null)
+    /** Ya se pintó al menos un cuadro de video de lo que se está viendo (entonces sí se ve, aunque el equipo diga otra cosa). */
+    @Volatile private var firstFrame = false
+    private var noVideoJob: Job? = null
+    fun dismissNoVideo() { noVideoJob?.cancel(); liveNoVideo.value = null }
     val channelListVisible = MutableStateFlow(false)
     /** Panel de opciones (audio, subtítulos, lista de canales). Se abre con OK en vivo o con MENÚ. */
     val optionsVisible = MutableStateFlow(false)
@@ -383,7 +389,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
 
     // ---------------------------------------------------------------- carga de contenido
     private suspend fun load(target: ItemRef, firstLoad: Boolean = false) {
-        error.value = null; buffering.value = true; nextEpisode.value = null; liveNoVideo.value = null
+        error.value = null; buffering.value = true; nextEpisode.value = null; liveNoVideo.value = null; firstFrame = false; noVideoJob?.cancel()
         val np = resolve(target)
         if (np == null) { error.value = PlayerUiError.Message(R.string.player_error_not_found); buffering.value = false; return }
         if (ref.kind == ContentKind.LIVE && np.ref.kind == ContentKind.LIVE && np.ref != ref) previousLive = ref
@@ -860,19 +866,32 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
             PlaybackProbe.audioUnsupported = audioUnsupported.value
             // Video que este equipo no sabe decodificar (p. ej. AVI con DivX 3 o WMV): aviso con «Abrir en otro reproductor».
             val videoGroups = tracks.groups.filter { it.type == C.TRACK_TYPE_VIDEO }
-            if (!isLive && videoGroups.isNotEmpty() && videoGroups.none { g -> (0 until g.length).any { g.isTrackSupported(it) } }) {
+            // «Puede» = el equipo o la app lo decodifican, aunque el equipo diga que excede su capacidad (igual se intenta y suele verse).
+            fun playable(g: Tracks.Group) = (0 until g.length).any { g.getTrackSupport(it) >= C.FORMAT_EXCEEDS_CAPABILITIES }
+            if (!isLive && videoGroups.isNotEmpty() && videoGroups.none(::playable) && !firstFrame) {
                 PlaybackProbe.videoUnsupported = true
                 PlaybackProbe.lastError = "VIDEO_SIN_DECODIFICADOR: " + videoGroups.joinToString { g -> g.getTrackFormat(0).sampleMimeType ?: g.getTrackFormat(0).codecs.orEmpty() }
                 buffering.value = false; player.value?.pause()
                 error.value = PlayerUiError.Message(R.string.player_video_unsupported, "VIDEO_UNSUPPORTED")
             }
-            // En vivo se deja el audio y se avisa con «Abrir en otro reproductor» (VLC, MX… sí traen MPEG-2).
-            val noVideo = isLive && videoGroups.isNotEmpty() && videoGroups.none { g -> (0 until g.length).any { g.isTrackSupported(it) } }
-            liveNoVideo.value = if (noVideo) codecName(videoGroups.firstNotNullOfOrNull { g -> g.getTrackFormat(0).sampleMimeType }) else null
-            if (noVideo) { PlaybackProbe.videoUnsupported = true; PlaybackProbe.lastError = "VIDEO_SIN_DECODIFICADOR_EN_VIVO: ${liveNoVideo.value}" }
+            // En vivo se deja el audio; el aviso «Abrir en otro reproductor» solo sale si a los 6 s de verdad no hay imagen.
+            val noVideo = isLive && videoGroups.isNotEmpty() && videoGroups.none(::playable)
+            noVideoJob?.cancel()
+            if (!noVideo) liveNoVideo.value = null
+            else if (!firstFrame) {
+                val codec = codecName(videoGroups.firstNotNullOfOrNull { g -> g.getTrackFormat(0).sampleMimeType })
+                noVideoJob = viewModelScope.launch {
+                    delay(6_000)
+                    if (!firstFrame) { liveNoVideo.value = codec; PlaybackProbe.videoUnsupported = true; PlaybackProbe.lastError = "VIDEO_SIN_DECODIFICADOR_EN_VIVO: $codec" }
+                }
+            }
             if (audioUnsupported.value) PlaybackProbe.lastError = "AUDIO_SIN_DECODIFICADOR: " + audioGroups.joinToString { g -> g.getTrackFormat(0).sampleMimeType.orEmpty() }
         }
         override fun onTrackSelectionParametersChanged(parameters: androidx.media3.common.TrackSelectionParameters) { refreshTracks() }
+        override fun onRenderedFirstFrame() {
+            // Hay imagen: nunca se muestra (o se quita) el aviso de «se oye pero no se ve».
+            firstFrame = true; noVideoJob?.cancel(); liveNoVideo.value = null
+        }
         override fun onPlaybackStateChanged(state: Int) {
             buffering.value = state == Player.STATE_BUFFERING || state == Player.STATE_IDLE && error.value == null
             if (state == Player.STATE_READY) { retries = 0; error.value = null; PlaybackProbe.readyCount++

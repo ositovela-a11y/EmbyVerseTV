@@ -504,5 +504,5 @@
     <string name="device_blocked_retry">Revisar de nuevo</string>
     <string name="player_live_no_video_title">Este canal se oye pero no se ve en este equipo</string>
     <string name="player_live_no_video_body">Su video viene en formato %1$s y este equipo no trae cómo mostrarlo. Ábrelo en otro reproductor (VLC o MX Player lo reproducen).</string>
-    <string name="player_live_no_video_audio">Seguir solo con audio</string>
+    <string name="player_live_no_video_audio">Quedarme en el canal</string>
 </resources>

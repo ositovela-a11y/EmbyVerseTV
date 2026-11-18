@@ -260,8 +260,9 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
 
         // Canal en vivo que se oye pero no se ve en este equipo (p. ej. MPEG-2): aviso con «Abrir en otro reproductor».
         val noVideo by vm.liveNoVideo.collectAsStateWithLifecycle()
-        var noVideoClosed by androidx.compose.runtime.remember(np?.ref) { androidx.compose.runtime.mutableStateOf(false) }
-        if (noVideo != null && !noVideoClosed && error == null && !listVisible && !optionsVisible) {
+        if (noVideo != null && error == null && !listVisible && !optionsVisible) {
+            // ATRÁS cierra el aviso y se queda en el canal (no sale del reproductor).
+            BackHandler { vm.dismissNoVideo() }
             val f = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
             LaunchedEffect(noVideo) { kotlinx.coroutines.delay(200); runCatching { f.requestFocus() } }
             Column(Modifier.align(Alignment.Center).widthIn(max = 520.dp).padding(24.dp)
@@ -274,7 +275,8 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     EmbyButton(stringResource(R.string.player_open_external), { vm.openExternal() }, icon = Icons.Rounded.SkipNext,
                         modifier = Modifier.focusRequester(f).testTag("live_no_video_external"))
-                    EmbyButton(stringResource(R.string.player_live_no_video_audio), { noVideoClosed = true }, secondary = true)
+                    EmbyButton(stringResource(R.string.player_live_no_video_audio), { vm.dismissNoVideo() }, secondary = true,
+                        modifier = Modifier.testTag("live_no_video_stay"))
                 }
             }
         }
