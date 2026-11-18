@@ -1278,7 +1278,9 @@ class SmokeFlowTest {
                 fun focusInVideo(): Boolean { var ok = false; sc.onActivity { a -> var f: android.view.View? = a.currentFocus; val v = vm.playerView?.get()
                     while (f != null) { if (f === v) { ok = true; break }; f = f.parent as? android.view.View } }; return ok }
                 /** Como en el Fire TV: nada de la pantalla tiene el foco y los controles están ocultos. */
-                fun sinFoco() { sc.onActivity { a -> vm.playerView?.get()?.hideController(); a.currentFocus?.clearFocus(); a.window.decorView.clearFocus() }; Thread.sleep(700)
+                // Un Fire TV nunca está en «modo táctil» (las otras pruebas tocan la pantalla y lo dejan activo).
+                fun sinFoco() { inst.setInTouchMode(false); Thread.sleep(200)
+                    sc.onActivity { a -> vm.playerView?.get()?.hideController(); a.currentFocus?.clearFocus(); a.window.decorView.clearFocus() }; Thread.sleep(700)
                     log("Mando: foco antes de la tecla → ${focusDesc()}") }
                 log("Mando: al abrir la película el foco está en ${focusDesc()}")
 
@@ -1296,7 +1298,8 @@ class SmokeFlowTest {
 
                 sinFoco(); p0 = pos()
                 inst.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_RIGHT)
-                compose.waitUntil(5_000) { pos() >= p0 + 8_000 && vm.controlsVisible.value }
+                try { compose.waitUntil(5_000) { pos() >= p0 + 8_000 && vm.controlsVisible.value } }
+                catch (e: ComposeTimeoutException) { shot("fallo-mando"); fail("▶ sin foco: posición ${p0 / 1000}s → ${pos() / 1000}s, controles=${vm.controlsVisible.value}, última tecla ${PlaybackProbe.lastKey}, foco ${focusDesc()}") }
                 Thread.sleep(600)
                 compose.waitUntil(5_000) { focusInVideo() }
                 log("Mando sin foco: ▶ adelanta 10 s y muestra los controles con el foco en ${focusDesc()}")
