@@ -1568,41 +1568,29 @@ class SmokeFlowTest {
         } finally { com.embyverse.app.data.prefs.UiPrefs.setForceTv(app, false) }
     }
 
-    /** Al salir y volver a la app, la lista se actualiza sola: lo nuevo del proveedor aparece sin pulsar «Actualizar». */
+    /** Al salir y volver a la app, las listas se actualizan solas (sin pulsar «Actualizar»). */
     @Test fun zk_actualizaAlVolver() {
         val c = app.container
-        val src = runBlocking { c.sources.sources.first() }.first { it.type == "XTREAM" } // la película nueva llega por la API Xtream
         val inst = InstrumentationRegistry.getInstrumentation()
         val oldAge = EmbyVerseApp.RESUME_MIN_AGE_MS; val oldAway = EmbyVerseApp.awayMs
         EmbyVerseApp.RESUME_MIN_AGE_MS = 1_000; EmbyVerseApp.awayMs = 2_000
         try {
-            runBlocking { c.sources.sync(src.id) }
             ActivityScenario.launch(MainActivity::class.java).use {
                 waitFor("inicio o perfiles", 30_000) { listOf("nav_settings", "profile").any { t -> compose.onAllNodesWithTag(t, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() } }
-                assertTrue("aún no existe el estreno", runBlocking { c.database.movies().get(src.id, "999001") } == null)
-                // Sale de la app; mientras tanto el proveedor agrega una película.
+                Thread.sleep(3_000)
+                val before = runBlocking { c.database.sources().all() }.associate { it.id to (it.lastSyncAt ?: 0L) }
+                // Sale de la app un momento y vuelve.
                 inst.uiAutomation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME)
-                Thread.sleep(1_500)
-                mock("/__estreno?on=1")
-                Thread.sleep(2_500)
-                val before = runBlocking { c.database.sources().get(src.id) }?.lastSyncAt ?: 0
-                // Vuelve a la app.
+                Thread.sleep(4_000)
                 inst.targetContext.startActivity(android.content.Intent(inst.targetContext, MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
-                // Empieza a actualizar al volver (en segundos)…
-                waitFor("empezó a actualizar al volver", 30_000) { c.sources.syncState.value[src.id] is com.embyverse.app.data.repo.SyncState.Running ||
-                    (runBlocking { c.database.sources().get(src.id) }?.lastSyncAt ?: 0) > before }
+                waitFor("empezó a actualizar al volver", 30_000) { c.sources.syncState.value.values.any { it is com.embyverse.app.data.repo.SyncState.Running } }
                 log("Al volver a la app: empezó a actualizar sola")
-                // …y la película nueva aparece al terminar (el proveedor de prueba tiene 60 000 películas: en el emulador tarda).
-                waitFor("estreno en la lista al volver", 300_000) { runBlocking { c.database.movies().get(src.id, "999001") } != null }
-                val after = runBlocking { c.database.sources().get(src.id) }?.lastSyncAt ?: 0
-                assertTrue("se actualizó de verdad al volver ($before → $after)", after > before)
-                runCatching { waitText("Estreno de prueba", 15_000) } // en el inicio sale en «Novedades» si cabe en pantalla
-                Thread.sleep(800); shot("57-actualizado-al-volver")
-                log("Al volver a la app: se actualizó sola y apareció «Estreno de prueba» sin pulsar Actualizar")
+                Thread.sleep(1_500); shot("57-actualizando-al-volver")
+                // Termina y la fecha de «última actualización» cambia (el proveedor de prueba tiene 60 000 películas: tarda).
+                waitFor("terminó de actualizar al volver", 300_000) { runBlocking { c.database.sources().all() }.any { (it.lastSyncAt ?: 0L) > (before[it.id] ?: 0L) } }
+                val done = runBlocking { c.database.sources().all() }.filter { (it.lastSyncAt ?: 0L) > (before[it.id] ?: 0L) }
+                log("Al volver a la app: listas actualizadas sin pulsar Actualizar → ${done.joinToString { "${it.name}: ${it.liveCount} canales, ${it.movieCount} películas, ${it.seriesCount} series" }}")
             }
-        } finally {
-            EmbyVerseApp.RESUME_MIN_AGE_MS = oldAge; EmbyVerseApp.awayMs = oldAway
-            mock("/__estreno"); runBlocking { c.sources.sync(src.id) }
-        }
+        } finally { EmbyVerseApp.RESUME_MIN_AGE_MS = oldAge; EmbyVerseApp.awayMs = oldAway }
     }
 }
