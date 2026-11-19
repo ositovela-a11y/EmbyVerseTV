@@ -36,7 +36,9 @@ jobs:
           cp docs/RECUPERACION.md out/RECUPERACION.md
       - name: Apps publicadas
         run: |
-          for t in apk-latest tv-latest ffmpeg-media3-1.11.1-video ffmpeg-media3-1.11.1; do gh release download "$t" -R "$REPO" -D out --clobber 2>/dev/null || echo "::warning::sin $t"; done
+          for t in apk-latest tv-latest; do gh release download "$t" -R "$REPO" -D out --clobber 2>/dev/null || echo "::warning::sin $t"; done
+          # Los dos decodificadores FFmpeg se llaman igual: cada uno con su nombre.
+          for t in ffmpeg-media3-1.11.1-video ffmpeg-media3-1.11.1; do mkdir -p "tmp-$t" && gh release download "$t" -R "$REPO" -D "tmp-$t" --clobber 2>/dev/null && mv "tmp-$t/lib-decoder-ffmpeg-release.aar" "out/$t.aar" || echo "::warning::sin $t"; done
           gh release download pc-latest -R "$REPO" -D out -p '*-PC-Instalador.exe' --clobber || echo "::warning::sin pc-latest"
           ls -la out
       - name: Base de datos (cifrada)
