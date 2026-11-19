@@ -79,7 +79,7 @@ let vodFile = null;
 // Lista de equipos bloqueados (config/blocked.json del sitio). /__blocked?d=<huella>&u=<huella> la cambia; vacío = lista vacía.
 let blockedJson = null;
 // Cuántas veces se pidió cada acción de la API (/__hits): para comprobar que la app de verdad volvió a descargar.
-const hits = {};
+const apiHits = {};
 const licenses = { v: 1, devices: {} };
 // /__live?file=mpeg2 → los canales en vivo mandan video MPEG-2 entrelazado (720x480i, como muchos canales de TV).
 let liveFile = null;
@@ -115,7 +115,7 @@ createServer((req, res) => {
   if (u.pathname === '/__license') { licenses.devices[u.searchParams.get('h')] = { exp: u.searchParams.get('exp') || null }; return json('{"ok":true}'); }
   if (u.pathname === '/mpeg2seg.ts') { res.writeHead(200, { 'content-type': 'video/mp2t' }); return res.end(readFileSync(join(MEDIA, 'mpeg2.ts'))); }
   // El proveedor agrega una película nueva (/__estreno?on=1) o la quita (/__estreno): para probar que la app se actualiza sola.
-  if (u.pathname === '/__hits') return json(JSON.stringify(hits));
+  if (u.pathname === '/__hits') return json(JSON.stringify(apiHits));
   if (u.pathname === '/__estreno') {
     const i = vod.findIndex((v) => v.stream_id === 999001); if (i >= 0) vod.splice(i, 1);
     if (u.searchParams.get('on')) vod.unshift({ num: 0, name: 'Estreno de prueba', stream_type: 'movie', stream_id: 999001, stream_icon: 'http://HOST/img/m1.png',
@@ -134,7 +134,7 @@ createServer((req, res) => {
   if (u.pathname === '/player_api.php') {
     if (u.searchParams.get('username') !== USER || u.searchParams.get('password') !== PASS) return json('{"user_info":{"auth":0}}');
     const a = u.searchParams.get('action');
-    hits[a ?? 'login'] = (hits[a ?? 'login'] ?? 0) + 1;
+    apiHits[a ?? 'login'] = (apiHits[a ?? 'login'] ?? 0) + 1;
     if (!a) return json(JSON.stringify({ user_info: { username: USER, auth: 1, status: 'Active', exp_date: String(now + 86400 * 90), max_connections: '1', active_cons: '0', allowed_output_formats: ['m3u8', 'ts', 'rtmp'] }, server_info: { timezone: 'America/Mexico_City' } }));
     switch (a) {
       case 'get_live_categories': return json(body('lc', () => liveCats, host));
