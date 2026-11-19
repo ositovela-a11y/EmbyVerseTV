@@ -79,6 +79,28 @@ const fail = (m) => { console.error('FALLA: ' + m); process.exitCode = 1; };
     if (lgErrs.length) { console.log('LG errores:\n' + lgErrs.join('\n')); fail('LG: errores de JavaScript'); }
     void n1; await ctx.close();
   }
+  // Autorización del dueño: cuenta de un servidor no autorizado y app apagada desde el panel.
+  for (const [name, texts, title] of [
+    ['15-servidor-no-autorizado', { 'auth.only': '1', 'provider.host': 'https://solo.este.test' }, 'Servidor no autorizado'],
+    ['16-app-apagada', { 'app.disabled': '1' }, 'no está disponible'],
+  ]) {
+    const ctx = await b.newContext({ viewport: { width: 1920, height: 1080 } });
+    await ctx.route('**/none.json*', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ version: 9, texts }) }));
+    await ctx.addInitScript(() => localStorage.setItem('ev.account', JSON.stringify({ host: 'http://127.0.0.1:8800', username: 'user', password: 'pass' })));
+    const ap = await ctx.newPage();
+    await ap.goto('http://localhost:8090/index.html');
+    const ok = await ap.waitForSelector('#app-locked', { timeout: 25000 }).then(() => true).catch(() => false);
+    const txt = ok ? await ap.textContent('#app-locked') : '';
+    await ap.waitForTimeout(600); await ap.screenshot({ path: `${out}/${name}.png` });
+    if (!ok || !txt.includes(title)) fail(`autorización: no apareció «${title}»`); else console.log(`Autorización: «${title}» (bien)`);
+    if (name.startsWith('15')) {
+      // Quitar la cuenta lleva a iniciar sesión, y ahí el servidor tampoco se acepta.
+      await ap.evaluate(() => document.querySelector('#app-locked .btn')?.click());
+      const login = await ap.waitForSelector('#f-user', { timeout: 10000 }).then(() => true).catch(() => false);
+      if (!login) fail('autorización: no regresó a iniciar sesión'); else console.log('Autorización: quitar la cuenta → iniciar sesión (bien)');
+    }
+    await ctx.close();
+  }
   if (errs.length) { console.log('Errores de JavaScript:\n' + errs.slice(0, 10).join('\n')); fail('hubo errores de JavaScript'); }
   await b.close();
   console.log(process.exitCode ? 'RESULTADO: con fallas' : 'RESULTADO: todo bien');

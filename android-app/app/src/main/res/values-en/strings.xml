@@ -504,4 +504,12 @@
     <string name="player_live_no_video_title">This channel plays sound but no picture on this device</string>
     <string name="player_live_no_video_body">Its video is in %1$s format and this device cannot display it. Open it in another player (VLC or MX Player can play it).</string>
     <string name="player_live_no_video_audio">Stay on this channel</string>
+    <string name="auth_tampered_title">This copy of the app is not original</string>
+    <string name="auth_tampered_body">This app was modified and cannot be used. Get the original app from your provider.</string>
+    <string name="auth_disabled_title">This app is not available</string>
+    <string name="auth_disabled_body">The app was disabled by its provider. Contact them for more information.</string>
+    <string name="auth_server_title">Server not authorized</string>
+    <string name="auth_server_body">This app only works with its provider accounts. The saved account or list is from another server.</string>
+    <string name="auth_server_action">Remove that account and sign in with another</string>
+    <string name="auth_server_login">This app only works with its provider accounts. That server or list is not authorized.</string>
 </resources>

@@ -280,6 +280,10 @@ class SourceEditViewModel(private val c: AppContainer, private val id: String?) 
 
     fun save(missing: String, done: () -> Unit) {
         val d = draft() ?: run { test.value = TestState.Error(missing); return }
+        // Solo servidores autorizados por el dueño de la app (panel: «Servidores autorizados»).
+        if (!com.embyverse.app.data.repo.AppAuth.allowed(c.config.config.value, d.location.takeIf { d.type != SourceType.M3U_FILE })) {
+            test.value = TestState.Error(c.app.getString(R.string.auth_server_login)); return
+        }
         saving.value = true
         viewModelScope.launch {
             // Cuentas Xtream: se verifica usuario y contraseña ANTES de guardar, para no dejar al cliente

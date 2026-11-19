@@ -227,7 +227,16 @@ class MainActivity : AppCompatActivity() {
                                 kotlinx.coroutines.delay(2 * 60_000L)
                             }
                         }
+                        // Autorización del dueño: copia alterada, app apagada a distancia o cuentas de servidores no autorizados.
+                        val genuine = androidx.compose.runtime.remember { com.embyverse.app.data.repo.AppAuth.genuine(this@MainActivity) }
+                        val unauthorized = srcList.orEmpty().filter { !com.embyverse.app.data.repo.AppAuth.allowed(config, it.location.takeIf { _ -> it.type != "M3U_FILE" }) }
                         when {
+                            !genuine -> com.embyverse.app.ui.components.AppLockedScreen(config, androidx.compose.ui.res.stringResource(R.string.auth_tampered_title), androidx.compose.ui.res.stringResource(R.string.auth_tampered_body))
+                            com.embyverse.app.data.repo.AppAuth.disabled(config) -> com.embyverse.app.ui.components.AppLockedScreen(config, androidx.compose.ui.res.stringResource(R.string.auth_disabled_title), androidx.compose.ui.res.stringResource(R.string.auth_disabled_body))
+                            unauthorized.isNotEmpty() -> com.embyverse.app.ui.components.AppLockedScreen(config, androidx.compose.ui.res.stringResource(R.string.auth_server_title), androidx.compose.ui.res.stringResource(R.string.auth_server_body),
+                                androidx.compose.ui.res.stringResource(R.string.auth_server_action)) {
+                                lifecycleScope.launch { unauthorized.forEach { s -> runCatching { container.sources.delete(s.id) } } }
+                            }
                             devBlocked == true -> com.embyverse.app.ui.components.DeviceBlockedScreen(config, com.embyverse.app.data.repo.DeviceBlock.shortCode(container.stats.installId)) {
                                 lifecycleScope.launch { com.embyverse.app.data.repo.DeviceBlock.check(this@MainActivity, container.okHttp, container.stats.installId, srcList.orEmpty()) }
                             }

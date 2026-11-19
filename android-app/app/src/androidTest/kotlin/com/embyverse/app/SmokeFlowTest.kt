@@ -1593,4 +1593,57 @@ class SmokeFlowTest {
             }
         } finally { EmbyVerseApp.RESUME_MIN_AGE_MS = oldAge; EmbyVerseApp.awayMs = oldAway }
     }
+
+    /** Autorización del dueño: solo servidores autorizados, apagado a distancia y app original. */
+    @Test fun zl_autorizacion() {
+        val c = app.container
+        val cfg0 = c.config.config.value
+        val A = com.embyverse.app.data.repo.AppAuth
+        // La app de prueba (firmada con la firma del proyecto) se reconoce como original.
+        assertTrue("la app original pasa la revisión de firma", A.genuine(app))
+        assertTrue("la huella de firma va dentro de la app", com.embyverse.app.BuildConfig.SIGNING_SHA256.length == 64)
+        val srcHost = runBlocking { c.sources.sources.first() }.filter { it.type != "M3U_FILE" }.mapNotNull { A.hostOf(it.location) }.distinct()
+        log("Autorización: firma original OK · servidores de las cuentas de prueba: $srcHost")
+        fun cfg(vararg t: Pair<String, String>) = cfg0.copy(texts = cfg0.texts - "provider.askHost" - "auth.hosts" - "auth.only" - "app.disabled" + ("auth.only" to "1") + t.toMap())
+        // Reglas (dirección del proveedor, subdominios, otros servidores, archivos sueltos).
+        val k = cfg("provider.host" to "https://mi.proveedor.com:443", "auth.hosts" to "otro.tv, extra.net")
+        assertTrue(A.allowed(k, "https://mi.proveedor.com:8080")); assertTrue(A.allowed(k, "http://cdn.mi.proveedor.com/lista.m3u"))
+        assertTrue(A.allowed(k, "http://otro.tv/get.php?username=a")); assertTrue(!A.allowed(k, "http://pirata.com"))
+        assertTrue("archivo M3U suelto no autorizado", !A.allowed(k, null))
+        assertTrue("sin encender «auth.only» se permite todo", A.allowed(cfg("provider.host" to "https://mi.proveedor.com", "auth.only" to "0"), "http://pirata.com"))
+        assertTrue("apagado por defecto", A.allowed(cfg0.copy(texts = cfg0.texts - "auth.only" + ("provider.host" to "https://mi.proveedor.com")), "http://pirata.com"))
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use {
+                waitFor("inicio o perfiles", 30_000) { listOf("nav_settings", "profile").any { t -> compose.onAllNodesWithTag(t, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() } }
+                // 1) El proveedor es otro servidor: las cuentas guardadas quedan bloqueadas.
+                InstrumentationRegistry.getInstrumentation().runOnMainSync { c.config.overrideForTest(cfg("provider.host" to "https://servidor.autorizado.test")) }
+                waitTag("app_locked", 15_000); waitText(app.getString(R.string.auth_server_title), 5_000)
+                Thread.sleep(600); shot("58-servidor-no-autorizado")
+                log("Autorización: cuenta de un servidor no autorizado → pantalla «Servidor no autorizado»")
+                // 2) El dueño agrega ese servidor en «otros servidores autorizados»: vuelve a funcionar.
+                InstrumentationRegistry.getInstrumentation().runOnMainSync { c.config.overrideForTest(cfg("provider.host" to "https://servidor.autorizado.test", "auth.hosts" to srcHost.joinToString(","))) }
+                waitFor("app de vuelta", 15_000) { compose.onAllNodesWithTag("app_locked", useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
+                log("Autorización: al autorizar el servidor en el panel, la app vuelve a funcionar")
+                // 3) Apagado a distancia.
+                InstrumentationRegistry.getInstrumentation().runOnMainSync { c.config.overrideForTest(cfg("app.disabled" to "1", "provider.askHost" to "1")) }
+                waitTag("app_locked", 15_000); waitText(app.getString(R.string.auth_disabled_title), 5_000)
+                Thread.sleep(600); shot("59-app-apagada")
+                log("Autorización: app apagada desde el panel → «Esta app no está disponible»")
+                InstrumentationRegistry.getInstrumentation().runOnMainSync { c.config.overrideForTest(cfg0) }
+                waitFor("app encendida otra vez", 15_000) { compose.onAllNodesWithTag("app_locked", useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
+            }
+            // 4) Al iniciar sesión con un servidor no autorizado, no se guarda la cuenta.
+            val before = runBlocking { c.sources.sources.first() }.size
+            InstrumentationRegistry.getInstrumentation().runOnMainSync { c.config.overrideForTest(cfg("provider.askHost" to "1", "auth.hosts" to "solo.este.test")) }
+            val vm = com.embyverse.app.ui.screens.sources.SourceEditViewModel(c, null)
+            vm.form.value = vm.form.value.copy(type = com.embyverse.core.model.SourceType.XTREAM, server = "http://10.0.2.2:8800", username = "user", password = "pass")
+            var done = false
+            InstrumentationRegistry.getInstrumentation().runOnMainSync { vm.save("falta") { done = true } }
+            Thread.sleep(1_500)
+            val err = (vm.test.value as? com.embyverse.app.ui.screens.sources.TestState.Error)?.message
+            assertTrue("no debía guardarse: $err", !done && runBlocking { c.sources.sources.first() }.size == before)
+            assertTrue("mensaje de servidor no autorizado: $err", err == app.getString(R.string.auth_server_login))
+            log("Autorización: iniciar sesión con otro servidor → «$err»")
+        } finally { InstrumentationRegistry.getInstrumentation().runOnMainSync { c.config.overrideForTest(cfg0) } }
+    }
 }

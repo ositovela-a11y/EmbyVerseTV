@@ -22,6 +22,7 @@ jobs:
           npm install --no-audit --no-fund
           node build.mjs --package
           ls -la dist-pkg
+          for t in tests/*.test.mjs; do node "$t" || exit 1; done
       - name: Prueba en navegador (proveedor simulado)
         run: |
           npm i --no-save --prefix /tmp/pw playwright@1.48.2 >/dev/null && (cd /tmp/pw && npx playwright install --with-deps chrome >/dev/null)

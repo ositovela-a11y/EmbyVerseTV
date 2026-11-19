@@ -19,6 +19,16 @@ val configBaseUrl = prop("embyverse.configUrl") ?: ""
 val defaultHost = prop("embyverse.host") ?: "https://krnosmx.com:443"
 // App de un vendedor: identificador propio para que conviva con las demás en el mismo equipo.
 // Ejemplo: -Pembyverse.vendor=juan → com.embyverse.app.v.juan
+// Huella (SHA-256) del certificado con el que se firman las APK: la app la compara al abrir y no arranca si alguien
+// la volvió a firmar con otra clave (copia alterada). Se calcula del almacén de claves que se usa para firmar.
+fun signingSha256(): String = runCatching {
+    val kp = Properties().apply { rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) } }
+    val (file, pass, alias) = if (!kp.getProperty("storeFile").isNullOrBlank())
+        Triple(rootProject.file(kp.getProperty("storeFile")), kp.getProperty("storePassword"), kp.getProperty("keyAlias"))
+    else Triple(file("embyverse-debug.keystore"), "android", "androiddebugkey")
+    val ks = java.security.KeyStore.getInstance(java.security.KeyStore.getDefaultType()).apply { file.inputStream().use { load(it, pass.toCharArray()) } }
+    java.security.MessageDigest.getInstance("SHA-256").digest(ks.getCertificate(alias).encoded).joinToString("") { "%02x".format(it) }
+}.getOrDefault("")
 val vendor = (prop("embyverse.vendor") ?: "").lowercase().filter { it.isLetterOrDigit() }.takeIf { it.isNotEmpty() && it[0].isLetter() }
 
 // Firma de producción: el propietario crea su keystore y keystore.properties (NO se versiona).
@@ -35,13 +45,14 @@ android {
         applicationId = if (vendor != null) "com.embyverse.app.v.$vendor" else "com.embyverse.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 44
-        versionName = "1.15.17"
+        versionCode = 45
+        versionName = "1.15.18"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testProguardFiles("test-proguard-rules.pro")
         buildConfigField("String", "CONFIG_BASE_URL", "\"${configBaseUrl.replace("\"", "")}\"")
         buildConfigField("String", "VENDOR", "\"${vendor ?: ""}\"")
         buildConfigField("String", "DEFAULT_HOST", "\"${defaultHost.replace("\"", "")}\"")
+        buildConfigField("String", "SIGNING_SHA256", "\"${signingSha256()}\"")
         vectorDrawables.useSupportLibrary = true
     }
 

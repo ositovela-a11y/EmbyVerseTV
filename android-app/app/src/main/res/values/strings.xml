@@ -505,4 +505,12 @@
     <string name="player_live_no_video_title">Este canal se oye pero no se ve en este equipo</string>
     <string name="player_live_no_video_body">Su video viene en formato %1$s y este equipo no trae cómo mostrarlo. Ábrelo en otro reproductor (VLC o MX Player lo reproducen).</string>
     <string name="player_live_no_video_audio">Quedarme en el canal</string>
+    <string name="auth_tampered_title">Esta copia de la app no es original</string>
+    <string name="auth_tampered_body">Esta app fue modificada y no puede usarse. Descarga la app original con tu proveedor.</string>
+    <string name="auth_disabled_title">Esta app no está disponible</string>
+    <string name="auth_disabled_body">La app fue desactivada por su proveedor. Comunícate con él para más información.</string>
+    <string name="auth_server_title">Servidor no autorizado</string>
+    <string name="auth_server_body">Esta app solo funciona con las cuentas de su proveedor. La cuenta o lista que tienes guardada es de otro servidor.</string>
+    <string name="auth_server_action">Quitar esa cuenta y entrar con otra</string>
+    <string name="auth_server_login">Esta app solo funciona con las cuentas de su proveedor. Ese servidor o lista no está autorizado.</string>
 </resources>

@@ -288,7 +288,8 @@ export const githubApi = {
     return v;
   },
   /** Cómo se ve hoy una app (para el editor rápido de tema y logotipo). */
-  async appLook(slug: string): Promise<{ logo: string | null; style: string; colors: { primary: string; accent: string; background: string }; themeId: string | null; otherServer: boolean; m3u: boolean }> {
+  async appLook(slug: string): Promise<{ logo: string | null; style: string; colors: { primary: string; accent: string; background: string }; themeId: string | null; otherServer: boolean; m3u: boolean;
+    authOnly: boolean; authHosts: string; disabled: boolean; providerHost: string }> {
     const r = await readConfig(GH.branch, cfgPath(slug));
     if (!r) throw new ApiError(404, 'github', 'No se encontró el diseño de esa app.');
     const c = r.config; const p = c.theme.palette as unknown as Record<string, string>;
@@ -297,7 +298,10 @@ export const githubApi = {
     const themeName = (c as unknown as { themes?: { id?: string; name?: string }[] }).themes?.find((t) => t.id === 'vendor')?.name;
     const th = VENDOR_THEMES.find((t) => t.name === themeName) ?? VENDOR_THEMES.find((t) => t.style === style && t.palette.primary === p.primary) ?? VENDOR_THEMES.find((t) => t.style === style) ?? null;
     return { logo, style, colors: { primary: p.primary!, accent: p.accent!, background: p.background! }, themeId: th?.id ?? null,
-      otherServer: c.texts?.['login.otherServer'] === '1', m3u: c.texts?.['login.m3u'] !== '0' };
+      otherServer: c.texts?.['login.otherServer'] === '1', m3u: c.texts?.['login.m3u'] !== '0',
+      // Autorización: solo servidores autorizados (encendido salvo "0"), otros servidores permitidos y apagado a distancia.
+      authOnly: c.texts?.['auth.only'] === '1', authHosts: (c.texts?.['auth.hosts'] ?? '').split(/[\s,;]+/).filter(Boolean).join('\n'),
+      disabled: c.texts?.['app.disabled'] === '1', providerHost: c.texts?.['provider.host'] ?? '' };
   },
   /**
    * Cambia el tema (colores, fondo, letra, bordes, botones y distribución), los colores y/o el logotipo de

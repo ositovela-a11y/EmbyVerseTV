@@ -77,6 +77,26 @@ export function providerHost(cfg: RemoteConfig): string | null {
   return (cfg.texts['provider.host'] ?? '').trim() || EV.host || __DEFAULT_HOST__;
 }
 
+/**
+ * Autorización del dueño (igual que en Android): «auth.only» = "1" (lo enciende el dueño en el panel) = solo servidores autorizados:
+ * el del proveedor y los de «auth.hosts»; «app.disabled» = "1" apaga la app a distancia.
+ */
+export function hostOf(u: string | null | undefined): string | null {
+  const s = (u ?? '').trim(); if (!s || s.startsWith('file:')) return null;
+  try { return new URL(s.includes('://') ? s : `http://${s}`).hostname.toLowerCase().replace(/^www\./, '') || null; } catch { return null; }
+}
+export function authHosts(cfg: RemoteConfig): string[] {
+  const list = [providerHost(cfg) ?? '', ...(cfg.texts['auth.hosts'] ?? '').split(/[\s,;]+/)];
+  return [...new Set(list.map(hostOf).filter((h): h is string => !!h))];
+}
+export function authEnforced(cfg: RemoteConfig): boolean { return (cfg.texts['auth.only'] ?? '').trim() === '1' && authHosts(cfg).length > 0; }
+export function authAllowed(cfg: RemoteConfig, location: string | null | undefined): boolean {
+  if (!authEnforced(cfg)) return true;
+  const h = hostOf(location); if (!h) return false;
+  return authHosts(cfg).some((a) => h === a || h.endsWith('.' + a));
+}
+export function appDisabled(cfg: RemoteConfig): boolean { return (cfg.texts['app.disabled'] ?? '').trim() === '1'; }
+
 /** Suspensión remota (huella SHA-256 recortada del usuario, igual que en Android). */
 export async function isBlocked(cfg: RemoteConfig, username: string): Promise<boolean> {
   const keys = Object.keys(cfg.texts).filter((k) => k === 'blocked.users' || k.startsWith('blocked.users.'));

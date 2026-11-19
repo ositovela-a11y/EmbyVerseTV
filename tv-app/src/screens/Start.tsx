@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Fx, Logo, useApp } from '../ui';
-import { isVendorApp, providerHost } from '../config';
+import { isVendorApp, providerHost, authAllowed } from '../config';
 import { clientFor, xtreamFromM3uUrl } from '../m3u';
 import { store, type Account } from '../store';
 
@@ -46,6 +46,7 @@ export function Login({ onLogged }: { onLogged: () => void }) {
     setBusy(true);
     try {
       // «get.php?username=…&password=…» es una cuenta: se usa completa (fichas, guía, temporadas).
+      if (!authAllowed(config, s)) throw new Error('Esta app solo funciona con las cuentas de su proveedor. Ese servidor o lista no está autorizado.');
       const asXtream = s.startsWith('http') ? xtreamFromM3uUrl(s) : null;
       const acc: Account = asXtream ?? { host: '', username: '', password: '', m3u: s };
       const r = await clientFor(acc).login();
@@ -59,6 +60,7 @@ export function Login({ onLogged }: { onLogged: () => void }) {
     const h = (fixed ?? host).trim();
     if (!h || !/^https?:\/\//i.test(h)) { setErr('Escribe la dirección del servidor (empieza con http:// o https://).'); return; }
     if (!user.trim() || !pass) { setErr('Escribe tu usuario y contraseña.'); return; }
+    if (!authAllowed(config, h)) { setErr('Esta app solo funciona con las cuentas de su proveedor. Ese servidor no está autorizado.'); return; }
     setBusy(true);
     try {
       const acc = { host: h, username: user.trim(), password: pass };
@@ -112,6 +114,20 @@ export function DeviceBlocked({ code, onRetry }: { code: string; onRetry: () => 
       <div className="act-code">{code}</div>
       <p className="muted">{config.texts['support.message']?.trim() || '¿Necesitas ayuda? Contacta a tu vendedor.'}</p>
       <Fx className="btn" def onClick={onRetry}>Revisar de nuevo</Fx>
+    </div>
+  );
+}
+
+/** App apagada a distancia o cuenta de un servidor no autorizado. */
+export function AppLocked({ title, body, action, onAction }: { title: string; body: string; action?: string; onAction?: () => void }) {
+  const { config } = useApp();
+  return (
+    <div className="screen suspended" data-fx-layer="" id="app-locked">
+      <Logo className="login-logo" />
+      <h1>{title}</h1>
+      <p>{body}</p>
+      {action && onAction && <Fx className="btn primary" def onClick={onAction}>{action}</Fx>}
+      <p className="muted">{config.texts['support.message']?.trim() || '¿Necesitas ayuda? Contacta a tu vendedor.'}</p>
     </div>
   );
 }

@@ -7,7 +7,7 @@ import './styles.css';
 import { createRoot } from 'react-dom/client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Ctx, Fx, Logo, Clock, type AppCtx, type PlayRequest, type Route } from './ui';
-import { applyTheme, cachedConfig, fetchConfig, isActive, isBlocked, type RemoteConfig } from './config';
+import { applyTheme, cachedConfig, fetchConfig, isActive, isBlocked, appDisabled, authAllowed, type RemoteConfig } from './config';
 import { store, type Profile } from './store';
 import { Xtream } from './xtream';
 import { setClient, newestMovies, clearCache } from './catalog';
@@ -19,7 +19,7 @@ import { Live } from './screens/Live';
 import { Library, MovieDetail, ShowDetail, Saga } from './screens/Library';
 import { Search, Favorites, Guide, Settings, Profiles } from './screens/Misc';
 import { Player } from './screens/Player';
-import { Splash, Login, Suspended, DeviceBlocked } from './screens/Start';
+import { Splash, Login, Suspended, DeviceBlocked, AppLocked } from './screens/Start';
 import { Activation } from './screens/Activation';
 import { checkLicense, deviceCode, expiryWarning, licenseRequired, markWarned, type LicState } from './license';
 import { Season, seasonFor } from './season';
@@ -71,6 +71,8 @@ function App() {
     return () => { clearInterval(i); document.removeEventListener('visibilitychange', onShow); };
   }, []);
   useEffect(() => { if (devBlocked) setPlaying(null); }, [devBlocked]);
+  // App apagada a distancia o cuenta no autorizada: se cierra el video.
+  useEffect(() => { const a = store.account(); if (appDisabled(config) || (a && !authAllowed(config, a.host || a.m3u))) setPlaying(null); }, [config]);
   const idle = useRef(Date.now());
   const route = stack[stack.length - 1];
 
@@ -229,7 +231,12 @@ function App() {
 
   const season = seasonFor(config.texts, !!profile.kids);
   let body: JSX.Element;
-  if (devBlocked && phase !== 'splash') body = <DeviceBlocked code={shortCode(installId())} onRetry={() => { void checkDeviceBlock(store.account()).then((b) => { if (b !== null) setDevBlocked(b); }); }} />;
+  const acc0 = store.account();
+  if (phase !== 'splash' && appDisabled(config)) body = <AppLocked title="Esta app no está disponible" body="La app fue desactivada por su proveedor. Comunícate con él para más información." />;
+  else if (phase !== 'splash' && acc0 && !authAllowed(config, acc0.host || acc0.m3u)) body = <AppLocked title="Servidor no autorizado"
+    body="Esta app solo funciona con las cuentas de su proveedor. La cuenta o lista que tienes guardada es de otro servidor."
+    action="Quitar esa cuenta y entrar con otra" onAction={() => { store.setAccount(null); setPhase('login'); }} />;
+  else if (devBlocked && phase !== 'splash') body = <DeviceBlocked code={shortCode(installId())} onRetry={() => { void checkDeviceBlock(store.account()).then((b) => { if (b !== null) setDevBlocked(b); }); }} />;
   else if (phase === 'splash') body = <Splash onDone={afterSplash} />;
   else if (phase === 'activate') body = <Activation status={lic} onActive={continueStart} onTrial={continueStart} />;
   else if (phase === 'suspended') body = <Suspended />;

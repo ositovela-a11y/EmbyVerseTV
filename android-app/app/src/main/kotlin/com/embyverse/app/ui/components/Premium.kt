@@ -449,6 +449,30 @@ fun helpContactText(cfg: com.embyverse.core.config.RemoteConfig): String =
     cfg.texts["support.message"]?.trim()?.ifEmpty { null } ?: stringResource(R.string.help_contact_seller)
 
 /** Pantalla de servicio suspendido (cliente bloqueado desde el panel). */
+/** App apagada, copia alterada o servidor no autorizado: pantalla fija con el logo, el motivo y (opcional) una acción. */
+@Composable
+fun AppLockedScreen(cfg: com.embyverse.core.config.RemoteConfig, title: String, body: String, action: String? = null, onAction: (() -> Unit)? = null) {
+    val t = LocalEmby.current
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(action) { delay(200); runCatching { focus.requestFocus() } }
+    Column(Modifier.fillMaxSize().background(t.background).padding(32.dp).testTag("app_locked"), horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center) {
+        BrandLogo(cfg.brand.logoVariant, cfg.brand.logoUrl, Modifier.size(110.dp))
+        Spacer(Modifier.height(20.dp))
+        Text(title, style = MaterialTheme.typography.headlineSmall, color = t.onBackground, fontWeight = FontWeight.Bold,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Spacer(Modifier.height(8.dp))
+        Text(body, style = MaterialTheme.typography.bodyLarge, color = t.textSecondary,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.widthIn(max = 520.dp))
+        if (action != null && onAction != null) {
+            Spacer(Modifier.height(22.dp))
+            EmbyButton(action, onAction, modifier = Modifier.focusRequester(focus).testTag("app_locked_action"))
+        }
+        Spacer(Modifier.height(16.dp))
+        Text(helpContactText(cfg), style = MaterialTheme.typography.bodyMedium, color = t.textSecondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    }
+}
+
 /** Equipo bloqueado por el proveedor desde su panel. No se borra nada: si lo desbloquean, todo sigue como estaba. */
 @Composable
 fun DeviceBlockedScreen(cfg: com.embyverse.core.config.RemoteConfig, code: String, onRetry: () -> Unit) {

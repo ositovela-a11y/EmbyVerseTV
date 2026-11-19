@@ -68,6 +68,8 @@ class PlayerActivity : AppCompatActivity() {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
         // Equipo bloqueado desde el panel mientras ve algo: se cierra el video (la pantalla de bloqueo queda detrás).
+        // App apagada a distancia o copia alterada: no reproduce (la pantalla principal explica el motivo).
+        if (!com.embyverse.app.data.repo.AppAuth.genuine(this) || com.embyverse.app.data.repo.AppAuth.disabled(container.config.config.value)) { finish(); return }
         com.embyverse.app.data.repo.DeviceBlock.init(this)
         lifecycleScope.launch { com.embyverse.app.data.repo.DeviceBlock.blocked.collect { if (it == true) finish() } }
         lifecycleScope.launch {

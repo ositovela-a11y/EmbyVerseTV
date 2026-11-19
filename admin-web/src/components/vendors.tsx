@@ -276,11 +276,12 @@ function AppLookEditor({ slug, name, onClose }: { slug: string; name: string; on
   const [curLogo, setCurLogo] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [saved, setSaved] = useState('');
-  const [login, setLogin] = useState({ otherServer: false, m3u: true }); // formas de entrar que ofrece la app
+  const [login, setLogin] = useState({ otherServer: false, m3u: true, authOnly: false, authHosts: '', disabled: false }); // formas de entrar y autorización
+  const [provHost, setProvHost] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   useEffect(() => {
-    void githubApi.appLook(slug).then((l) => { look.load(l.themeId, l.colors); setCurLogo(l.logo); const lg = { otherServer: l.otherServer, m3u: l.m3u }; setLogin(lg); setSaved(JSON.stringify([l.themeId, l.colors, lg])); setLoaded(true); })
+    void githubApi.appLook(slug).then((l) => { look.load(l.themeId, l.colors); setCurLogo(l.logo); const lg = { otherServer: l.otherServer, m3u: l.m3u, authOnly: l.authOnly, authHosts: l.authHosts, disabled: l.disabled }; setLogin(lg); setProvHost(l.providerHost); setSaved(JSON.stringify([l.themeId, l.colors, lg])); setLoaded(true); })
       .catch((e) => setMsg({ kind: 'error', text: e instanceof Error ? e.message : 'No se pudo leer la app.' }));
   }, [slug]); // eslint-disable-line
   const [newPrev, setNewPrev] = useState('');
@@ -289,7 +290,10 @@ function AppLookEditor({ slug, name, onClose }: { slug: string; name: string; on
   const save = async () => {
     setBusy(true); setMsg(null);
     try {
-      const r = await githubApi.restyleApp(slug, { themeId: look.themeId, colors: look.colors, logo: logoFile, texts: { 'login.otherServer': login.otherServer ? '1' : '0', 'login.m3u': login.m3u ? '1' : '0' } });
+      if (login.disabled && !confirm(`¿Apagar la app ${name}?\n\nEn 1–3 minutos deja de funcionar en TODOS sus equipos (celular, TV y PC) y muestra «Esta app no está disponible». Puedes volver a encenderla cuando quieras.`)) { setBusy(false); return; }
+      const hosts = login.authHosts.split(/[\s,;]+/).map((h) => h.trim()).filter(Boolean).join(',');
+      const r = await githubApi.restyleApp(slug, { themeId: look.themeId, colors: look.colors, logo: logoFile, texts: { 'login.otherServer': login.otherServer ? '1' : '0', 'login.m3u': login.m3u ? '1' : '0',
+        'auth.only': login.authOnly ? '1' : '0', 'auth.hosts': hosts, 'app.disabled': login.disabled ? '1' : '0' } });
       setMsg({ kind: 'ok', text: `✓ Publicado (versión ${r.version}). En 1–2 minutos lo ven sus clientes al abrir la app o volver a ella.${slug && logoFile ? ' El ícono de su APK se actualiza en unos 10 minutos.' : ''}` });
       setSaved(JSON.stringify([look.themeId, look.colors, login]));
       if (currentTarget() === slug) setTimeout(() => location.reload(), 1500); // el estudio estaba abierto en esta app
@@ -311,6 +315,13 @@ function AppLookEditor({ slug, name, onClose }: { slug: string; name: string; on
           <label><input type="checkbox" checked disabled /> Usuario y contraseña (con tu servidor)</label>
           <label><input type="checkbox" checked={login.otherServer} onChange={(e) => setLogin((l) => ({ ...l, otherServer: e.target.checked }))} aria-label="Otro servidor (Xtream)" /> Otro servidor (Xtream): el cliente escribe la dirección de otro servidor</label>
           <label><input type="checkbox" checked={login.m3u} onChange={(e) => setLogin((l) => ({ ...l, m3u: e.target.checked }))} aria-label="Lista M3U" /> Lista M3U</label>
+        </fieldset>
+        <fieldset className="login-opts auth-opts">
+          <legend><b>Autorización (que nadie use la app sin permiso)</b></legend>
+          <label><input type="checkbox" id="auth-only" checked={login.authOnly} onChange={(e) => setLogin((l) => ({ ...l, authOnly: e.target.checked }))} /> Solo servidores autorizados: cuentas y listas de otros servidores no funcionan</label>
+          <span className="hint">Siempre autorizado: el servidor del proveedor{provHost ? ` (${provHost})` : ' de la app'}. Si tus clientes usan otro servidor o listas M3U de otra dirección, agrégalo aquí (uno por renglón, por ejemplo <i>miservidor.com</i>):</span>
+          <textarea className="input" id="auth-hosts" rows={2} value={login.authHosts} disabled={!login.authOnly} onChange={(e) => setLogin((l) => ({ ...l, authHosts: e.target.value }))} placeholder="otroservidor.com" aria-label="Otros servidores autorizados" />
+          <label className={login.disabled ? 'danger-text' : ''}><input type="checkbox" id="app-disabled" checked={login.disabled} onChange={(e) => setLogin((l) => ({ ...l, disabled: e.target.checked }))} /> ⛔ Apagar esta app en todos sus equipos</label>
         </fieldset>
         <div className="dl-row">
           <button className="btn" disabled={busy || !dirty || !look.themeId} onClick={() => void save()}>{busy ? 'Publicando…' : 'Guardar y publicar'}</button>
