@@ -1571,7 +1571,7 @@ class SmokeFlowTest {
     /** Al salir y volver a la app, la lista se actualiza sola: lo nuevo del proveedor aparece sin pulsar «Actualizar». */
     @Test fun zk_actualizaAlVolver() {
         val c = app.container
-        val src = runBlocking { c.sources.sources.first() }.first()
+        val src = runBlocking { c.sources.sources.first() }.first { it.type == "XTREAM" } // la película nueva llega por la API Xtream
         val inst = InstrumentationRegistry.getInstrumentation()
         val oldAge = EmbyVerseApp.RESUME_MIN_AGE_MS; val oldAway = EmbyVerseApp.awayMs
         EmbyVerseApp.RESUME_MIN_AGE_MS = 1_000; EmbyVerseApp.awayMs = 2_000

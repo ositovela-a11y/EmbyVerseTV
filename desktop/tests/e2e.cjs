@@ -95,7 +95,8 @@ const fail = (m) => { console.error('FALLA: ' + m); process.exitCode = 1; };
   if (e2 === e1 || !e2) fail('⏭ no cambió de capítulo'); else console.log(`Capítulos: ⏭ ${e1} → ${e2}`);
   for (let k = 0; k < 12 && !(await p.$('#ep-prev')); k++) { await showUi(); await p.waitForTimeout(500); }
   if (!(await p.$('#ep-prev'))) fail('en el capítulo 2 falta ⏮'); else console.log('Capítulos: en el 2 aparecen ⏮ y ⏭');
-  await p.keyboard.press('MediaTrackPrevious');
+  // Tecla ⏮ del control (código 177, el que mandan controles y teclados multimedia).
+  await p.evaluate(() => { const ev = new KeyboardEvent('keydown', { bubbles: true }); Object.defineProperty(ev, 'keyCode', { get: () => 177 }); Object.defineProperty(ev, 'which', { get: () => 177 }); (document.activeElement || document.body).dispatchEvent(ev); });
   await p.waitForFunction((t) => (document.querySelector('.player-top span')?.textContent ?? '') === t, e1, { timeout: 15000 })
     .then(() => console.log('Capítulos: tecla ⏮ volvió al capítulo 1')).catch(async () => { await showUi(); fail('la tecla ⏮ no volvió al capítulo 1: ' + await epTitle()); });
   await p.keyboard.press('ArrowUp'); await p.waitForTimeout(500);
