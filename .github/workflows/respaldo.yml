@@ -1,0 +1,78 @@
+# Respaldo completo para volver a levantar todo rápido y como estaba:
+#  - repositorio completo con historia y TODAS las ramas (EmbyVerse-repo.bundle) + código de main en zip,
+#  - el contexto del proyecto para Claude (CLAUDE.md) y la guía de recuperación (docs/RECUPERACION.md),
+#  - las apps publicadas: 4 APK (una por marca), instaladores de PC, Samsung (.wgt), LG (.ipk) y FFmpeg,
+#  - el sitio publicado (rama gh-pages: página, panel, configs de diseño, activaciones, bloqueos),
+#  - la base de datos de estadísticas y perfiles (Cloudflare D1) CIFRADA con tu STATS_ADMIN_KEY
+#    (el repositorio es público: sin tu clave nadie la puede leer).
+# Va a la publicación «respaldo-AAAA-MM-DD». Se guardan los últimos 6 respaldos.
+name: Respaldo
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 9 * * 1'   # cada lunes 3:17 am (hora de México)
+permissions:
+  contents: write
+jobs:
+  respaldo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0, ref: main }
+      - name: Repositorio completo y código
+        run: |
+          mkdir -p out
+          git fetch -q origin '+refs/heads/*:refs/remotes/origin/*'
+          for b in $(git branch -r | grep -v HEAD | sed 's#origin/##'); do git branch -f "$b" "origin/$b" 2>/dev/null || true; done
+          git bundle create out/EmbyVerse-repo.bundle --all
+          git bundle verify out/EmbyVerse-repo.bundle > /dev/null && echo "bundle OK"
+          git archive --format=zip -o out/EmbyVerse-codigo-main.zip main
+          git archive --format=zip -o out/EmbyVerse-sitio-gh-pages.zip gh-pages 2>/dev/null || echo "::warning::sin gh-pages"
+          cp CLAUDE.md out/CLAUDE.md
+          cp docs/RECUPERACION.md out/RECUPERACION.md
+      - name: Apps publicadas
+        run: |
+          for t in apk-latest tv-latest ffmpeg-media3-1.11.1-video ffmpeg-media3-1.11.1; do gh release download "$t" -R "$REPO" -D out --clobber 2>/dev/null || echo "::warning::sin $t"; done
+          gh release download pc-latest -R "$REPO" -D out -p '*-PC-Instalador.exe' --clobber || echo "::warning::sin pc-latest"
+          ls -la out
+      - name: Base de datos (cifrada)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          KEY: ${{ secrets.STATS_ADMIN_KEY }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$KEY" ]; then echo "::warning::Sin secretos de Cloudflare: no se respaldó la base de datos"; exit 0; fi
+          npm i -g wrangler@4 > /dev/null 2>&1
+          cd stats-worker
+          ID=$(wrangler d1 list --json 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s).find(d=>d.name==='embyverse-stats');console.log(x?(x.uuid||x.id||''):'')}catch{console.log('')}})")
+          [ -n "$ID" ] || { echo "::warning::no existe la base embyverse-stats"; exit 0; }
+          sed -i "s/database_id = \"LOCAL\"/database_id = \"$ID\"/" wrangler.toml
+          wrangler d1 export embyverse-stats --remote --output ../d1.sql
+          gzip -9 ../d1.sql
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in ../d1.sql.gz -out ../out/estadisticas-d1.sql.gz.cifrado -pass env:KEY
+          rm -f ../d1.sql.gz
+          echo "Base de datos respaldada y cifrada ($(stat -c %s ../out/estadisticas-d1.sql.gz.cifrado) bytes)"
+      - name: Publicar respaldo
+        run: |
+          TAG="respaldo-$(TZ=America/Mexico_City date +%F)"
+          SHA=$(git rev-parse --short main)
+          AV=$(grep -m1 versionName android-app/app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/'); TV=$(node -p "require('./tv-app/package.json').version")
+          cat > notes.md <<NOTES
+          Respaldo completo del $(TZ=America/Mexico_City date '+%d/%m/%Y %H:%M') · main \`$SHA\` · Android $AV · TV/PC $TV
+
+          Para volver a levantar todo, sigue **RECUPERACION.md** (va adjunto). Resumen:
+          1. \`git clone EmbyVerse-repo.bundle EmbyVerseTV\` (repositorio completo con todas las ramas) y súbelo a un repositorio nuevo de GitHub.
+          2. Pon los secretos CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID y STATS_ADMIN_KEY y corre los flujos.
+          3. Abre una conversación con Claude en ese repositorio: CLAUDE.md le da todo el contexto.
+
+          La base de datos va cifrada; para abrirla: \`openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in estadisticas-d1.sql.gz.cifrado -out d1.sql.gz -pass pass:TU_STATS_ADMIN_KEY\`
+          NOTES
+          gh release delete "$TAG" -R "$REPO" -y --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" out/* -R "$REPO" --target main --title "Respaldo $(TZ=America/Mexico_City date +%d/%m/%Y)" --notes-file notes.md --prerelease
+          # Conservar solo los últimos 6 respaldos.
+          gh api "repos/$REPO/releases?per_page=100" -q '.[] | select(.tag_name|startswith("respaldo-")) | .tag_name' | sort -r | tail -n +7 | while read t; do gh release delete "$t" -R "$REPO" -y --cleanup-tag; done
+          echo "::notice::Respaldo $TAG listo"

@@ -1,101 +1,107 @@
 # EmbyVerse: recuperación rápida
 
-Este documento es para levantar todo en el menor tiempo posible si algo falla: la app, el sitio de descarga, el panel o el repositorio. Empieza por la tabla, que te dice qué hacer según lo que veas. Si no alcanza, copia el **prompt de recuperación** del final en una conversación nueva con Claude.
+Para levantar todo otra vez, rápido y como estaba: apps (Android, Samsung, LG, PC), sitio eversetv.com,
+panel, estadísticas y bloqueos. Empieza por la tabla. Si no alcanza, usa el **prompt de recuperación** del final.
+
+Respaldos automáticos: cada lunes el flujo **Respaldo** crea la publicación `respaldo-AAAA-MM-DD` en GitHub
+(Code → Releases) con todo lo necesario. Se guardan los últimos 6. Puedes correrlo a mano cuando quieras:
+GitHub → Actions → **Respaldo** → Run workflow.
 
 ---
 
-## 1. Qué hacer según lo que ves (de lo más rápido a lo más lento)
+## 1. Qué hacer según lo que ves
 
 | Lo que ves | Causa probable | Solución rápida | Tiempo |
 |---|---|---|---|
-| La app se cierra o se ve mal **justo después de publicar un diseño** en el panel | Diseño publicado con un problema | Panel → **Versiones** → restaurar la versión anterior → Publicar. Las apps la toman al abrirse. En el equipo afectado también sirve Ajustes → Acerca de → **Volver al diseño anterior** | 2 min |
-| No cargan canales, películas ni series en **ningún** cliente | Cambió o se cayó el servidor del proveedor | Panel → Identidad → **Servidor del proveedor**: pon el nuevo y publica. Las apps se pasan solas y actualizan sus listas | 3 min |
-| La app se cierra **después de instalar una versión nueva** | Error en esa versión de la APK | Volver a la APK anterior, ver sección 3 | 10 min |
-| El enlace de descarga o el código de Downloader no abren | El sitio (GitHub Pages) no se publicó | GitHub → Actions → **"Sitio (descarga y panel)"** → Run workflow | 5 min |
-| El panel no deja entrar | El token de GitHub venció | Crea un token nuevo (sección 4) y entra con él | 5 min |
-| No llegan actualizaciones a las apps | No se generó `update.json` | Vuelve a correr "Sitio (descarga y panel)". Luego revisa que `update.json` en la rama `gh-pages` tenga el número de versión nuevo | 5 min |
-| Un cliente suspendido ya pagó | Sigue en la lista de suspendidos | Panel → Temporada y eventos → Clientes suspendidos → **Reactivar** → Publicar | 2 min |
-| Se perdió el repositorio o la cuenta de GitHub | — | Restaura desde tu respaldo (sección 5) y pega el prompt de recuperación | 30–60 min |
+| La app se ve mal **justo después de publicar un diseño** | Diseño con un problema | Panel → Versiones → restaurar la anterior → Publicar (las apps la toman en 2 min) | 2 min |
+| No cargan canales en **ningún** cliente | Cambió o cayó el servidor del proveedor | Panel → editar la app → Servidor del proveedor → Publicar | 3 min |
+| La app falla **después de instalar una versión nueva** | Error en esa versión | Sección 3 | 15 min |
+| eversetv.com no abre, pero el enlace de github.io sí | Falla el Worker de Cloudflare | Actions → **Dominio propio** → Run workflow. Mientras, comparte `ositovela-a11y.github.io/EmbyVerseTV` | 5 min |
+| Ni eversetv.com ni github.io abren | No se publicó el sitio | Actions → **Sitio (descarga y panel)** → Run workflow | 5 min |
+| Estadísticas vacías, bloqueos o perfiles que no sincronizan | Falla el servidor de estadísticas | Actions → **Servidor de estadísticas** → Run workflow (revisa los secretos de Cloudflare) | 5 min |
+| No llegan actualizaciones a las apps | No se generó `update.json` | Vuelve a correr "Sitio (descarga y panel)" | 5 min |
+| El panel no deja entrar | Venció el token de GitHub | Sección 4 | 5 min |
+| **Se perdió el repositorio o la cuenta de GitHub** | — | Sección 5 (desde el respaldo) | 30–60 min |
 
 ---
 
 ## 2. Dónde está cada cosa
 
-- **Código:** GitHub `ositovela-a11y/EmbyVerseTV`. Tiene dos ramas:
-  - `main`: lo que reciben tus clientes.
-  - `beta`: versiones de revisión que todavía no se publican.
-- **App Android (celular y TV):** `android-app/`. La versión está en `android-app/app/build.gradle.kts` (`versionCode` / `versionName`).
-- **Textos de la app:** `scripts/i18n/strings.py`. Después de cambiarlo, ejecuta `python3 scripts/i18n/strings.py`.
-- **Panel (Design Studio):** el código está en `admin-web/`. Se compila con `cd admin-web && node build.mjs --github` y queda en `web-player/studio/`.
-- **Diseño publicado (lo que leen las apps):**
-  - `web-player/config/app.json`: tu app.
-  - `web-player/config/vendors/*.json`: una por vendedor.
-- **Sitio de descarga, APK y `update.json`:** rama `gh-pages`, publicada en GitHub Pages. Si usas dominio propio, va en la variable del repositorio `CUSTOM_DOMAIN`.
-- **Automatizaciones (GitHub Actions):**
-  - `android-emulator.yml`: prueba en emulador en `main` y `beta`. En `beta` deja la APK de revisión en la release `apk-beta`.
-  - `android-apk.yml`: en `main` compila la APK final y la sube a la release `apk-latest`.
-  - `web.yml`: publica el sitio, las APK, el panel y `update.json`.
-- **Firma de la APK:** `android-app/app/embyverse-debug.keystore`, que está en el repositorio a propósito. Con esa firma cada versión se instala encima de la anterior sin desinstalar. **No la borres ni la cambies:** si cambia la firma, los clientes tendrían que desinstalar y volver a instalar.
-- **Servidor del proveedor por defecto:** `https://krnosmx.com:443`. Va en la APK y se puede cambiar desde el panel (texto `provider.host`).
-- **La APK no guarda contraseñas de administrador ni claves secretas.** Las cuentas de los clientes solo se guardan en su propio equipo.
+- **Código:** GitHub `ositovela-a11y/EmbyVerseTV`. `main` = lo que reciben tus clientes · `beta` = revisión.
+- **Contexto completo para Claude:** `CLAUDE.md` en la raíz (partes, flujos, reglas, detalles técnicos).
+- **Diseños publicados:** `web-player/config/app.json` (tu app) y `web-player/config/vendors/*.json` (vendedores).
+- **Activaciones de PC:** `web-player/config/licenses.json` · **Bloqueos:** `web-player/config/blocked.json`.
+- **Sitio, panel y APK publicados:** rama `gh-pages` (GitHub Pages) y eversetv.com (Worker `eversetv-site`).
+- **Estadísticas y perfiles sincronizados:** Cloudflare, Worker `embyverse-stats` + base D1 `embyverse-stats`.
+- **Firma de las APK:** `android-app/app/embyverse-debug.keystore` (está en el repositorio). **No la cambies:**
+  con otra firma los clientes tendrían que desinstalar y volver a instalar.
+- **Secretos (no están en el repositorio, guárdalos tú):** `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`,
+  `STATS_ADMIN_KEY`. La `STATS_ADMIN_KEY` también abre el respaldo cifrado de la base de datos.
+- **Dominio:** eversetv.com en tu cuenta de Cloudflare (DNS y Worker).
 
 ---
 
-## 3. Volver a la versión anterior de la APK (cuando una versión nueva falla)
+## 3. Volver a una versión anterior de la app
 
-1. En GitHub → **Code → Commits** de la rama `main`, busca la última versión que funcionaba (los mensajes empiezan con el número, por ejemplo "1.10.0: …").
-2. **Opción rápida, sin programar:** en GitHub → Actions → "APK Android", abre la última ejecución correcta de esa versión y vuelve a correrla con **Re-run all jobs**. Al terminar, corre "Sitio (descarga y panel)".
-3. **Importante:** las apps solo se actualizan si el `versionCode` es **mayor** que el instalado. Para que los clientes que ya tienen la versión mala reciban la buena, hay que volver al código anterior **subiendo** el número de versión. El prompt de recuperación se lo pide a Claude.
+1. Avísale a Claude con el prompt de abajo: "la versión X falla, regresa a la Y".
+2. Lo correcto es regresar el código **subiendo el número de versión** (`versionCode`): las apps solo se
+   actualizan a un número mayor. Claude lo prueba en `beta` y publica cuando tú digas "publica".
+3. Urgente y sin Claude: en el último respaldo están las APK que funcionaban; súbelas a la publicación
+   `apk-latest` (reemplazando) y corre "Sitio (descarga y panel)". Ojo: quien ya tenga la versión mala no
+   bajará a una con número menor; tendría que instalarla a mano.
 
 ---
 
 ## 4. Token nuevo para el panel
 
-1. GitHub → Settings → Developer settings → **Fine-grained tokens** → Generate new token.
-2. Repositorio: solo `ositovela-a11y/EmbyVerseTV`. Permisos: **Contents: Read and write** y **Actions: Read and write**.
-3. Copia el token y entra al panel con él. No lo compartas ni lo pongas en ningún archivo.
+GitHub → Settings → Developer settings → **Fine-grained tokens** → Generate new token.
+Repositorio: solo `EmbyVerseTV`. Permisos: **Contents** y **Actions**: Read and write. Entra al panel con él.
 
 ---
 
-## 5. Respaldo (hazlo una vez al mes)
+## 5. Levantar todo desde el respaldo (si se perdió el repositorio)
 
-- En GitHub → Code → **Download ZIP** de la rama `main`, y guárdalo en tu computadora y en la nube.
-- Descarga también la APK actual (`apk-latest`).
-- Del panel guarda una **foto o nota** de lo importante: servidor, número de WhatsApp, lista de clientes suspendidos (los nombres solo se recuerdan en tu navegador) y vendedores.
+1. Descarga del último respaldo: `EmbyVerse-repo.bundle`, `CLAUDE.md` y este archivo. Guarda una copia de
+   cada respaldo en tu computadora o en tu nube (si se pierde la cuenta de GitHub, se pierden sus releases).
+2. Crea un repositorio nuevo en GitHub (idealmente con el mismo nombre `EmbyVerseTV`) y súbelo completo:
+   ```
+   git clone EmbyVerse-repo.bundle EmbyVerseTV && cd EmbyVerseTV
+   git remote set-url origin https://github.com/<tu-usuario>/EmbyVerseTV.git
+   git push origin --all && git push origin --tags
+   ```
+3. En el repositorio nuevo: Settings → Secrets → agrega `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`,
+   `STATS_ADMIN_KEY`. Settings → Pages → rama `gh-pages`.
+4. Corre en Actions, en este orden: **Servidor de estadísticas**, **Decodificador de video (FFmpeg)** y
+   **Decodificador de audio (FFmpeg)** (o sube los .aar del respaldo a sus publicaciones), **APK Android**,
+   **App TV**, **App PC**, **Sitio (descarga y panel)**, **Dominio propio**.
+5. Si cambió el usuario de GitHub, las apps ya instaladas buscan su diseño en `ositovela-a11y.github.io`:
+   pide a Claude que apunte el dominio eversetv.com (Worker) al repositorio nuevo; las apps nuevas usan la nueva dirección.
+6. Base de datos (opcional, para conservar perfiles sincronizados e historial de equipos):
+   `openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in estadisticas-d1.sql.gz.cifrado -out d1.sql.gz -pass pass:TU_STATS_ADMIN_KEY`,
+   descomprime y cárgala con `wrangler d1 execute embyverse-stats --remote --file=d1.sql` (o pídeselo a Claude).
 
 ---
 
 ## 6. Prompt de recuperación (cópialo completo en una conversación nueva con Claude)
 
 ```
-Eres el desarrollador de mi app IPTV/OTT "EmbyVerse" (Android celular + Android TV, Kotlin/Compose,
-listas M3U/Xtream; servidor por defecto https://krnosmx.com:443, el cliente solo pone usuario y contraseña).
-Respóndeme en español (México). Sé honesto con lo que pruebas y lo que no.
+Eres el desarrollador de mi reproductor IPTV marca blanca "EmbyVerse" (apps Android/Fire TV, Samsung, LG
+y PC, panel Design Studio, sitio eversetv.com). Respóndeme en español de México y sé honesto con lo que
+pruebas y lo que no.
 
-Repositorio: github.com/ositovela-a11y/EmbyVerseTV (agrégalo a la sesión).
-- Ramas: main = lo que reciben mis clientes; beta = versiones de revisión.
-- Workflows: android-emulator.yml (prueba SmokeFlowTest en emulador; en beta deja APK de revisión en la
-  release apk-beta), android-apk.yml (en main compila la APK firmada y la sube a apk-latest),
-  web.yml (publica gh-pages: sitio, APK, panel en /studio y update.json para la actualización dentro de la app).
-- Panel: admin-web (se compila con `cd admin-web && node build.mjs --github` → web-player/studio).
-- Diseño publicado: web-player/config/app.json y vendors/*.json (lo lee la app; textos clave:
-  provider.host, provider.askHost, provider.epgUrl, season, event.*, support.whatsapp, home.channels,
-  style.default, blocked.users*).
-- Textos de la app: scripts/i18n/strings.py → `python3 scripts/i18n/strings.py`.
-- En CADA versión nueva agrega sus notas en android-app/app/src/main/assets/release-notes.json (sin el nombre
-  de la app): se muestran al ofrecer la actualización y en «Novedades».
-- Firma: android-app/app/embyverse-debug.keystore (NO cambiarla: los clientes tendrían que reinstalar).
-- La APK no debe llevar secretos. Nada de saltarse DRM. Publica a mis clientes (merge beta → main)
-  SOLO cuando yo diga "publícala"; antes, entrégame la APK de revisión de beta.
+Repositorio: github.com/ositovela-a11y/EmbyVerseTV (agrégalo a la sesión y clónalo).
+Lee primero CLAUDE.md: ahí están las partes, los flujos de GitHub Actions, las reglas y los detalles técnicos.
+Reglas clave: publicar a mis clientes (unir beta → main) SOLO cuando yo diga "publica"; antes prueba en beta y
+mándame resultados y capturas. Nunca me pidas pegar claves en el chat. No cambies la firma de las APK.
 
-PROBLEMA ACTUAL: [describe aquí lo que pasa: qué ves, desde cuándo, en qué equipos, foto si tienes]
+SITUACIÓN: [describe qué pasa: qué ves, desde cuándo, en qué equipos; si perdiste el repositorio, di que
+tienes el respaldo (EmbyVerse-repo.bundle) y en qué usuario de GitHub lo vas a subir]
 
 Haz esto en orden:
-1. Clona el repo, revisa los últimos commits de main y las últimas ejecuciones de Actions (gh run list)
-   para ver qué cambió y qué falló.
-2. Si el problema es del diseño publicado, restaura el último app.json que funcionaba y publícalo.
-3. Si es de la APK, regresa el código de la app a la última versión buena SUBIENDO el versionCode
-   (para que update.json la ofrezca a todos), pásala por la prueba del emulador en beta y dime el resultado.
-4. Si es del sitio o de update.json, vuelve a correr web.yml y verifica gh-pages (update.json con la versión correcta).
-5. Dime en pocas palabras qué estaba mal, qué hiciste, qué probaste y qué falta probar en un equipo real.
+1. Revisa los últimos commits de main y las últimas ejecuciones de Actions (gh run list) para ver qué cambió y qué falló.
+2. Si es el diseño publicado, restaura la versión anterior de la config y publícala.
+3. Si es una APK, regresa el código a la última versión buena SUBIENDO el versionCode, pruébala en beta y avísame.
+4. Si es el sitio, el dominio o las estadísticas, vuelve a correr su flujo y verifica que responda.
+5. Si es una recuperación desde el respaldo, sigue docs/RECUPERACION.md sección 5 conmigo, paso a paso.
+6. Dime en pocas palabras qué estaba mal, qué hiciste, qué probaste y qué falta probar en un equipo real.
 ```
