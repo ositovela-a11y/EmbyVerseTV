@@ -27,7 +27,8 @@ GitHub → Actions → **Respaldo** → Run workflow.
 
 ## 2. Dónde está cada cosa
 
-- **Código:** GitHub `ositovela-a11y/EmbyVerseTV`. `main` = lo que reciben tus clientes · `beta` = revisión.
+- **Código (privado):** GitHub `ositovela-a11y/EmbyVerse-codigo`. `main` = lo que reciben tus clientes · `beta` = revisión.
+- **Sitio y descargas (público):** `ositovela-a11y/EmbyVerseTV` (rama `gh-pages` y publicaciones `apk-latest`, `pc-latest`, `tv-latest`).
 - **Contexto completo para Claude:** `CLAUDE.md` en la raíz (partes, flujos, reglas, detalles técnicos).
 - **Diseños publicados:** `web-player/config/app.json` (tu app) y `web-player/config/vendors/*.json` (vendedores).
 - **Activaciones de PC:** `web-player/config/licenses.json` · **Bloqueos:** `web-player/config/blocked.json`.
@@ -35,8 +36,9 @@ GitHub → Actions → **Respaldo** → Run workflow.
 - **Estadísticas y perfiles sincronizados:** Cloudflare, Worker `embyverse-stats` + base D1 `embyverse-stats`.
 - **Firma de las APK:** `android-app/app/embyverse-debug.keystore` (está en el repositorio). **No la cambies:**
   con otra firma los clientes tendrían que desinstalar y volver a instalar.
-- **Secretos (no están en el repositorio, guárdalos tú):** `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`,
-  `STATS_ADMIN_KEY`. La `STATS_ADMIN_KEY` también abre el respaldo cifrado de la base de datos.
+- **Secretos:** `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `STATS_ADMIN_KEY`, `SITE_TOKEN`, `BACKUP_PASSWORD`.
+  Con el código privado, cada respaldo trae `CLAVES-cifradas.zip` (ábrelo con tu BACKUP_PASSWORD) o `CLAVES.txt`.
+  Guarda BACKUP_PASSWORD fuera de GitHub (sin ella no se abre el zip). La `STATS_ADMIN_KEY` también abre el respaldo cifrado de la base de datos.
 - **Dominio:** eversetv.com en tu cuenta de Cloudflare (DNS y Worker).
 
 ---
@@ -55,7 +57,9 @@ GitHub → Actions → **Respaldo** → Run workflow.
 ## 4. Token nuevo para el panel
 
 GitHub → Settings → Developer settings → **Fine-grained tokens** → Generate new token.
-Repositorio: solo `EmbyVerseTV`. Permisos: **Contents** y **Actions**: Read and write. Entra al panel con él.
+Repositorios: `EmbyVerse-codigo` y `EmbyVerseTV`. Permisos: **Contents** y **Actions**: Read and write. Entra al panel con él.
+El `SITE_TOKEN` (para publicar) también vence: créalo igual, solo para `EmbyVerseTV`, con **Contents**, **Pages** y
+**Administration** en Read and write, y guárdalo en `EmbyVerse-codigo` → Settings → Secrets → `SITE_TOKEN`.
 
 ---
 
@@ -89,7 +93,8 @@ Eres el desarrollador de mi reproductor IPTV marca blanca "EmbyVerse" (apps Andr
 y PC, panel Design Studio, sitio eversetv.com). Respóndeme en español de México y sé honesto con lo que
 pruebas y lo que no.
 
-Repositorio: github.com/ositovela-a11y/EmbyVerseTV (agrégalo a la sesión y clónalo).
+Repositorio del código (privado): github.com/ositovela-a11y/EmbyVerse-codigo (agrégalo a la sesión y clónalo).
+Sitio y descargas (público): github.com/ositovela-a11y/EmbyVerseTV.
 Lee primero CLAUDE.md: ahí están las partes, los flujos de GitHub Actions, las reglas y los detalles técnicos.
 Reglas clave: publicar a mis clientes (unir beta → main) SOLO cuando yo diga "publica"; antes prueba en beta y
 mándame resultados y capturas. Nunca me pidas pegar claves en el chat. No cambies la firma de las APK.

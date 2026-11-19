@@ -1,7 +1,7 @@
 # EmbyVerse / EverseTV: contexto del proyecto (lo lee Claude al abrir este repositorio)
 
 Este archivo es el "prompt" del proyecto. Con él, una sesión nueva retoma el trabajo como estaba.
-Última actualización: 19 nov 2026 (Android 1.15.17 / versionCode 44 · TV y PC 1.2.9).
+Última actualización: 19 nov 2026 (Android 1.15.18 / versionCode 45 · TV y PC 1.2.10).
 
 ## Cómo trabajar con el dueño (reglas que NO se negocian)
 
@@ -38,6 +38,23 @@ No incluye contenido: cada cliente entra con su usuario/contraseña del proveedo
 | Estadísticas, sincronización de perfiles | `stats-worker/` (Worker + D1 `embyverse-stats`) | Worker + D1 | embyverse-stats.<cuenta>.workers.dev |
 | API de ejemplo (no se usa en producción) | `backend/` | Node | — |
 
+## Repositorios (separados para proteger el código)
+
+- **`ositovela-a11y/EmbyVerse-codigo` (PRIVADO):** todo el código, ramas `main`/`beta`, flujos, versiones beta
+  (`apk-beta`, `tv-beta`, `pc-beta`), `ci-logs`, FFmpeg y respaldos (con `CLAVES.txt` o `CLAVES-cifradas.zip`).
+- **`ositovela-a11y/EmbyVerseTV` (PÚBLICO):** solo la rama `gh-pages` (sitio, panel, configs) y las descargas
+  `apk-latest`, `pc-latest`, `tv-latest`. Las apps instaladas leen `ositovela-a11y.github.io/EmbyVerseTV`, por eso
+  ese nombre no cambia. Los flujos publican ahí con el secreto `SITE_TOKEN` (`PUB` en los .yml).
+- Mientras no exista `SITE_TOKEN`, los flujos publican en el mismo repositorio (antes de separar).
+
+## Autorización del dueño (que nadie use la app sin permiso)
+
+- Panel → editar app → «Autorización»: `auth.only`="1" (solo servidores autorizados: el del proveedor y los de
+  `auth.hosts`; subdominios incluidos; archivos M3U sueltos no), `app.disabled`="1" (apaga la app a distancia).
+  Apagado por defecto: lo enciende el dueño por app. `AppAuth.kt` (Android) y `config.ts` (TV/PC).
+- Copias alteradas: `BuildConfig.SIGNING_SHA256` (huella de la firma, se calcula al compilar) vs. la firma real;
+  si no coincide, la app no abre (`AppAuth.genuine`).
+
 ## Configuración publicada (lo que leen las apps)
 
 - `web-player/config/app.json` (tu app) y `web-player/config/vendors/<slug>.json` (vendedores; `index.json` = lista).
@@ -63,7 +80,9 @@ No incluye contenido: cada cliente entra con su usuario/contraseña del proveedo
 | `ffmpeg-audio.yml` / `ffmpeg-video.yml` | Decodificadores FFmpeg | AAR LGPL para Media3 1.11.1 (`ffmpeg-media3-1.11.1[-video]`): audio AC3/DTS… y video MPEG-2, Xvid/DivX, DivX 3, VC-1 |
 | `respaldo.yml` | Respaldo | Cada semana (y a mano): copia código + apps + datos cifrados a la release `respaldo-AAAA-MM-DD` |
 
-Secretos del repositorio (los pone el dueño): `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `STATS_ADMIN_KEY`.
+Secretos del repositorio del código (los pone el dueño): `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `STATS_ADMIN_KEY`,
+`SITE_TOKEN` (publicar en el repositorio público) y `BACKUP_PASSWORD` (cifra las claves del respaldo).
+`copiar-descargas.yml`: copia única de las descargas al repositorio público después de separar.
 Ver capturas/registros de CI: `gh api -H "Accept: application/octet-stream" repos/ositovela-a11y/EmbyVerseTV/releases/assets/<id>`.
 
 ## Detalles técnicos que importan
@@ -93,4 +112,4 @@ Ver capturas/registros de CI: `gh api -H "Accept: application/octet-stream" repo
 - Microsoft Store: falta que el dueño reserve el nombre y pase los 3 datos de identidad para armar el MSIX.
 - Recomendaciones en espera: aviso de vencimiento del proveedor, reporte de fallos, guía de TV (EPG), PIN parental,
   página de privacidad, nombre final para tiendas.
-- La clave de firma está en un repo público: cualquiera podría firmar una APK "igual". Evaluar repo privado.
+- Separar repositorios (código privado). Hasta hacerlo, la clave de firma sigue en un repo público.
