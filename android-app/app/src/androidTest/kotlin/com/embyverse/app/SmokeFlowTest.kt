@@ -1588,7 +1588,12 @@ class SmokeFlowTest {
                 val before = runBlocking { c.database.sources().get(src.id) }?.lastSyncAt ?: 0
                 // Vuelve a la app.
                 inst.targetContext.startActivity(android.content.Intent(inst.targetContext, MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
-                waitFor("estreno en la lista al volver", 90_000) { runBlocking { c.database.movies().get(src.id, "999001") } != null }
+                // Empieza a actualizar al volver (en segundos)…
+                waitFor("empezó a actualizar al volver", 30_000) { c.sources.syncState.value[src.id] is com.embyverse.app.data.repo.SyncState.Running ||
+                    (runBlocking { c.database.sources().get(src.id) }?.lastSyncAt ?: 0) > before }
+                log("Al volver a la app: empezó a actualizar sola")
+                // …y la película nueva aparece al terminar (el proveedor de prueba tiene 60 000 películas: en el emulador tarda).
+                waitFor("estreno en la lista al volver", 300_000) { runBlocking { c.database.movies().get(src.id, "999001") } != null }
                 val after = runBlocking { c.database.sources().get(src.id) }?.lastSyncAt ?: 0
                 assertTrue("se actualizó de verdad al volver ($before → $after)", after > before)
                 runCatching { waitText("Estreno de prueba", 15_000) } // en el inicio sale en «Novedades» si cabe en pantalla

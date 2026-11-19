@@ -83,7 +83,9 @@ const fail = (m) => { console.error('FALLA: ' + m); process.exitCode = 1; };
   const epTitle = () => p.evaluate(() => { const el = document.querySelector('.player-top span'); return el ? el.textContent : ''; });
   const showUi = async () => { await p.mouse.move(400, 300); await p.mouse.move(420, 320); await p.waitForTimeout(400); };
   await p.waitForFunction(() => document.getElementById('bgvideo')?.duration > 0, null, { timeout: 30000 }).catch(() => fail('el capítulo no cargó'));
-  await showUi(); const e1 = await epTitle();
+  let e1 = '';
+  for (let k = 0; k < 12 && !(await p.$('#ep-next')); k++) { await showUi(); await p.waitForTimeout(500); }
+  e1 = await epTitle();
   if (await p.$('#ep-prev')) fail('en el primer capítulo no debe haber ⏮');
   if (!(await p.$('#ep-next'))) fail('falta el botón ⏭ Siguiente');
   await shot('10-capitulos-botones');
@@ -91,7 +93,8 @@ const fail = (m) => { console.error('FALLA: ' + m); process.exitCode = 1; };
   await p.waitForFunction((t) => (document.querySelector('.player-top span')?.textContent ?? '') !== t, e1, { timeout: 15000 }).catch(() => {});
   await showUi(); const e2 = await epTitle();
   if (e2 === e1 || !e2) fail('⏭ no cambió de capítulo'); else console.log(`Capítulos: ⏭ ${e1} → ${e2}`);
-  if (!(await p.$('#ep-prev'))) fail('en el capítulo 2 falta ⏮');
+  for (let k = 0; k < 12 && !(await p.$('#ep-prev')); k++) { await showUi(); await p.waitForTimeout(500); }
+  if (!(await p.$('#ep-prev'))) fail('en el capítulo 2 falta ⏮'); else console.log('Capítulos: en el 2 aparecen ⏮ y ⏭');
   await p.keyboard.press('MediaTrackPrevious');
   await p.waitForFunction((t) => (document.querySelector('.player-top span')?.textContent ?? '') === t, e1, { timeout: 15000 })
     .then(() => console.log('Capítulos: tecla ⏮ volvió al capítulo 1')).catch(async () => { await showUi(); fail('la tecla ⏮ no volvió al capítulo 1: ' + await epTitle()); });
