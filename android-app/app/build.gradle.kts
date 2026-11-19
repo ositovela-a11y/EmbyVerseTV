@@ -1,3 +1,5 @@
+import java.security.KeyStore
+import java.security.MessageDigest
 import java.util.Properties
 
 plugins {
@@ -21,14 +23,17 @@ val defaultHost = prop("embyverse.host") ?: "https://krnosmx.com:443"
 // Ejemplo: -Pembyverse.vendor=juan → com.embyverse.app.v.juan
 // Huella (SHA-256) del certificado con el que se firman las APK: la app la compara al abrir y no arranca si alguien
 // la volvió a firmar con otra clave (copia alterada). Se calcula del almacén de claves que se usa para firmar.
-fun signingSha256(): String = runCatching {
-    val kp = Properties().apply { rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) } }
-    val (file, pass, alias) = if (!kp.getProperty("storeFile").isNullOrBlank())
-        Triple(rootProject.file(kp.getProperty("storeFile")), kp.getProperty("storePassword"), kp.getProperty("keyAlias"))
-    else Triple(file("embyverse-debug.keystore"), "android", "androiddebugkey")
-    val ks = java.security.KeyStore.getInstance(java.security.KeyStore.getDefaultType()).apply { file.inputStream().use { load(it, pass.toCharArray()) } }
-    java.security.MessageDigest.getInstance("SHA-256").digest(ks.getCertificate(alias).encoded).joinToString("") { "%02x".format(it) }
-}.getOrDefault("")
+fun signingSha256(): String = try {
+    val kp = Properties()
+    rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use { kp.load(it) }
+    val custom = !kp.getProperty("storeFile").isNullOrBlank()
+    val ksFile: File = if (custom) rootProject.file(kp.getProperty("storeFile")) else file("embyverse-debug.keystore")
+    val pass: String = if (custom) kp.getProperty("storePassword") else "android"
+    val alias: String = if (custom) kp.getProperty("keyAlias") else "androiddebugkey"
+    val ks: KeyStore = KeyStore.getInstance(KeyStore.getDefaultType())
+    ksFile.inputStream().use { ks.load(it, pass.toCharArray()) }
+    MessageDigest.getInstance("SHA-256").digest(ks.getCertificate(alias).encoded).joinToString("") { b -> "%02x".format(b) }
+} catch (e: Exception) { "" }
 val vendor = (prop("embyverse.vendor") ?: "").lowercase().filter { it.isLetterOrDigit() }.takeIf { it.isNotEmpty() && it[0].isLetter() }
 
 // Firma de producción: el propietario crea su keystore y keystore.properties (NO se versiona).
