@@ -1,0 +1,255 @@
+{
+  "schemaVersion": 1,
+  "version": 9,
+  "publishedAt": "2026-11-17T07:43:27Z",
+  "minAppVersionCode": 1,
+  "brand": {
+    "appName": "stream PRO ⭐️",
+    "logo": {
+      "variant": "asset",
+      "url": "https://ositovela-a11y.github.io/EmbyVerseTV/config/assets/logo-c0b3d4e1-6ce9-49aa-a8da-225ccd2d47d9-7d8-mwj4nj2e.png"
+    },
+    "tagline": null
+  },
+  "theme": {
+    "palette": {
+      "primary": "#8100c6",
+      "secondary": "#4C0074",
+      "accent": "#A855F7",
+      "background": "#050805",
+      "surface": "#0F180F",
+      "surfaceVariant": "#192719",
+      "onBackground": "#F2F4F8",
+      "onSurface": "#E3E7EE",
+      "textSecondary": "#A2B9A2",
+      "onPrimary": "#FFFFFF",
+      "buttonBackground": "#8100c6",
+      "buttonText": "#FFFFFF",
+      "focusRing": "#A855F7",
+      "error": "#FF5A6E"
+    },
+    "background": {
+      "style": "solid",
+      "gradientStart": "#050805",
+      "gradientEnd": "#240C31"
+    },
+    "typography": {
+      "family": "system",
+      "scale": 1
+    },
+    "shape": {
+      "cardRadius": 4,
+      "buttonRadius": 4,
+      "bannerRadius": 6
+    },
+    "spacing": {
+      "screenPadding": 20,
+      "sectionGap": 26,
+      "cardGap": 12
+    },
+    "glow": {
+      "enabled": true,
+      "intensity": 0.35
+    },
+    "buttonStyle": "outlined",
+    "navigation": {
+      "style": "top_tabs",
+      "showLabels": true
+    }
+  },
+  "themes": [
+    {
+      "id": "vendor",
+      "name": "Stream Pro",
+      "palette": {
+        "primary": "#8100c6",
+        "secondary": "#4C0074",
+        "accent": "#A855F7",
+        "background": "#050805",
+        "surface": "#0F180F",
+        "surfaceVariant": "#192719",
+        "onBackground": "#F2F4F8",
+        "onSurface": "#E3E7EE",
+        "textSecondary": "#A2B9A2",
+        "onPrimary": "#FFFFFF",
+        "buttonBackground": "#8100c6",
+        "buttonText": "#FFFFFF",
+        "focusRing": "#A855F7",
+        "error": "#FF5A6E"
+      }
+    }
+  ],
+  "userCustomization": {
+    "allowThemeSelection": true,
+    "allowAccentColor": true,
+    "accentChoices": [
+      "#7BE52F",
+      "#22D3EE",
+      "#1E6BFF",
+      "#A855F7",
+      "#F59E0B",
+      "#F43F5E"
+    ],
+    "allowCardSize": true,
+    "allowHideSections": true,
+    "allowReorderSections": true,
+    "lockedSections": [
+      "hero"
+    ]
+  },
+  "home": {
+    "sections": [
+      {
+        "id": "hero",
+        "type": "hero_banner",
+        "enabled": true,
+        "title": "Destacado",
+        "layout": "hero",
+        "card": {
+          "aspect": "landscape",
+          "size": "l"
+        },
+        "maxItems": 5
+      },
+      {
+        "id": "promos",
+        "type": "promo_banners",
+        "enabled": true,
+        "title": "Novedades stream PRO ⭐️",
+        "layout": "carousel",
+        "card": {
+          "aspect": "landscape",
+          "size": "m"
+        },
+        "maxItems": 6
+      },
+      {
+        "id": "continue",
+        "type": "continue_watching",
+        "enabled": true,
+        "title": "Continuar viendo",
+        "layout": "carousel",
+        "card": {
+          "aspect": "landscape",
+          "size": "m"
+        },
+        "maxItems": 20
+      },
+      {
+        "id": "live",
+        "type": "live_tv",
+        "enabled": true,
+        "title": "TV EN VIVO",
+        "subtitle": "Canales de tus fuentes",
+        "layout": "carousel",
+        "card": {
+          "aspect": "landscape",
+          "size": "s"
+        },
+        "maxItems": 30
+      },
+      {
+        "id": "movies",
+        "type": "movies",
+        "enabled": true,
+        "title": "PELÍCULAS",
+        "layout": "carousel",
+        "card": {
+          "aspect": "poster",
+          "size": "m"
+        },
+        "maxItems": 30
+      },
+      {
+        "id": "series",
+        "type": "series",
+        "enabled": true,
+        "title": "SERIES",
+        "layout": "carousel",
+        "card": {
+          "aspect": "poster",
+          "size": "m"
+        },
+        "maxItems": 30
+      },
+      {
+        "id": "new",
+        "type": "recently_added",
+        "enabled": true,
+        "title": "Novedades",
+        "subtitle": "Lo último añadido",
+        "layout": "carousel",
+        "card": {
+          "aspect": "poster",
+          "size": "m"
+        },
+        "maxItems": 20
+      },
+      {
+        "id": "favorites",
+        "type": "favorites",
+        "enabled": true,
+        "title": "Favoritos",
+        "layout": "carousel",
+        "card": {
+          "aspect": "poster",
+          "size": "m"
+        },
+        "maxItems": 30
+      },
+      {
+        "id": "recommended",
+        "type": "recommended",
+        "enabled": true,
+        "title": "Recomendado para ti",
+        "layout": "grid",
+        "card": {
+          "aspect": "poster",
+          "size": "s"
+        },
+        "maxItems": 12
+      },
+      {
+        "id": "sagas",
+        "type": "sagas",
+        "enabled": true,
+        "title": "Sagas",
+        "layout": "carousel",
+        "card": {
+          "aspect": "poster",
+          "size": "m"
+        },
+        "maxItems": 20
+      }
+    ]
+  },
+  "banners": [
+    {
+      "id": "welcome",
+      "placement": "hero",
+      "title": "Bienvenido a stream PRO ⭐️",
+      "subtitle": "Añade tus listas M3U o tu proveedor IPTV y empieza a ver.",
+      "imageUrl": null,
+      "action": {
+        "route": "sources"
+      },
+      "startsAt": null,
+      "endsAt": null
+    }
+  ],
+  "texts": {
+    "home.greeting": "Hola",
+    "home.emptySources": "Aún no tienes fuentes. Añade una lista M3U o un proveedor para ver contenido.",
+    "support.contact": "soporte@ejemplo.com",
+    "provider.epgUrl": "https://epgshare01.online/epgshare01/epg_ripper_MX1.xml.gz",
+    "season": "auto",
+    "support.whatsapp": "4442011541",
+    "season.every": "24",
+    "style.default": "style_verde_neon",
+    "style.brandColors": "1",
+    "splash.welcome": "Bienvenid@  Lo nuevo llega primero aquí...",
+    "login.otherServer": "0",
+    "login.m3u": "1"
+  },
+  "messages": []
+}

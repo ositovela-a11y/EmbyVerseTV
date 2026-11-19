@@ -1,0 +1,64 @@
+{
+ "apps": {
+  "EmbyVerse-allinone.apk": {
+   "versionCode": 44,
+   "versionName": "1.15.17",
+   "path": "apk/EmbyVerse-allinone.apk?v=44",
+   "notes": {
+    "es": [
+     "Botones \u23ee \u23ed en el reproductor para ir al cap\u00edtulo anterior o siguiente (tambi\u00e9n con las teclas \u23ee \u23ed del control).",
+     "Al salir y volver a la app, las listas se actualizan solas: lo nuevo aparece sin pulsar \u00abActualizar\u00bb."
+    ],
+    "en": [
+     "\u23ee \u23ed buttons in the player to go to the previous or next episode (also with the remote's \u23ee \u23ed keys).",
+     "When you leave and come back to the app, lists update on their own: new content appears without pressing \u00abRefresh\u00bb."
+    ]
+   }
+  },
+  "EmbyVerse-planetatv.apk": {
+   "versionCode": 44,
+   "versionName": "1.15.17",
+   "path": "apk/EmbyVerse-planetatv.apk?v=44",
+   "notes": {
+    "es": [
+     "Botones \u23ee \u23ed en el reproductor para ir al cap\u00edtulo anterior o siguiente (tambi\u00e9n con las teclas \u23ee \u23ed del control).",
+     "Al salir y volver a la app, las listas se actualizan solas: lo nuevo aparece sin pulsar \u00abActualizar\u00bb."
+    ],
+    "en": [
+     "\u23ee \u23ed buttons in the player to go to the previous or next episode (also with the remote's \u23ee \u23ed keys).",
+     "When you leave and come back to the app, lists update on their own: new content appears without pressing \u00abRefresh\u00bb."
+    ]
+   }
+  },
+  "EmbyVerse-streampro.apk": {
+   "versionCode": 44,
+   "versionName": "1.15.17",
+   "path": "apk/EmbyVerse-streampro.apk?v=44",
+   "notes": {
+    "es": [
+     "Botones \u23ee \u23ed en el reproductor para ir al cap\u00edtulo anterior o siguiente (tambi\u00e9n con las teclas \u23ee \u23ed del control).",
+     "Al salir y volver a la app, las listas se actualizan solas: lo nuevo aparece sin pulsar \u00abActualizar\u00bb."
+    ],
+    "en": [
+     "\u23ee \u23ed buttons in the player to go to the previous or next episode (also with the remote's \u23ee \u23ed keys).",
+     "When you leave and come back to the app, lists update on their own: new content appears without pressing \u00abRefresh\u00bb."
+    ]
+   }
+  },
+  "EmbyVerse.apk": {
+   "versionCode": 44,
+   "versionName": "1.15.17",
+   "path": "apk/EmbyVerse.apk?v=44",
+   "notes": {
+    "es": [
+     "Botones \u23ee \u23ed en el reproductor para ir al cap\u00edtulo anterior o siguiente (tambi\u00e9n con las teclas \u23ee \u23ed del control).",
+     "Al salir y volver a la app, las listas se actualizan solas: lo nuevo aparece sin pulsar \u00abActualizar\u00bb."
+    ],
+    "en": [
+     "\u23ee \u23ed buttons in the player to go to the previous or next episode (also with the remote's \u23ee \u23ed keys).",
+     "When you leave and come back to the app, lists update on their own: new content appears without pressing \u00abRefresh\u00bb."
+    ]
+   }
+  }
+ }
+}
