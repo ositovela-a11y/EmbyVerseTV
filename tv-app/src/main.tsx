@@ -10,7 +10,7 @@ import { Ctx, Fx, Logo, Clock, type AppCtx, type PlayRequest, type Route } from 
 import { applyTheme, cachedConfig, fetchConfig, isActive, isBlocked, type RemoteConfig } from './config';
 import { store, type Profile } from './store';
 import { Xtream } from './xtream';
-import { setClient, newestMovies } from './catalog';
+import { setClient, newestMovies, clearCache } from './catalog';
 import { KEY, isKey, registerKeys, exitApp, isTizen, isWebOS } from './platform';
 import * as nav from './nav';
 import { dispatchKeys } from './keys';
@@ -39,6 +39,24 @@ function App() {
   const [stack, setStack] = useState<Route[]>([{ name: 'home' }]);
   const [profile, setProfile] = useState<Profile>(() => store.activeProfile());
   const [playing, setPlaying] = useState<PlayRequest | null>(null);
+  // Al volver a la app (estuvo en segundo plano más de 1 min) se recargan canales, películas y series del proveedor:
+  // lo nuevo aparece sin pulsar «Actualizar listas». Si está viendo algo, se recarga al cerrar el video.
+  const [dataGen, setDataGen] = useState(0);
+  const playingRef = useRef<PlayRequest | null>(null); playingRef.current = playing;
+  const pendingReload = useRef(false);
+  useEffect(() => {
+    let hiddenAt = 0;
+    const onVis = () => {
+      if (document.hidden) { hiddenAt = Date.now(); return; }
+      if (hiddenAt && Date.now() - hiddenAt >= 60_000) {
+        if (playingRef.current) pendingReload.current = true; else { clearCache(); setDataGen((g) => g + 1); }
+      }
+      hiddenAt = 0;
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
+  useEffect(() => { if (!playing && pendingReload.current) { pendingReload.current = false; clearCache(); setDataGen((g) => g + 1); } }, [playing]);
   const [toast, setToast] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ id: string; title: string; body: string } | null>(null);
   const [saver, setSaver] = useState(false);
@@ -224,7 +242,7 @@ function App() {
         {MENU.map((m) => <Fx key={m.r} className={`menu-item ${route.name === m.r ? 'sel' : ''}`} onClick={() => setStack([{ name: m.r } as Route])}><span className="mi">{m.icon}</span><span className="ml">{m.label}</span></Fx>)}
         <div className="menu-foot"><span className="avatar sm">{profile.avatar}</span><Clock /></div>
       </nav>
-      <main className="content" key={stack.length + route.name}>{screenFor(route)}</main>
+      <main className="content" key={`${stack.length}${route.name}:${dataGen}`} data-gen={dataGen}>{screenFor(route)}</main>
     </div>
   );
 

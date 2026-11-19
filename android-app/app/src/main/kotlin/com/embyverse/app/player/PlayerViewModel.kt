@@ -104,6 +104,8 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     @Volatile var upNextShowing = false
     /** Canal en vivo cuyo video este equipo no sabe mostrar (p. ej. MPEG-2 en muchos Fire TV y celulares): se oye pero no se ve. */
     val liveNoVideo = MutableStateFlow<String?>(null)
+    /** Capítulo anterior y siguiente del que se está viendo (botones ⏮ ⏭). */
+    val episodeNav = MutableStateFlow<Pair<ItemRef?, ItemRef?>>(null to null)
     /** Ya se pintó al menos un cuadro de video de lo que se está viendo (entonces sí se ve, aunque el equipo diga otra cosa). */
     @Volatile private var firstFrame = false
     private var noVideoJob: Job? = null
@@ -778,9 +780,12 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
 
     private suspend fun computeUpNext(np: NowPlaying) {
         upNextCancelled.value = false
-        if (np.ref.kind != ContentKind.EPISODE || np.seriesId == null) { upNext.value = null; return }
+        if (np.ref.kind != ContentKind.EPISODE || np.seriesId == null) { upNext.value = null; episodeNav.value = null to null; return }
         val eps = c.database.episodes().forSeries(np.ref.sourceId, np.seriesId)
-        val next = eps.getOrNull(eps.indexOfFirst { it.providerId == np.ref.id } + 1)
+        val idx = eps.indexOfFirst { it.providerId == np.ref.id }
+        val next = if (idx < 0) null else eps.getOrNull(idx + 1)
+        val prev = if (idx <= 0) null else eps.getOrNull(idx - 1)
+        episodeNav.value = prev?.let { ItemRef(ContentKind.EPISODE, it.sourceId, it.providerId) } to next?.let { ItemRef(ContentKind.EPISODE, it.sourceId, it.providerId) }
         upNext.value = next?.let { ItemRef(ContentKind.EPISODE, it.sourceId, it.providerId) to "T${it.season} · E${it.episode} — ${it.title}" }
     }
 
@@ -847,6 +852,14 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
     }
 
     fun playNext() { val n = nextEpisode.value ?: return; nextEpisode.value = null; viewModelScope.launch { load(n) } }
+
+    /** ⏮ / ⏭: capítulo anterior (−1) o siguiente (+1). Guarda dónde iba antes de cambiar. */
+    fun playAdjacentEpisode(dir: Int): Boolean {
+        val target = (if (dir < 0) episodeNav.value.first else episodeNav.value.second) ?: return false
+        saveProgress(); upNext.value = null; nextEpisode.value = null; upNextCancelled.value = false
+        viewModelScope.launch { load(target) }
+        return true
+    }
 
     // ---------------------------------------------------------------- errores y reconexión
     private val listener = object : Player.Listener {

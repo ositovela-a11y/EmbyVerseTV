@@ -106,11 +106,15 @@ export function Player({ req, onClose }: { req: PlayRequest; onClose: () => void
       image: item.image, pos: p, dur: d, at: Date.now(), ext: item.ext, season: item.season, episode: item.episode });
   };
 
-  const nextEpisode = () => {
+  /** Episodio vecino: +1 el siguiente, −1 el anterior (en el orden de la serie). */
+  const episodeAt = (d: number) => {
     if (item.kind !== 'episode' || !item.list) return null;
-    const i = item.list.findIndex((x) => x.id === item.id); const n = item.list[i + 1];
+    const i = item.list.findIndex((x) => x.id === item.id); const n = i < 0 ? undefined : item.list[i + d];
     return n ? { ...item, id: n.id, ext: n.ext, season: n.season, episode: n.episode, subtitle: `T${n.season} · E${n.episode} · ${n.title}`, image: n.image ?? item.image, startMs: undefined } : null;
   };
+  const nextEpisode = () => episodeAt(1);
+  const prevEpisode = () => episodeAt(-1);
+  const goEpisode = (d: number) => { const n = episodeAt(d); if (n) { setPanel(null); setUpNext(null); switchTo(n); } };
 
   const switchTo = (it: PlayRequest) => { saveProgress(); if (item.kind === 'live' && it.kind === 'live' && it.id !== item.id) prevLive.current = item; setItem(it); start(it); };
 
@@ -150,6 +154,9 @@ export function Player({ req, onClose }: { req: PlayRequest; onClose: () => void
       if (introVisible) { eng.seek(pos + 85000); return true; }
       if (live || ui) { setPanel('options'); setTimeout(() => focusFirst(), 50); return true; }
     }
+    // Capítulo anterior / siguiente: ⏮ ⏭ del control (y CH− CH+ en series).
+    if (!live && item.kind === 'episode' && (isKey(k, KEY.NEXT) || isKey(k, KEY.CH_UP))) { goEpisode(1); return true; }
+    if (!live && item.kind === 'episode' && (isKey(k, KEY.PREV) || isKey(k, KEY.CH_DOWN))) { goEpisode(-1); return true; }
     if (!live) {
       if (k === KEY.LEFT || isKey(k, KEY.RW)) { eng.seek(eng.position() - 10000); return true; }
       if (k === KEY.RIGHT || isKey(k, KEY.FF)) { eng.seek(eng.position() + 30000); return true; }
@@ -183,14 +190,20 @@ export function Player({ req, onClose }: { req: PlayRequest; onClose: () => void
         <div className="bar"><div style={{ width: `${Math.min(100, ((now - cur.start) / (cur.end - cur.start)) * 100)}%` }} /></div>
         {nxt && <div className="muted"><small>SIGUE</small> {fmt(nxt.start)} {nxt.title}</div>}</div>}
       {ui && !panel && !live && dur > 0 && <div className="player-bottom"><span>{fmtT(pos)}</span><div className="bar big"><div style={{ width: `${(pos / dur) * 100}%` }} /></div><span>{fmtT(dur)}</span>
-        <small className="muted">◀ −10 s · ▶ +30 s · OK pausa · ▲ opciones</small></div>}
+        {item.kind === 'episode' && <span className="ep-nav">
+          {prevEpisode() && <button className="ep-btn" id="ep-prev" onClick={(e) => { e.stopPropagation(); goEpisode(-1); }}>⏮ Anterior</button>}
+          {nextEpisode() && <button className="ep-btn" id="ep-next" onClick={(e) => { e.stopPropagation(); goEpisode(1); }}>Siguiente ⏭</button>}</span>}
+        <small className="muted">◀ −10 s · ▶ +30 s · OK pausa · ▲ opciones{item.kind === 'episode' ? ' · ⏮ ⏭ capítulos' : ''}</small></div>}
       {introVisible && !panel && <div className="skip-intro">Saltar intro ⏭ <small>(OK)</small></div>}
       {upNext != null && <div className="up-next">Siguiente episodio en {upNext}… <small>(OK para verlo ya)</small></div>}
       {panel === 'options' && <div className="side-panel" data-fx-layer="">
         <h3>Opciones</h3>
-        {tracks.filter((t) => t.kind === 'audio').length > 1 && <><h4>Audio</h4>{tracks.filter((t) => t.kind === 'audio').map((t, i) => <Fx key={'a' + t.index} def={i === 0} className="opt" onClick={() => { eng.selectTrack(t, 'audio'); setPanel(null); }}>{t.label}</Fx>)}</>}
+        {item.kind === 'episode' && (prevEpisode() || nextEpisode()) && <><h4>Capítulos</h4>
+          {nextEpisode() && <Fx className="opt" id="opt-ep-next" def onClick={() => goEpisode(1)}>⏭ Siguiente: {nextEpisode()!.subtitle}</Fx>}
+          {prevEpisode() && <Fx className="opt" id="opt-ep-prev" def={!nextEpisode()} onClick={() => goEpisode(-1)}>⏮ Anterior: {prevEpisode()!.subtitle}</Fx>}</>}
+        {tracks.filter((t) => t.kind === 'audio').length > 1 && <><h4>Audio</h4>{tracks.filter((t) => t.kind === 'audio').map((t, i) => <Fx key={'a' + t.index} def={i === 0 && !(item.kind === 'episode' && (prevEpisode() || nextEpisode()))} className="opt" onClick={() => { eng.selectTrack(t, 'audio'); setPanel(null); }}>{t.label}</Fx>)}</>}
         <h4>Subtítulos</h4>
-        <Fx className="opt" def={tracks.filter((t) => t.kind === 'audio').length <= 1} onClick={() => { eng.selectTrack(null, 'text'); setPanel(null); }}>Apagados</Fx>
+        <Fx className="opt" def={tracks.filter((t) => t.kind === 'audio').length <= 1 && !(item.kind === 'episode' && (prevEpisode() || nextEpisode()))} onClick={() => { eng.selectTrack(null, 'text'); setPanel(null); }}>Apagados</Fx>
         {tracks.filter((t) => t.kind === 'text').map((t) => <Fx key={'t' + t.index} className="opt" onClick={() => { eng.selectTrack(t, 'text'); setPanel(null); }}>{t.label}</Fx>)}
         <h4>Más</h4>
         <Fx className="opt" onClick={() => { const n = (aspect + 1) % 5; setAspect(n); eng.setAspect(n); store.setPrefs({ aspect: n }); }}>Pantalla: {['Ajustar', 'Llenar', 'Zoom', '16:9', '4:3'][aspect]}</Fx>

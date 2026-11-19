@@ -68,6 +68,55 @@ const fail = (m) => { console.error('FALLA: ' + m); process.exitCode = 1; };
   await p.evaluate(() => [...document.querySelectorAll('.login-form .btn')].find((b) => b.textContent.includes('Entrar'))?.click());
   await p.waitForSelector('.content', { timeout: 40000 }).then(() => console.log('Xtream Codes con URL: entró')).catch(() => fail('no entró con Xtream Codes'));
   await p.waitForTimeout(1500); await shot('07-xtream-inicio');
+  // Series: ⏮ ⏭ capítulo anterior / siguiente (botones con el mouse y teclas ⏮ ⏭).
+  await menu(3); await p.waitForSelector('.grid .card', { timeout: 20000 }).catch(() => fail('no aparecieron las series'));
+  let opened = false;
+  for (let k = 0; k < 8 && !opened; k++) {
+    await p.evaluate((k) => document.querySelectorAll('.grid .card')[k]?.click(), k);
+    await p.waitForSelector('.detail', { timeout: 15000 }).catch(() => {});
+    await p.waitForTimeout(2500);
+    opened = await p.evaluate(() => { const b = [...document.querySelectorAll('.detail-btns .btn')].find((x) => /Ver ahora|Continuar/.test(x.textContent)); if (b) b.click(); return !!b; });
+    if (!opened) { await p.keyboard.press('Escape'); await p.waitForTimeout(800); }
+  }
+  if (!opened) fail('ninguna serie con capítulos');
+  await p.waitForSelector('.player', { timeout: 15000 });
+  const epTitle = () => p.evaluate(() => { const el = document.querySelector('.player-top span'); return el ? el.textContent : ''; });
+  const showUi = async () => { await p.mouse.move(400, 300); await p.mouse.move(420, 320); await p.waitForTimeout(400); };
+  await p.waitForFunction(() => document.getElementById('bgvideo')?.duration > 0, null, { timeout: 30000 }).catch(() => fail('el capítulo no cargó'));
+  await showUi(); const e1 = await epTitle();
+  if (await p.$('#ep-prev')) fail('en el primer capítulo no debe haber ⏮');
+  if (!(await p.$('#ep-next'))) fail('falta el botón ⏭ Siguiente');
+  await shot('10-capitulos-botones');
+  await p.click('#ep-next');
+  await p.waitForFunction((t) => (document.querySelector('.player-top span')?.textContent ?? '') !== t, e1, { timeout: 15000 }).catch(() => {});
+  await showUi(); const e2 = await epTitle();
+  if (e2 === e1 || !e2) fail('⏭ no cambió de capítulo'); else console.log(`Capítulos: ⏭ ${e1} → ${e2}`);
+  if (!(await p.$('#ep-prev'))) fail('en el capítulo 2 falta ⏮');
+  await p.keyboard.press('MediaTrackPrevious');
+  await p.waitForFunction((t) => (document.querySelector('.player-top span')?.textContent ?? '') === t, e1, { timeout: 15000 })
+    .then(() => console.log('Capítulos: tecla ⏮ volvió al capítulo 1')).catch(async () => { await showUi(); fail('la tecla ⏮ no volvió al capítulo 1: ' + await epTitle()); });
+  await p.keyboard.press('ArrowUp'); await p.waitForTimeout(500);
+  if (!(await p.$('#opt-ep-next'))) fail('en Opciones (▲) falta «Siguiente capítulo»'); else console.log('Capítulos: ▲ Opciones muestra «⏭ Siguiente»');
+  await shot('11-capitulos-opciones');
+  await p.keyboard.press('Escape'); await p.waitForTimeout(400); await p.keyboard.press('Escape'); await p.waitForTimeout(800);
+  // Volver a la app después de un rato: recarga lo del proveedor sola (sin «Actualizar listas»).
+  const vodHits = async () => (await (await fetch('http://127.0.0.1:8800/__hits')).json()).get_vod_streams ?? 0;
+  await menu(2); await p.waitForSelector('.grid .card', { timeout: 20000 });
+  const h0 = await vodHits(); const g0 = await p.evaluate(() => document.querySelector('.content')?.getAttribute('data-gen'));
+  await fetch('http://127.0.0.1:8800/__estreno?on=1');
+  await p.evaluate(() => {
+    let hidden = true; Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+    document.dispatchEvent(new Event('visibilitychange'));
+    const real = Date.now.bind(Date); Date.now = () => real() + 120_000; // «pasaron 2 minutos»
+    hidden = false; document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await p.waitForTimeout(4000);
+  const h1 = await vodHits(); const g1 = await p.evaluate(() => document.querySelector('.content')?.getAttribute('data-gen'));
+  if (!(h1 > h0) || g1 === g0) fail(`al volver no recargó (descargas ${h0}→${h1}, pantalla ${g0}→${g1})`); else console.log(`Al volver a la app: recargó sola (descargas de películas ${h0}→${h1})`);
+  const has = await p.evaluate(() => document.body.textContent.includes('Estreno de prueba'));
+  console.log('Al volver: «Estreno de prueba» en pantalla:', has);
+  await shot('12-actualizado-al-volver');
+  await fetch('http://127.0.0.1:8800/__estreno');
   // Por vencer: los últimos días avisa al entrar (con el código para renovar).
   const day = (n) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
   await fetch(`http://127.0.0.1:8800/__license?h=${h}&exp=${day(3)}`);

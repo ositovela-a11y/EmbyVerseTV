@@ -122,6 +122,12 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
 
     Box(Modifier.fillMaxSize().background(Color.Black).onFocusChanged { vm.screenHasFocus = it.hasFocus }) {
         // Formato de pantalla: ajustar / llenar / zoom / 16:9 / 4:3 (para canales con bordes negros o estirados).
+        // ⏮ ⏭ de la barra del reproductor: capítulo anterior / siguiente (solo en series).
+        val epNav by vm.episodeNav.collectAsStateWithLifecycle()
+        val shownPlayer = androidx.compose.runtime.remember(player, epNav) {
+            player?.let { p -> if (epNav.first == null && epNav.second == null) p
+                else EpisodeNavPlayer(p, epNav.first != null, epNav.second != null) { d -> vm.playAdjacentEpisode(d) } }
+        }
         AndroidView(
             modifier = (when (aspectMode) { 3 -> Modifier.fillMaxHeight().aspectRatio(16f / 9f, matchHeightConstraintsFirst = true)
                 4 -> Modifier.fillMaxHeight().aspectRatio(4f / 3f, matchHeightConstraintsFirst = true); else -> Modifier.fillMaxSize() }).align(Alignment.Center)
@@ -151,7 +157,8 @@ fun PlayerScreen(vm: PlayerViewModel, onClose: () -> Unit, onPip: (() -> Unit)? 
                     sv.setFractionalTextSize(androidx.media3.ui.SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * listOf(0.8f, 1f, 1.3f, 1.65f)[subStyle.subtitleSize.coerceIn(0, 3)])
                     sv.setApplyEmbeddedStyles(false)
                 }
-                view.player = player; view.useController = !pip && !locked; if (listVisible || optionsVisible || pip || locked) view.hideController() },
+                view.setShowPreviousButton(epNav.first != null); view.setShowNextButton(epNav.second != null)
+                view.player = shownPlayer; view.useController = !pip && !locked; if (listVisible || optionsVisible || pip || locked) view.hideController() },
             onRelease = { view -> view.player = null },
         )
 
@@ -409,4 +416,26 @@ private fun MiniGuide(now: com.embyverse.app.data.db.EpgEntity, next: com.embyve
             }
         }
     }
+}
+
+/**
+ * El reproductor tal cual, pero con ⏮ ⏭ activos: la barra de controles los muestra (se eligen con el control
+ * remoto igual que ▶❚❚) y al pulsarlos cambia al capítulo anterior / siguiente de la serie.
+ */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+private class EpisodeNavPlayer(p: androidx.media3.common.Player, private val hasPrev: Boolean, private val hasNext: Boolean,
+                               private val go: (Int) -> Boolean) : androidx.media3.common.ForwardingPlayer(p) {
+    private fun extra(cmd: Int) = (hasPrev && (cmd == androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS || cmd == androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)) ||
+        (hasNext && (cmd == androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT || cmd == androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM))
+    override fun isCommandAvailable(command: Int) = extra(command) || super.isCommandAvailable(command)
+    override fun getAvailableCommands(): androidx.media3.common.Player.Commands = super.getAvailableCommands().buildUpon().apply {
+        if (hasPrev) addAll(androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS, androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+        if (hasNext) addAll(androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT, androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+    }.build()
+    override fun hasPreviousMediaItem() = hasPrev || super.hasPreviousMediaItem()
+    override fun hasNextMediaItem() = hasNext || super.hasNextMediaItem()
+    override fun seekToPrevious() { if (!(hasPrev && go(-1))) super.seekToPrevious() }
+    override fun seekToPreviousMediaItem() { if (!(hasPrev && go(-1))) super.seekToPreviousMediaItem() }
+    override fun seekToNext() { if (!(hasNext && go(1))) super.seekToNext() }
+    override fun seekToNextMediaItem() { if (!(hasNext && go(1))) super.seekToNextMediaItem() }
 }

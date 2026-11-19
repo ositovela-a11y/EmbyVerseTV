@@ -13,6 +13,7 @@ export const KEY = {
   STOP: [413], FF: [417, 228], RW: [412, 227],
   CH_UP: [427, 33], CH_DOWN: [428, 34], PREV_CH: [10190],
   INFO: [457], RED: [403], GREEN: [404], YELLOW: [405], BLUE: [406],
+  NEXT: [10233, 176], PREV: [10232, 177], // ⏭ ⏮ (Samsung, LG y teclados multimedia)
 };
 
 export const isKey = (code: number, k: number | number[]) => (Array.isArray(k) ? k.includes(code) : code === k);
@@ -21,7 +22,7 @@ export const isKey = (code: number, k: number | number[]) => (Array.isArray(k) ?
 export function registerKeys() {
   if (!isTizen) return;
   try {
-    const want = ['MediaPlayPause', 'MediaPlay', 'MediaPause', 'MediaStop', 'MediaFastForward', 'MediaRewind', 'ChannelUp', 'ChannelDown',
+    const want = ['MediaPlayPause', 'MediaPlay', 'MediaPause', 'MediaStop', 'MediaFastForward', 'MediaRewind', 'MediaTrackNext', 'MediaTrackPrevious', 'ChannelUp', 'ChannelDown',
       'PreviousChannel', 'Info', 'ColorF0Red', 'ColorF1Green', 'ColorF2Yellow', 'ColorF3Blue', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
     const supported = tizen.tvinputdevice.getSupportedKeys().map((k: any) => k.name);
     want.filter((k) => supported.includes(k)).forEach((k) => { try { tizen.tvinputdevice.registerKey(k); } catch { /* sin esa tecla */ } });

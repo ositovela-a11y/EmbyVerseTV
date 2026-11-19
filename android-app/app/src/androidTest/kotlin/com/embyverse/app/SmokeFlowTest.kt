@@ -1521,4 +1521,83 @@ class SmokeFlowTest {
         log("FORMATOS:\n" + table.joinToString("\n"))
         assertTrue("Formatos con problema: $bad", bad.isEmpty())
     }
+
+    /** ⏮ ⏭ en la barra del reproductor y en el control: capítulo anterior / siguiente. */
+    @Test fun zj_capituloAnteriorSiguiente() {
+        val c = app.container
+        val s = runBlocking { c.catalog.series(null, 60).first() }.first { ser -> runBlocking { c.sources.loadEpisodes(ser.sourceId, ser.providerId); c.database.episodes().forSeries(ser.sourceId, ser.providerId).size >= 3 } }
+        val eps = runBlocking { c.database.episodes().forSeries(s.sourceId, s.providerId) }
+        val inst = InstrumentationRegistry.getInstrumentation()
+        com.embyverse.app.data.prefs.UiPrefs.setForceTv(app, true)
+        try {
+            PlaybackProbe.reset()
+            ActivityScenario.launch<com.embyverse.app.player.PlayerActivity>(playerIntent("EPISODE", eps[1].sourceId, eps[1].providerId, "restart")).use { sc ->
+                compose.waitUntil(40_000) { PlaybackProbe.readyCount > 0 && PlaybackProbe.nowId == eps[1].providerId }
+                lateinit var vm: com.embyverse.app.player.PlayerViewModel
+                sc.onActivity { vm = androidx.lifecycle.ViewModelProvider(it)[com.embyverse.app.player.PlayerViewModel::class.java] }
+                compose.waitUntil(10_000) { vm.episodeNav.value.first != null && vm.episodeNav.value.second != null }
+                fun btn(id: Int): android.view.View? { var v: android.view.View? = null; sc.onActivity { v = vm.playerView?.get()?.findViewById(id) }; return v }
+                fun shown(id: Int): Boolean { var ok = false; sc.onActivity { val v = vm.playerView?.get()?.findViewById<android.view.View>(id); ok = v != null && v.isShown && v.isEnabled }; return ok }
+                fun showCtl() { sc.onActivity { vm.playerView?.get()?.showController() }; Thread.sleep(800) }
+                val prevId = androidx.media3.ui.R.id.exo_prev; val nextId = androidx.media3.ui.R.id.exo_next
+                showCtl()
+                assertTrue("⏮ visible en el capítulo 2", shown(prevId)); assertTrue("⏭ visible en el capítulo 2", shown(nextId))
+                shot("55-capitulo-anterior-siguiente")
+                log("Capítulos: en «${eps[1].title}» la barra muestra ⏮ y ⏭")
+                // ⏭ en la barra
+                sc.onActivity { vm.playerView?.get()?.findViewById<android.view.View>(nextId)?.performClick() }
+                compose.waitUntil(20_000) { PlaybackProbe.nowId == eps[2].providerId }
+                log("Capítulos: ⏭ de la barra → ${eps[2].title}")
+                // ⏮ en la barra
+                compose.waitUntil(10_000) { vm.episodeNav.value.first?.id == eps[1].providerId }
+                showCtl(); sc.onActivity { vm.playerView?.get()?.findViewById<android.view.View>(prevId)?.performClick() }
+                compose.waitUntil(20_000) { PlaybackProbe.nowId == eps[1].providerId }
+                log("Capítulos: ⏮ de la barra → ${eps[1].title}")
+                // Teclas ⏮ ⏭ del control remoto
+                compose.waitUntil(10_000) { vm.episodeNav.value.first?.id == eps[0].providerId }
+                inst.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS)
+                compose.waitUntil(20_000) { PlaybackProbe.nowId == eps[0].providerId }
+                compose.waitUntil(10_000) { vm.episodeNav.value.first == null && vm.episodeNav.value.second?.id == eps[1].providerId }
+                showCtl()
+                assertTrue("en el primer capítulo no hay ⏮", !shown(prevId)); assertTrue("en el primer capítulo sí hay ⏭", shown(nextId))
+                shot("56-primer-capitulo-sin-anterior")
+                inst.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_MEDIA_NEXT)
+                compose.waitUntil(20_000) { PlaybackProbe.nowId == eps[1].providerId }
+                log("Capítulos: teclas ⏮ ⏭ del control funcionan; en el primero no aparece ⏮")
+            }
+        } finally { com.embyverse.app.data.prefs.UiPrefs.setForceTv(app, false) }
+    }
+
+    /** Al salir y volver a la app, la lista se actualiza sola: lo nuevo del proveedor aparece sin pulsar «Actualizar». */
+    @Test fun zk_actualizaAlVolver() {
+        val c = app.container
+        val src = runBlocking { c.sources.sources.first() }.first()
+        val inst = InstrumentationRegistry.getInstrumentation()
+        val oldAge = EmbyVerseApp.RESUME_MIN_AGE_MS; val oldAway = EmbyVerseApp.awayMs
+        EmbyVerseApp.RESUME_MIN_AGE_MS = 1_000; EmbyVerseApp.awayMs = 2_000
+        try {
+            runBlocking { c.sources.sync(src.id) }
+            ActivityScenario.launch(MainActivity::class.java).use {
+                waitFor("inicio o perfiles", 30_000) { listOf("nav_settings", "profile").any { t -> compose.onAllNodesWithTag(t, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() } }
+                assertTrue("aún no existe el estreno", runBlocking { c.database.movies().get(src.id, "999001") } == null)
+                // Sale de la app; mientras tanto el proveedor agrega una película.
+                inst.uiAutomation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME)
+                Thread.sleep(1_500)
+                mock("/__estreno?on=1")
+                Thread.sleep(2_500)
+                val before = runBlocking { c.database.sources().get(src.id) }?.lastSyncAt ?: 0
+                // Vuelve a la app.
+                inst.targetContext.startActivity(android.content.Intent(inst.targetContext, MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+                waitFor("estreno en la lista al volver", 90_000) { runBlocking { c.database.movies().get(src.id, "999001") } != null }
+                val after = runBlocking { c.database.sources().get(src.id) }?.lastSyncAt ?: 0
+                assertTrue("se actualizó de verdad al volver ($before → $after)", after > before)
+                runCatching { waitText("Estreno de prueba", 15_000) } // en el inicio sale en «Novedades» si cabe en pantalla
+                Thread.sleep(800); shot("57-actualizado-al-volver")
+                log("Al volver a la app: se actualizó sola y apareció «Estreno de prueba» sin pulsar Actualizar")
+            }
+        } finally {
+            EmbyVerseApp.RESUME_MIN_AGE_MS = oldAge; EmbyVerseApp.awayMs = oldAway
+            mock("/__estreno"); runBlocking { c.sources.sync(src.id) }
+        }
+    }
 }

@@ -219,6 +219,9 @@ class PlayerActivity : AppCompatActivity() {
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_HEADSETHOOK -> { if (p.isPlaying) p.pause() else p.play() }
             KeyEvent.KEYCODE_MEDIA_PLAY -> p.play()
             KeyEvent.KEYCODE_MEDIA_PAUSE -> p.pause()
+            // ⏭ ⏮ del control: capítulo siguiente / anterior en series.
+            KeyEvent.KEYCODE_MEDIA_NEXT -> return !vm.isLive && vm.playAdjacentEpisode(+1)
+            KeyEvent.KEYCODE_MEDIA_PREVIOUS -> return !vm.isLive && vm.playAdjacentEpisode(-1)
             KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> if (vm.isLive) return false else seekBy(+SEEK_MS)
             KeyEvent.KEYCODE_MEDIA_REWIND -> if (vm.isLive) return false else seekBy(-SEEK_MS)
             else -> return false

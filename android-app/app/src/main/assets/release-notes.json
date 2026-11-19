@@ -1,5 +1,9 @@
 {
   "_info": "Notas de cada versión. Se muestran al ofrecer la actualización (update.json) y en «Novedades» después de actualizar. Escribir SIN el nombre de la app (las ven también las apps de vendedores). Agregar una entrada en cada versión nueva.",
+  "1.15.17": {
+    "es": ["Botones ⏮ ⏭ en el reproductor para ir al capítulo anterior o siguiente (también con las teclas ⏮ ⏭ del control).", "Al salir y volver a la app, las listas se actualizan solas: lo nuevo aparece sin pulsar «Actualizar»."],
+    "en": ["⏮ ⏭ buttons in the player to go to the previous or next episode (also with the remote's ⏮ ⏭ keys).", "When you leave and come back to the app, lists update on their own: new content appears without pressing «Refresh»."]
+  },
   "1.15.16": {
     "es": ["Películas y series en MPEG-4 (Xvid, DivX) ya se reproducen en todos los equipos; si el equipo falla con un formato, la app lo reintenta con su propio decodificador.", "Canales MPEG-2: ya no sale el aviso de «Abrir en otro reproductor» cuando el canal sí se ve.", "Si sale el aviso, ATRÁS lo cierra y te quedas en el canal."],
     "en": ["Movies and series in MPEG-4 (Xvid, DivX) now play on every device; if the device fails with a format, the app retries with its own decoder.", "MPEG-2 channels: the «Open in another player» notice no longer appears when the channel does play.", "If the notice appears, BACK closes it and you stay on the channel."]

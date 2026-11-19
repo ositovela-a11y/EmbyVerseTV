@@ -53,9 +53,11 @@ class EmbyVerseApp : Application(), SingletonImageLoader.Factory {
                 }
             })
         }
-        // Cada vez que se abre la app: si una lista tiene más de 4 h, se actualiza en segundo plano
-        // (lo nuevo del proveedor aparece solo, sin pulsar «Actualizar»). Lo ya cargado sigue visible.
+        // Cada vez que se abre la app o se vuelve a ella (estuvo fuera 1 min o más), las listas se actualizan en
+        // segundo plano: lo nuevo del proveedor aparece solo, sin pulsar «Actualizar». Lo ya cargado sigue visible.
+        var leftAt = 0L
         ProcessLifecycleOwner.get().lifecycle.addObserver(LifecycleEventObserver { _, e ->
+            if (e == Lifecycle.Event.ON_STOP) leftAt = System.currentTimeMillis()
             // Al volver a la app: diseño del panel y versión nueva de la app (sin reinstalar ni Downloader).
             // Al salir de la app: «Continuar viendo» y favoritos en la pantalla de inicio de la TV.
             if (e == Lifecycle.Event.ON_STOP) appScope.launch {
@@ -68,7 +70,10 @@ class EmbyVerseApp : Application(), SingletonImageLoader.Factory {
             }
             if (e == Lifecycle.Event.ON_START) appScope.launch {
                 runCatching {
-                    val limit = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(STALE_HOURS)
+                    val now = System.currentTimeMillis()
+                    val returning = leftAt == 0L || now - leftAt >= awayMs
+                    // Al abrir o volver: lo que tenga más de 2 min. (Volver al instante, p. ej. de una notificación, no recarga.)
+                    val limit = now - if (returning) RESUME_MIN_AGE_MS else TimeUnit.HOURS.toMillis(STALE_HOURS)
                     container.database.sources().all().filter { (it.lastSyncAt ?: 0) in 1 until limit }
                         .forEach { SyncWorker.syncNow(this@EmbyVerseApp, it.id) }
                 }
@@ -78,5 +83,11 @@ class EmbyVerseApp : Application(), SingletonImageLoader.Factory {
 
     override fun newImageLoader(context: PlatformContext): ImageLoader = container.imageLoader
 
-    companion object { const val STALE_HOURS = 4L }
+    companion object {
+        const val STALE_HOURS = 4L
+        /** Volver a la app actualiza lo que tenga más de 2 min (las pruebas lo bajan para no esperar). */
+        @Volatile var RESUME_MIN_AGE_MS = 2 * 60_000L
+        /** Tiempo fuera de la app que cuenta como «volver» (las pruebas lo bajan para no esperar). */
+        @Volatile var awayMs = 60_000L
+    }
 }
