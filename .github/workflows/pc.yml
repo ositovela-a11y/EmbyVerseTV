@@ -60,8 +60,11 @@ jobs:
           ls -la desktop/dist
       - name: Publicar
         shell: bash
-        env: { GH_TOKEN: '${{ github.token }}' }
+        # Versión final → repositorio PÚBLICO (descargas); beta → repositorio del código.
+        env:
+          GH_TOKEN: ${{ github.ref_name == 'main' && (secrets.SITE_TOKEN || github.token) || github.token }}
         run: |
           TAG=$([ "$GITHUB_REF_NAME" = main ] && echo pc-latest || echo pc-beta)
-          gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "App PC ($TAG)" --notes "EmbyVerse para Windows: instalador y versión portátil."
-          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" desktop/dist/*-PC-Instalador.exe desktop/dist/*-PC-Portable.exe --clobber
+          DEST=$([ "$GITHUB_REF_NAME" = main ] && echo ositovela-a11y/EmbyVerseTV || echo "$GITHUB_REPOSITORY")
+          gh release view "$TAG" -R "$DEST" >/dev/null 2>&1 || gh release create "$TAG" -R "$DEST" --title "App PC ($TAG)" --notes "EmbyVerse para Windows: instalador y versión portátil."
+          gh release upload "$TAG" -R "$DEST" desktop/dist/*-PC-Instalador.exe desktop/dist/*-PC-Portable.exe --clobber

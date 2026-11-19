@@ -93,22 +93,23 @@ jobs:
           done
       - name: Publicar APK
         if: success()
-        env: { GH_TOKEN: '${{ github.token }}' }
+        # Las descargas van al repositorio PÚBLICO (ositovela-a11y/EmbyVerseTV); el código puede estar en uno privado.
+        env: { GH_TOKEN: '${{ secrets.SITE_TOKEN || github.token }}', PUB: ositovela-a11y/EmbyVerseTV }
         run: |
           cp android-app/app/build/outputs/apk/release/app-release.apk "${{ matrix.asset }}"
           NOTES="APK optimizado compilado desde ${GITHUB_SHA::7} el $(date -u '+%Y-%m-%d %H:%M UTC'). Firmado con la clave de depuración del proyecto."
-          gh release view apk-latest >/dev/null 2>&1 || gh release create apk-latest --title "EmbyVerse (última compilación)" --notes "$NOTES" --latest
-          if [ -z "${{ matrix.slug }}" ]; then gh release edit apk-latest --notes "$NOTES"; fi
-          gh release upload apk-latest "${{ matrix.asset }}" --clobber
+          gh release view apk-latest -R "$PUB" >/dev/null 2>&1 || gh release create apk-latest -R "$PUB" --title "EmbyVerse (última compilación)" --notes "$NOTES" --latest
+          if [ -z "${{ matrix.slug }}" ]; then gh release edit apk-latest -R "$PUB" --notes "$NOTES"; fi
+          gh release upload apk-latest -R "$PUB" "${{ matrix.asset }}" --clobber
   # Borra del release las APK de vendedores que ya no existen.
   cleanup:
     needs: [targets, build]
     if: always() && needs.targets.result == 'success'
     runs-on: ubuntu-latest
-    env: { GH_TOKEN: '${{ github.token }}', MATRIX: '${{ needs.targets.outputs.all }}' }
+    env: { GH_TOKEN: '${{ secrets.SITE_TOKEN || github.token }}', MATRIX: '${{ needs.targets.outputs.all }}', PUB: ositovela-a11y/EmbyVerseTV }
     steps:
       - run: |
           keep=$(echo "$MATRIX" | jq -r '.include[].asset')
-          for a in $(gh release view apk-latest -R "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep -E '^EmbyVerse-.+\.apk$' || true); do
-            echo "$keep" | grep -qx "$a" || { echo "Eliminando $a"; gh release delete-asset apk-latest "$a" -R "$GITHUB_REPOSITORY" -y; }
+          for a in $(gh release view apk-latest -R "$PUB" --json assets -q '.assets[].name' | grep -E '^EmbyVerse-.+\.apk$' || true); do
+            echo "$keep" | grep -qx "$a" || { echo "Eliminando $a"; gh release delete-asset apk-latest "$a" -R "$PUB" -y; }
           done

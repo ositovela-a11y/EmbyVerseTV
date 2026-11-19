@@ -1,4 +1,6 @@
-# Publica el sitio (descarga, panel y diseños) en la rama gh-pages → https://<usuario>.github.io/<repositorio>/
+# Publica el sitio (descarga, panel y diseños) en la rama gh-pages del repositorio PÚBLICO ositovela-a11y/EmbyVerseTV
+# → https://ositovela-a11y.github.io/EmbyVerseTV/ (y eversetv.com). El código puede vivir en un repositorio privado:
+# entonces se publica con el secreto SITE_TOKEN (token con permiso de escritura en EmbyVerseTV).
 name: Sitio (descarga y panel)
 on:
   push:
@@ -17,10 +19,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: APK en el sitio y update.json (actualización dentro de la app)
-        env: { GH_TOKEN: '${{ github.token }}' }
+        env: { GH_TOKEN: '${{ secrets.SITE_TOKEN || github.token }}', PUB: ositovela-a11y/EmbyVerseTV }
         run: |
           mkdir -p web-player/apk
-          gh release download apk-latest -R "$GITHUB_REPOSITORY" -p '*.apk' -D web-player/apk --clobber || true
+          gh release download apk-latest -R "$PUB" -p '*.apk' -D web-player/apk --clobber || true
           AAPT=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1)
           python3 - "$AAPT" <<'PY'
           import json, os, re, subprocess, sys
@@ -41,18 +43,21 @@ jobs:
           PY
           # App de TV (Samsung/LG): copia web para que las TVs instaladas se actualicen solas + paquetes para descargar.
           mkdir -p web-player/tv
-          if gh release download tv-latest -R "$GITHUB_REPOSITORY" -p 'EmbyVerse-TV-web.zip' -D /tmp/tv --clobber; then
+          if gh release download tv-latest -R "$PUB" -p 'EmbyVerse-TV-web.zip' -D /tmp/tv --clobber; then
             unzip -qo /tmp/tv/EmbyVerse-TV-web.zip -d web-player/tv
-            gh release download tv-latest -R "$GITHUB_REPOSITORY" -p '*.wgt' -p '*.ipk' -D web-player/tv --clobber || true
+            gh release download tv-latest -R "$PUB" -p '*.wgt' -p '*.ipk' -D web-player/tv --clobber || true
             V=$(grep -o "LOCAL = '[^']*'" web-player/tv/index.html | cut -d"'" -f2); echo "{\"version\": \"$V\"}" > web-player/tv/version.json
           fi
           # Dominio propio: si existe la variable del repositorio CUSTOM_DOMAIN, se publica el archivo CNAME.
           if [ -n "${{ vars.CUSTOM_DOMAIN }}" ]; then echo "${{ vars.CUSTOM_DOMAIN }}" > web-player/CNAME; fi
       - name: Publicar en gh-pages
+        env: { GH_TOKEN: '${{ secrets.SITE_TOKEN || github.token }}', PUB: ositovela-a11y/EmbyVerseTV }
         run: |
           cd web-player
           touch .nojekyll
           git init -q -b gh-pages
           git config user.name "github-actions"; git config user.email "actions@users.noreply.github.com"
           git add -A && git commit -qm "Publicar sitio ${GITHUB_SHA::7}"
-          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" gh-pages
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${PUB}.git" gh-pages
+          # Repositorio público recién creado: activar GitHub Pages sobre gh-pages (si ya está, no pasa nada).
+          gh api -X POST "repos/$PUB/pages" -f "source[branch]=gh-pages" -f "source[path]=/" >/dev/null 2>&1 && echo "::notice::GitHub Pages activado en $PUB" || true

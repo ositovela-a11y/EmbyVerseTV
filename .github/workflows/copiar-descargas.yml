@@ -1,0 +1,35 @@
+# Una sola vez, al separar el código (repositorio privado) del sitio (repositorio público EmbyVerseTV):
+# copia las descargas publicadas (APK, PC, TV) al repositorio público y vuelve a publicar el sitio.
+# Necesita el secreto SITE_TOKEN (token con escritura en ositovela-a11y/EmbyVerseTV).
+name: Copiar descargas al repositorio público
+on: workflow_dispatch
+permissions:
+  contents: read
+  actions: write
+jobs:
+  copiar:
+    runs-on: ubuntu-latest
+    env:
+      PUB: ositovela-a11y/EmbyVerseTV
+      SRC: ${{ github.repository }}
+    steps:
+      - name: Revisar
+        env: { SITE: '${{ secrets.SITE_TOKEN }}' }
+        run: |
+          [ -n "$SITE" ] || { echo "::error::Falta el secreto SITE_TOKEN"; exit 1; }
+          [ "$SRC" != "$PUB" ] || { echo "::error::El código todavía está en $PUB (renómbralo a EmbyVerse-codigo primero)"; exit 1; }
+      - name: Copiar publicaciones
+        run: |
+          for t in apk-latest pc-latest tv-latest; do
+            mkdir -p "d/$t"
+            GH_TOKEN="${{ github.token }}" gh release download "$t" -R "$SRC" -D "d/$t" --clobber || { echo "::warning::sin $t en $SRC"; continue; }
+            TITLE=$(GH_TOKEN="${{ github.token }}" gh release view "$t" -R "$SRC" --json name -q .name)
+            GH_TOKEN="${{ secrets.SITE_TOKEN }}" gh release view "$t" -R "$PUB" >/dev/null 2>&1 || GH_TOKEN="${{ secrets.SITE_TOKEN }}" gh release create "$t" -R "$PUB" --title "$TITLE" --notes "Descargas de EmbyVerse" $([ "$t" = apk-latest ] && echo --latest)
+            GH_TOKEN="${{ secrets.SITE_TOKEN }}" gh release upload "$t" -R "$PUB" d/$t/* --clobber
+            echo "✓ $t copiado ($(ls d/$t | wc -l) archivos)"
+          done
+      - name: Volver a publicar el sitio y el dominio
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          gh workflow run web.yml -R "$SRC" --ref main
+          gh workflow run site-worker.yml -R "$SRC" --ref main

@@ -12,7 +12,9 @@ import { validateLocal } from './store';
 
 export const GH = {
   owner: 'ositovela-a11y',
+  /** Repositorio del código y los diseños. Si existe el privado «EmbyVerse-codigo», se usa ese (ver resolveRepo). */
   repo: 'EmbyVerseTV',
+  private: false,
   branch: 'main',
   configPath: 'web-player/config/app.json',
   assetsDir: 'web-player/config/assets',
@@ -49,7 +51,15 @@ export function linksFor(slug: string) {
     pcExe: `${site}/descargas/pc/${slug || 'EmbyVerse'}-PC-Instalador.exe`,
   };
 }
-const API = `https://api.github.com/repos/${GH.owner}/${GH.repo}`;
+/** El código vive en el repositorio privado EmbyVerse-codigo (si existe y el token tiene acceso); si no, en EmbyVerseTV. */
+export const CODE_REPO = 'EmbyVerse-codigo';
+let API = `https://api.github.com/repos/${GH.owner}/${GH.repo}`;
+async function resolveRepo() {
+  try {
+    const r = await fetch(`https://api.github.com/repos/${GH.owner}/${CODE_REPO}`, { headers: { authorization: `Bearer ${token()}`, accept: 'application/vnd.github+json' } });
+    if (r.ok) { const j = await r.json() as { private?: boolean }; GH.repo = CODE_REPO; GH.private = !!j.private; API = `https://api.github.com/repos/${GH.owner}/${GH.repo}`; }
+  } catch { /* sin red: se queda como está */ }
+}
 const LICENSES = 'web-player/config/licenses.json';
 const BLOCKED = 'web-player/config/blocked.json';
 /**
@@ -126,13 +136,14 @@ const mimeOf = (name: string) => (/\.png$/i.test(name) ? 'image/png' : /\.webp$/
 const assetOf = (f: FileInfo): Asset => ({
   id: f.sha + ':' + f.name, filename: f.name, mime: mimeOf(f.name), size: f.size, width: 0, height: 0, kind: kindOf(f.name), approved: true,
   url: `${GH.pagesBase}/assets/${f.name}`,
-  previewUrl: `https://raw.githubusercontent.com/${GH.owner}/${GH.repo}/${GH.branch}/${GH.assetsDir}/${encodeURIComponent(f.name)}`,
+  previewUrl: GH.private ? `${GH.pagesBase}/assets/${f.name}` : `https://raw.githubusercontent.com/${GH.owner}/${GH.repo}/${GH.branch}/${GH.assetsDir}/${encodeURIComponent(f.name)}`,
   created_at: 0,
 });
 
 export const githubApi = {
   setToken(t: string) { try { localStorage.setItem(TOKEN_KEY, t.trim()); } catch { /* */ } },
   async me(): Promise<User> {
+    await resolveRepo();
     const r = await gh<{ permissions?: { push?: boolean } }>('GET', '');
     if (!r.permissions?.push) throw new ApiError(403, 'github', 'El token no tiene permiso de escritura en el repositorio.');
     return ME;

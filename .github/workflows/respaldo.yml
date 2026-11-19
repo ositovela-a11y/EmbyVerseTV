@@ -3,9 +3,10 @@
 #  - el contexto del proyecto para Claude (CLAUDE.md) y la guía de recuperación (docs/RECUPERACION.md),
 #  - las apps publicadas: 4 APK (una por marca), instaladores de PC, Samsung (.wgt), LG (.ipk) y FFmpeg,
 #  - el sitio publicado (rama gh-pages: página, panel, configs de diseño, activaciones, bloqueos),
-#  - la base de datos de estadísticas y perfiles (Cloudflare D1) CIFRADA con tu STATS_ADMIN_KEY
-#    (el repositorio es público: sin tu clave nadie la puede leer).
-# Va a la publicación «respaldo-AAAA-MM-DD». Se guardan los últimos 6 respaldos.
+#  - la base de datos de estadísticas y perfiles (Cloudflare D1) CIFRADA con tu STATS_ADMIN_KEY,
+#  - SOLO si el repositorio del código es PRIVADO: tus claves (CLAVES.txt: Cloudflare, STATS_ADMIN_KEY, SITE_TOKEN y
+#    los datos de la firma de las APK). Si existe el secreto BACKUP_PASSWORD, van cifradas con esa contraseña.
+# Va a la publicación «respaldo-AAAA-MM-DD» del repositorio del código. Se guardan los últimos 6 respaldos.
 name: Respaldo
 on:
   workflow_dispatch:
@@ -19,7 +20,9 @@ jobs:
     timeout-minutes: 40
     env:
       GH_TOKEN: ${{ github.token }}
-      REPO: ${{ github.repository }}
+      REPO: ${{ github.repository }}          # aquí se guarda el respaldo (repositorio del código)
+      PUB: ositovela-a11y/EmbyVerseTV          # de aquí se toman las apps publicadas
+      PUB_TOKEN: ${{ secrets.SITE_TOKEN || github.token }}
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0, ref: main }
@@ -31,15 +34,18 @@ jobs:
           git bundle create out/EmbyVerse-repo.bundle --all
           git bundle verify out/EmbyVerse-repo.bundle > /dev/null && echo "bundle OK"
           git archive --format=zip -o out/EmbyVerse-codigo-main.zip main
-          git archive --format=zip -o out/EmbyVerse-sitio-gh-pages.zip gh-pages 2>/dev/null || echo "::warning::sin gh-pages"
+          # El sitio publicado vive en el repositorio público (rama gh-pages).
+          if git ls-remote --exit-code "https://github.com/$PUB.git" gh-pages >/dev/null 2>&1; then
+            git fetch -q "https://github.com/$PUB.git" gh-pages:sitio-publicado && git archive --format=zip -o out/EmbyVerse-sitio-gh-pages.zip sitio-publicado
+          else git archive --format=zip -o out/EmbyVerse-sitio-gh-pages.zip gh-pages 2>/dev/null || echo "::warning::sin gh-pages"; fi
           cp CLAUDE.md out/CLAUDE.md
           cp docs/RECUPERACION.md out/RECUPERACION.md
       - name: Apps publicadas
         run: |
-          for t in apk-latest tv-latest; do gh release download "$t" -R "$REPO" -D out --clobber 2>/dev/null || echo "::warning::sin $t"; done
+          for t in apk-latest tv-latest; do GH_TOKEN="$PUB_TOKEN" gh release download "$t" -R "$PUB" -D out --clobber 2>/dev/null || echo "::warning::sin $t"; done
           # Los dos decodificadores FFmpeg se llaman igual: cada uno con su nombre.
           for t in ffmpeg-media3-1.11.1-video ffmpeg-media3-1.11.1; do mkdir -p "tmp-$t" && gh release download "$t" -R "$REPO" -D "tmp-$t" --clobber 2>/dev/null && mv "tmp-$t/lib-decoder-ffmpeg-release.aar" "out/$t.aar" || echo "::warning::sin $t"; done
-          gh release download pc-latest -R "$REPO" -D out -p '*-PC-Instalador.exe' --clobber || echo "::warning::sin pc-latest"
+          GH_TOKEN="$PUB_TOKEN" gh release download pc-latest -R "$PUB" -D out -p '*-PC-Instalador.exe' --clobber || echo "::warning::sin pc-latest"
           ls -la out
       - name: Base de datos (cifrada)
         env:
@@ -58,6 +64,39 @@ jobs:
           openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in ../d1.sql.gz -out ../out/estadisticas-d1.sql.gz.cifrado -pass env:KEY
           rm -f ../d1.sql.gz
           echo "Base de datos respaldada y cifrada ($(stat -c %s ../out/estadisticas-d1.sql.gz.cifrado) bytes)"
+      - name: Claves (solo si el repositorio es privado)
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ADMIN_KEY: ${{ secrets.STATS_ADMIN_KEY }}
+          SITE: ${{ secrets.SITE_TOKEN }}
+          PASS: ${{ secrets.BACKUP_PASSWORD }}
+        run: |
+          if [ "$(gh api "repos/$REPO" -q .private)" != "true" ]; then echo "::warning::El repositorio es PÚBLICO: las claves NO se agregan al respaldo (cualquiera las vería)"; exit 0; fi
+          umask 077
+          cat > CLAVES.txt <<CLAVES
+          CLAVES DE EMBYVERSE · respaldo del $(TZ=America/Mexico_City date '+%d/%m/%Y %H:%M') · guárdalas en un lugar seguro
+          Se ponen en GitHub → repositorio del código → Settings → Secrets and variables → Actions.
+
+          CLOUDFLARE_API_TOKEN = $CF_TOKEN
+          CLOUDFLARE_ACCOUNT_ID = $CF_ACCOUNT
+          STATS_ADMIN_KEY = $ADMIN_KEY     (también es la clave del panel de Estadísticas y abre la base de datos cifrada)
+          SITE_TOKEN = $SITE     (token para publicar en el repositorio público EmbyVerseTV; vence, renuévalo en GitHub)
+
+          FIRMA DE LAS APK (no cambiarla nunca: los clientes tendrían que reinstalar)
+            archivo: android-app/app/embyverse-debug.keystore (va adjunto como firma-apk.keystore)
+            contraseña del almacén: android · alias: androiddebugkey · contraseña de la clave: android
+
+          Dominio eversetv.com y cuenta de Cloudflare: con tu correo y contraseña de Cloudflare (no se guardan aquí).
+          Panel: entras con un token de GitHub (Fine-grained, Contents + Actions de lectura y escritura).
+          CLAVES
+          cp android-app/app/embyverse-debug.keystore firma-apk.keystore
+          if [ -n "$PASS" ]; then
+            zip -q -P "$PASS" out/CLAVES-cifradas.zip CLAVES.txt firma-apk.keystore && echo "Claves cifradas con BACKUP_PASSWORD"
+          else
+            mv CLAVES.txt firma-apk.keystore out/ && echo "::warning::Claves SIN cifrar (repositorio privado). Crea el secreto BACKUP_PASSWORD para cifrarlas."
+          fi
+          rm -f CLAVES.txt firma-apk.keystore
       - name: Publicar respaldo
         run: |
           TAG="respaldo-$(TZ=America/Mexico_City date +%F)"
@@ -70,6 +109,7 @@ jobs:
           1. \`git clone EmbyVerse-repo.bundle EmbyVerseTV\` (repositorio completo con todas las ramas) y súbelo a un repositorio nuevo de GitHub.
           2. Pon los secretos CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID y STATS_ADMIN_KEY y corre los flujos.
           3. Abre una conversación con Claude en ese repositorio: CLAUDE.md le da todo el contexto.
+          Las claves (si el repositorio es privado) van en CLAVES.txt o en CLAVES-cifradas.zip (contraseña: tu BACKUP_PASSWORD).
 
           La base de datos va cifrada; para abrirla: \`openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in estadisticas-d1.sql.gz.cifrado -out d1.sql.gz -pass pass:TU_STATS_ADMIN_KEY\`
           NOTES

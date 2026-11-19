@@ -36,7 +36,7 @@ function GitHubLogin({ onDone }: { onDone: (u: User) => void }) {
         <ol className="hint gh-steps">
           <li>Abre <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">crear token de GitHub</a>.</li>
           <li>Nombre: <i>Design Studio</i>. Caducidad: la que quieras.</li>
-          <li><b>Repository access</b> → <i>Only select repositories</i> → <b>EmbyVerseTV</b>.</li>
+          <li><b>Repository access</b> → <i>Only select repositories</i> → <b>EmbyVerse-codigo</b> (tu código privado; si aún no lo separas, <b>EmbyVerseTV</b>).</li>
           <li><b>Permissions</b> → <i>Contents</i> → <b>Read and write</b>.</li>
           <li><b>Generate token</b>, cópialo y pégalo aquí.</li>
         </ol>
