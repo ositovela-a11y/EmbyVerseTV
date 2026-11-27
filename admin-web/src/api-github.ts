@@ -299,7 +299,7 @@ export const githubApi = {
   },
   /** Cómo se ve hoy una app (para el editor rápido de tema y logotipo). */
   async appLook(slug: string): Promise<{ logo: string | null; style: string; colors: { primary: string; accent: string; background: string }; themeId: string | null; otherServer: boolean; m3u: boolean;
-    authOnly: boolean; authHosts: string; disabled: boolean; providerHost: string; expiryDays: string }> {
+    authOnly: boolean; authHosts: string; disabled: boolean; providerHost: string; expiryOn: boolean }> {
     const r = await readConfig(GH.branch, cfgPath(slug));
     if (!r) throw new ApiError(404, 'github', 'No se encontró el diseño de esa app.');
     const c = r.config; const p = c.theme.palette as unknown as Record<string, string>;
@@ -312,7 +312,7 @@ export const githubApi = {
       // Autorización: solo servidores autorizados (apagado salvo "1"), otros servidores permitidos y apagado a distancia.
       authOnly: c.texts?.['auth.only'] === '1', authHosts: (c.texts?.['auth.hosts'] ?? '').split(/[\s,;]+/).filter(Boolean).join('\n'),
       disabled: c.texts?.['app.disabled'] === '1', providerHost: c.texts?.['provider.host'] ?? '',
-      expiryDays: c.texts?.['expiry.off'] === '1' ? '0' : (c.texts?.['expiry.days'] ?? '7') };
+      expiryOn: c.texts?.['expiry.off'] !== '1' };
   },
   /**
    * Cambia el tema (colores, fondo, letra, bordes, botones y distribución), los colores y/o el logotipo de

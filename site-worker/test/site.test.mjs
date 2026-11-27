@@ -73,6 +73,10 @@ await t('vendedor inexistente: no se rompe', async () => { const b = await html(
 const ASSETS = { fetch: async (r) => { const p = new URL(r.url).pathname;
   if (p === '/config/app.json') return new Response('{"version":7,"copia":true}', { headers: { 'content-type': 'application/json' } });
   if (p === '/update.json') return new Response('{"apps":{}}', { headers: { 'content-type': 'application/json' } });
+  if (p === '/apk/EmbyVerse.apk.partes.json') return new Response('{"size":10,"partes":2}');
+  if (p === '/apk/EmbyVerse.apk.parte000') return new Response('HOLA-');
+  if (p === '/apk/EmbyVerse.apk.parte001') return new Response('APK!!');
+  if (p === '/descargas/pc/EmbyVerse-PC-Instalador.exe') return new Response('EXE');
   return new Response('no', { status: 404 }); } };
 const realFetch = globalThis.fetch;
 await t('GitHub caído: diseño desde la copia', async () => {
@@ -89,6 +93,15 @@ await t('GitHub con error 503 o sitio dado de baja (404): copia', async () => {
   globalThis.fetch = async () => new Response('404', { status: 404 });
   assert.equal((await worker.fetch(new Request('https://eversetv.com/config/app.json'), { ASSETS })).status, 200);
   assert.equal((await worker.fetch(new Request('https://eversetv.com/otra.html'), { ASSETS })).status, 404);
+  globalThis.fetch = realFetch;
+});
+await t('GitHub caído: APK (en partes) e instalador de PC desde la copia', async () => {
+  globalThis.fetch = async () => { throw new Error('sin red'); };
+  const r = await worker.fetch(new Request('https://eversetv.com/apk/EmbyVerse.apk'), { ASSETS });
+  assert.equal(r.status, 200); assert.equal(r.headers.get('content-length'), '10'); assert.equal(r.headers.get('content-type'), 'application/vnd.android.package-archive');
+  assert.equal(await r.text(), 'HOLA-APK!!');
+  const pc = await worker.fetch(new Request('https://eversetv.com/descargas/pc/EmbyVerse-PC-Instalador.exe'), { ASSETS });
+  assert.equal(pc.status, 200); assert.match(pc.headers.get('content-disposition'), /EmbyVerse-PC-Instalador\.exe/); assert.equal(await pc.text(), 'EXE');
   globalThis.fetch = realFetch;
 });
 await t('GitHub bien: no se usa la copia', async () => {

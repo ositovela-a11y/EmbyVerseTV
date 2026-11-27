@@ -125,10 +125,10 @@ fun HomeScreen(nav: Navigator) {
     androidx.compose.runtime.CompositionLocalProvider(com.embyverse.app.ui.components.LocalCardFocus provides sink) {
     LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(t.sectionGap)) {
         item(key = "header") { HomeHeader(s, nav) }
-        // Arriba de todo: aviso de vencimiento de la cuenta del proveedor: «expiry.days» días antes (7 si no se pone en el panel).
+        // Arriba de todo: aviso de vencimiento de la cuenta del proveedor: 2 días antes (se apaga por app en el panel).
         s.expiresAt?.takeIf { s.config.texts["expiry.off"] != "1" }?.let { exp ->
             val days = Math.floorDiv(exp - System.currentTimeMillis() / 1000, 86_400L).toInt()
-            val limit = s.config.texts["expiry.days"]?.trim()?.toIntOrNull()?.takeIf { it in 0..60 } ?: 7
+            val limit = s.config.texts["expiry.days"]?.trim()?.toIntOrNull()?.takeIf { it in 0..60 } ?: 2
             if (days <= limit) item(key = "expiry") { ExpiryNotice(exp, days, s.config.texts["support.message"]?.trim().orEmpty()) }
         }
         if (kidsMode) item(key = "kids_hello") { KidsHello(s.profileName, nav) }

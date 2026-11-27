@@ -27,7 +27,15 @@ jobs:
           mkdir -p site-worker/copia
           if git fetch -q --depth 1 https://github.com/ositovela-a11y/EmbyVerseTV.git gh-pages 2>/dev/null; then
             git archive FETCH_HEAD | tar -x -C site-worker/copia
-            rm -f site-worker/copia/apk/*.apk site-worker/copia/CNAME; find site-worker/copia -type f -size +24M -delete
+            rm -f site-worker/copia/CNAME
+            # Instaladores de PC publicados (los que se bajan en /descargas/pc/).
+            mkdir -p site-worker/copia/descargas/pc
+            GH_TOKEN=${{ secrets.SITE_TOKEN || github.token }} gh release download pc-latest -R ositovela-a11y/EmbyVerseTV -p '*-PC-*.exe' -D site-worker/copia/descargas/pc --clobber || echo "::warning::sin instaladores de PC en la copia"
+            # Cloudflare acepta archivos de hasta 25 MB: los grandes (APK, instaladores) van en partes de 24 MB.
+            find site-worker/copia -type f -size +24M | while read -r f; do
+              size=$(stat -c %s "$f"); split -b 24M -d -a 3 "$f" "$f.parte"
+              n=$(ls "$f".parte* | wc -l); echo "{\"size\": $size, \"partes\": $n}" > "$f.partes.json"; rm "$f"
+            done
             echo "Copia: $(find site-worker/copia -type f | wc -l) archivos, $(du -sh site-worker/copia | cut -f1)"
           else echo "::warning::No se pudo leer el sitio publicado: el Worker queda sin copia nueva"; echo ok > site-worker/copia/.vacia; fi
       - name: Publicar en Cloudflare

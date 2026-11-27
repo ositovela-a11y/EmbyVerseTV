@@ -1,5 +1,5 @@
 // Aviso de vencimiento de la cuenta del proveedor (fecha que da el servidor Xtream). Se muestra al entrar,
-// una vez al día, cuando faltan «expiry.days» días o menos (7 si no se configura en el panel).
+// una vez al día, cuando faltan 2 días o menos. Se apaga por app en el panel («expiry.off»).
 import type { Account } from './store';
 
 const K_WARN = 'ev.expwarn';
@@ -8,7 +8,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 export function expiryDays(texts: Record<string, string>): number {
   const n = parseInt(texts['expiry.days'] ?? '', 10);
-  return Number.isFinite(n) && n >= 0 && n <= 60 ? n : 7;
+  return Number.isFinite(n) && n >= 0 && n <= 60 ? n : 2;
 }
 
 export function accountExpiry(acc: Account | null, texts: Record<string, string>, now = Date.now()): { days: number; date: string } | null {

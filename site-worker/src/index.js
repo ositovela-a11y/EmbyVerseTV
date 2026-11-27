@@ -74,16 +74,38 @@ function cleanHeaders(h) {
   return out;
 }
 
-// Copia propia del sitio (sin las APK) dentro del Worker: si GitHub falla o baja el sitio, eversetv.com sigue
-// entregando el diseño, las listas (bloqueos, activaciones), update.json y la app de TV. Se renueva cada vez que
-// se publica el sitio (flujo «Dominio propio»).
-async function backup(env, u, method) {
+// Copia propia de TODO el sitio dentro del Worker (diseño, listas, update.json, app de TV, APK e instaladores
+// de PC): si GitHub falla o baja el sitio, eversetv.com sigue entregando todo. Se renueva cada vez que se publica
+// el sitio (flujo «Dominio propio»). Los archivos grandes van en partes de 24 MB («<archivo>.partes.json»).
+async function backup(env, u, method, extra) {
   if (!env || !env.ASSETS) return null;
+  const get = (p) => env.ASSETS.fetch(new Request(`https://copia.local${p}`, { method: 'GET' }));
   try {
-    const r = await env.ASSETS.fetch(new Request(`https://copia.local${u.pathname}`, { method }));
-    if (!r.ok) return null;
-    const h = new Headers(r.headers); h.set('x-eversetv-copia', '1'); h.set('cache-control', 'no-cache'); h.set('access-control-allow-origin', '*');
-    return new Response(r.body, { status: 200, headers: h });
+    let r = await get(u.pathname);
+    let body; const h = new Headers();
+    if (r.ok) { for (const [k, v] of r.headers) h.set(k, v); body = r.body; }
+    else {
+      const m = await get(u.pathname + '.partes.json');
+      if (!m.ok) return null;
+      const { size, partes } = await m.json();
+      const ts = typeof FixedLengthStream === 'function' ? new FixedLengthStream(size) : new TransformStream();
+      (async () => {
+        const w = ts.writable;
+        for (let i = 0; i < partes; i++) {
+          const p = await get(`${u.pathname}.parte${String(i).padStart(3, '0')}`);
+          if (!p.ok) throw new Error('falta una parte');
+          await p.body.pipeTo(w, { preventClose: true });
+        }
+        await w.close();
+      })().catch((e) => ts.writable.abort(e).catch(() => {}));
+      body = ts.readable;
+      h.set('content-type', 'application/octet-stream'); h.set('content-length', String(size));
+    }
+    h.set('x-eversetv-copia', '1'); h.set('cache-control', 'no-cache'); h.set('access-control-allow-origin', '*');
+    if (/\.apk$/.test(u.pathname)) h.set('content-type', 'application/vnd.android.package-archive');
+    for (const [k, v] of Object.entries(extra || {})) h.set(k, v);
+    if (method === 'HEAD' && body && body.cancel) { body.cancel().catch(() => {}); body = null; }
+    return new Response(body, { status: 200, headers: h });
   } catch { return null; }
 }
 
@@ -99,8 +121,14 @@ export default {
     if (pc) {
       const name = decodeURIComponent(pc[1]);
       if (!PC_FILE.test(name)) return page(404, 'No encontrado', 'Ese archivo no existe.');
-      const r = await fetch(RELEASES + name, { method: req.method, redirect: 'follow' });
-      if (!r.ok) return page(r.status === 404 ? 404 : 502, 'Todavía no está lista', 'La app para PC se está preparando. Intenta de nuevo en unos minutos.');
+      let r = null;
+      try { r = await fetch(RELEASES + name, { method: req.method, redirect: 'follow' }); } catch { r = null; }
+      if (!r || !r.ok) {
+        // GitHub caído o sin el archivo: el instalador sale de la copia propia.
+        const c = await backup(env, new URL(`https://x/descargas/pc/${name}`), req.method, { 'content-disposition': `attachment; filename="${name}"`, 'content-type': 'application/octet-stream' });
+        if (c) return c;
+        return page(r && r.status === 404 ? 404 : 502, 'Todavía no está lista', 'La app para PC se está preparando. Intenta de nuevo en unos minutos.');
+      }
       const h = new Headers();
       h.set('content-type', 'application/octet-stream');
       h.set('content-disposition', `attachment; filename="${name}"`);
