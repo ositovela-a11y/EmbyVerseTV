@@ -1655,12 +1655,12 @@ class SmokeFlowTest {
         // Fecha de vencimiento como la guarda la sincronización (el servidor de prueba no siempre sincroniza en el emulador).
         val src = runBlocking { c.sources.sources.first() }.first()
         val exp0 = runBlocking { c.prefs.sourceExpiries.first() }[src.id]
-        runBlocking { c.prefs.setSourceExpiry(src.id, System.currentTimeMillis() / 1000 + 90 * 86_400L) }
+        runBlocking { c.prefs.setSourceExpiry(src.id, System.currentTimeMillis() / 1000 + 30 * 86_400L) }
         try {
             ActivityScenario.launch(MainActivity::class.java).use {
                 waitTag("nav_settings", 30_000)
-                // El proveedor de prueba vence en 90 días: con «avisar 120 días antes» aparece el aviso.
-                InstrumentationRegistry.getInstrumentation().runOnMainSync { c.config.overrideForTest(cfg0.copy(texts = cfg0.texts + ("expiry.days" to "120") + ("support.message" to support))) }
+                // La cuenta vence en 30 días: con «avisar 45 días antes» aparece el aviso.
+                InstrumentationRegistry.getInstrumentation().runOnMainSync { c.config.overrideForTest(cfg0.copy(texts = cfg0.texts + ("expiry.days" to "45") + ("support.message" to support))) }
                 runCatching { waitTag("expiry", 15_000) }.onFailure {
                     shot("60-aviso-vencimiento-fallo")
                     log("Vencimiento (fallo): fechas=${runBlocking { c.prefs.sourceExpiries.first() }} fuente=${src.id} textos=${c.config.config.value.texts["expiry.days"]}")
@@ -1668,7 +1668,7 @@ class SmokeFlowTest {
                 }
                 waitText(support, 5_000)
                 Thread.sleep(600); shot("60-aviso-vencimiento")
-                log("Vencimiento: aviso visible con «avisar 120 días antes» y el mensaje de soporte del vendedor")
+                log("Vencimiento: aviso visible con «avisar 45 días antes» (vence en 30) y el mensaje de soporte del vendedor")
                 // Con «0 días» (no avisar) desaparece.
                 InstrumentationRegistry.getInstrumentation().runOnMainSync { c.config.overrideForTest(cfg0.copy(texts = cfg0.texts + ("expiry.days" to "0") + ("expiry.off" to "1"))) }
                 waitFor("sin aviso", 10_000) { compose.onAllNodesWithTag("expiry", useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
