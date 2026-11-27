@@ -30,3 +30,23 @@ CREATE TABLE IF NOT EXISTS sync (
   data    TEXT NOT NULL,
   updated INTEGER NOT NULL
 );
+-- Reporte de fallos: cierres inesperados y videos que no se pudieron reproducir. Se agrupan por «firma»
+-- (app + plataforma + versión + tipo + mensaje) para contar cuántas veces y en cuántos equipos pasa.
+-- No lleva usuario, contraseña ni dirección del canal; solo el equipo (código al azar), modelo y el error.
+CREATE TABLE IF NOT EXISTS crashes (
+  sig        TEXT PRIMARY KEY,
+  app        TEXT NOT NULL,
+  platform   TEXT,
+  version    TEXT,
+  kind       TEXT NOT NULL,      -- crash (la app se cerró) · play (no reprodujo) · js (error en TV/PC)
+  message    TEXT,
+  detail     TEXT,               -- primeras líneas del error
+  model      TEXT,               -- último modelo de equipo donde pasó
+  os         TEXT,
+  last_id    TEXT,               -- último equipo (para buscarlo en Estadísticas)
+  devices    TEXT NOT NULL DEFAULT '',  -- hasta 50 equipos distintos, separados por coma
+  n          INTEGER NOT NULL DEFAULT 1,
+  first_seen INTEGER NOT NULL,
+  last_seen  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS crashes_seen ON crashes(last_seen);

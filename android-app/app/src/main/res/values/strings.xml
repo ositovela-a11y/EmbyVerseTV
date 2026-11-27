@@ -295,12 +295,12 @@
     <string name="preview_fullscreen">OK: pantalla completa</string>
     <string name="preview_hint">Pulsa OK en un canal para verlo aquí. Otra vez OK: pantalla completa.</string>
     <string name="preview_now">En vista previa</string>
-    <string name="privacy_p1">EmbyVerse guarda en este dispositivo tus fuentes, catálogos, favoritos, historial y preferencias. Tu contenido, favoritos e historial no se envían a ningún servidor de EmbyVerse.</string>
+    <string name="privacy_p1">La app guarda en este dispositivo tus fuentes, catálogos, favoritos, historial y preferencias. Para que tus perfiles, favoritos y «seguir viendo» sean iguales en todos tus equipos, se guardan también en el servidor de la app con una llave calculada en tu equipo: el servidor no recibe tu usuario ni tu contraseña.</string>
     <string name="privacy_p2">Las contraseñas de los proveedores se cifran con Android Keystore y no se incluyen en copias de seguridad ni en registros.</string>
     <string name="privacy_p3">La app se conecta directamente a las direcciones de listas y proveedores que tú introduces. Esos servicios pueden registrar tu dirección IP según sus propias políticas.</string>
-    <string name="privacy_p4">Para el diseño visual y las estadísticas de uso, la app envía a su proveedor: un código al azar de esta instalación, el tipo y modelo de equipo, la versión de la app y el usuario de tu cuenta (nunca la contraseña), para llevar el control de instalaciones y soporte.</string>
+    <string name="privacy_p4">Para estadísticas, soporte y para bloquear usos sin permiso, la app envía: un código al azar de esta instalación, el tipo y modelo de equipo, la versión de la app, el usuario de tu cuenta (nunca la contraseña), el servidor que usas y el país. Si la app se cierra o un video no se puede reproducir por su formato, envía el error y el modelo del equipo, sin datos de tu cuenta.</string>
     <string name="privacy_p5">No se usan anuncios de terceros ni rastreadores de terceros.</string>
-    <string name="privacy_p6">Puedes borrar tus datos eliminando fuentes y perfiles, o desde los ajustes del sistema (Borrar datos). Política completa: docs/PRIVACY.md.</string>
+    <string name="privacy_p6">Puedes borrar tus datos eliminando fuentes y perfiles, o desde los ajustes del sistema (Borrar datos). Aviso completo: eversetv.com/privacidad</string>
     <string name="privacy_title">Privacidad</string>
     <string name="profile_active">Perfil activo</string>
     <string name="profile_avatar">Avatar</string>

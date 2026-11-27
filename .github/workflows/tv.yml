@@ -36,14 +36,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with: { name: tv-capturas, path: /tmp/tvshots, if-no-files-found: ignore }
       - name: Publicar paquetes
-        # Versión final → repositorio PÚBLICO (descargas); beta → repositorio del código.
+        # main → «tv-nueva» (espera a que el dueño pulse «Actualizar versión» en el panel); beta → «tv-beta».
         env:
-          GH_TOKEN: ${{ github.ref_name == 'main' && (secrets.SITE_TOKEN || github.token) || github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           cd tv-app
           node build.mjs --package >/dev/null
           (cd dist && zip -qr ../dist-pkg/EmbyVerse-TV-web.zip .)
-          TAG=$([ "$GITHUB_REF_NAME" = main ] && echo tv-latest || echo tv-beta)
-          DEST=$([ "$GITHUB_REF_NAME" = main ] && echo ositovela-a11y/EmbyVerseTV || echo "$GITHUB_REPOSITORY")
+          TAG=$([ "$GITHUB_REF_NAME" = main ] && echo tv-nueva || echo tv-beta)
+          DEST="$GITHUB_REPOSITORY"
           gh release view "$TAG" -R "$DEST" >/dev/null 2>&1 || gh release create "$TAG" -R "$DEST" --title "App TV ($TAG)" --notes "EmbyVerse para Samsung y LG"
           gh release upload "$TAG" -R "$DEST" dist-pkg/EmbyVerse-Samsung.wgt dist-pkg/EmbyVerse-LG.ipk dist-pkg/EmbyVerse-TV-web.zip --clobber

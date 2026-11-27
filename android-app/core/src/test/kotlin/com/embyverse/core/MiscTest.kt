@@ -97,3 +97,15 @@ class ConfigUrlsTest {
         org.junit.Assert.assertEquals("", com.embyverse.core.config.ConfigUrls.file("", "stats.json"))
     }
 }
+
+class SiteMirrorTest {
+    @org.junit.Test fun alternateAddress() {
+        val m = com.embyverse.core.config.SiteMirror
+        org.junit.Assert.assertEquals("https://eversetv.com/config/app.json?t=5", m.alternate("https://ositovela-a11y.github.io/EmbyVerseTV/config/app.json?t=5"))
+        org.junit.Assert.assertEquals("https://eversetv.com/update.json", m.alternate("https://ositovela-a11y.github.io/EmbyVerseTV/update.json"))
+        org.junit.Assert.assertNull(m.alternate("http://krnosmx.com/player_api.php?username=a"))
+        org.junit.Assert.assertNull(m.alternate("https://ositovela-a11y.github.io/OtroRepo/x.json"))
+        org.junit.Assert.assertTrue(m.shouldRetry(null) && m.shouldRetry(503) && m.shouldRetry(404))
+        org.junit.Assert.assertFalse(m.shouldRetry(200) || m.shouldRetry(304))
+    }
+}

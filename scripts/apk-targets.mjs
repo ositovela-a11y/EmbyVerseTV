@@ -27,7 +27,7 @@ const brand = (ref, path) => {
   } catch { return null; }
 };
 let published = [];
-try { published = JSON.parse(process.env.PUBLISHED ?? execSync('gh release view apk-latest --json assets -q "[.assets[].name]"').toString()); } catch { /* sin release */ }
+try { published = JSON.parse(process.env.PUBLISHED ?? execSync('gh release view apk-nueva --json assets -q "[.assets[].name]"').toString()); } catch { /* sin release */ }
 
 const codeChanged = changed === null || changed.some((f) => !f.startsWith('web-player/config/'));
 const build = all.filter((t) => codeChanged || !published.includes(t.asset) || brand(before, t.config) !== brand(null, t.config));

@@ -18,6 +18,14 @@ ok((await call('/v1/ping', { method: 'POST', body: 'no-json' })).status === 400,
 for (let i = 0; i < 3; i++) await call('/v1/dl?app=&platform=android');
 await call('/v1/dl?app=nandotv&platform=pc');
 ok((await call('/v1/dl?app=nandotv&platform=pc')).status === 204, 'conteo de descargas');
+// Reporte de fallos
+const crash = (b) => call('/v1/crash', { method: 'POST', body: JSON.stringify(b), headers: { 'content-type': 'application/json' } });
+ok((await crash({ id: 'dev-aaaa-1111', app: '', platform: 'android', version: '1.15.18', kind: 'crash', message: 'NullPointerException en Home', detail: 'at a.b(c)', model: 'Pixel 7', os: 'Android 14' })).status === 200, 'fallo recibido');
+await crash({ id: 'dev-bbbb-2222', app: '', platform: 'android', version: '1.15.18', kind: 'crash', message: 'NullPointerException en Home', model: 'Fire TV' });
+await crash({ id: 'dev-bbbb-2222', app: '', platform: 'android', version: '1.15.18', kind: 'crash', message: 'NullPointerException en Home', model: 'Fire TV' });
+await crash({ id: 'dev-cccc-3333', app: 'nandotv', platform: 'pc', version: '1.2.10', kind: 'play', message: 'Formato no soportado' });
+ok((await crash({ id: 'dev-x-1234567', kind: 'raro', message: 'x' })).status === 400, 'tipo de fallo inválido rechazado');
+ok((await crash({ id: 'dev-x-1234567', kind: 'crash', message: '' })).status === 400, 'fallo sin mensaje rechazado');
 ok((await call('/v1/stats')).status === 401, 'sin clave no se ven estadísticas');
 ok((await call('/v1/stats', { headers: { authorization: 'Bearer otra' } })).status === 401, 'clave equivocada rechazada');
 const s = await (await call('/v1/stats', { headers: { authorization: 'Bearer clave-de-prueba' } })).json();
@@ -26,6 +34,10 @@ ok(s.devices.length === 3, `3 equipos registrados (${s.devices.length})`);
 ok(a.opens === 2 && a.version === '1.15.6' && a.xuser === 'juan01', 'el mismo equipo suma aperturas, actualiza versión y conserva el usuario');
 ok(s.devices.filter((d) => d.app === 'nandotv').length === 2 && s.devices.filter((d) => d.app === '').length === 1, 'separados: app principal vs vendedor');
 ok(s.devices.find((d) => d.id === 'dev-bbbb-2222').country === 'US', 'país del equipo');
+const cr = s.crashes.find((c) => c.message === 'NullPointerException en Home');
+ok(s.crashes.length === 2 && cr.n === 3 && cr.devices === 2 && cr.model === 'Fire TV', `fallos agrupados: 3 veces en 2 equipos (${cr?.n}/${cr?.devices})`);
+ok((await call('/v1/crashes/' + cr.sig, { method: 'DELETE' })).status === 401, 'sin clave no se borran fallos');
+ok((await call('/v1/crashes/' + cr.sig, { method: 'DELETE', headers: { authorization: 'Bearer clave-de-prueba' } })).status === 200, 'fallo resuelto borrado');
 const dl = (app, p) => s.downloads.filter((d) => d.app === app && d.platform === p).reduce((t, d) => t + d.n, 0);
 ok(dl('', 'android') === 3 && dl('nandotv', 'pc') === 2, 'descargas por app y plataforma');
 ok(!JSON.stringify(s).includes('password'), 'nunca hay contraseñas');

@@ -34,6 +34,7 @@ class EmbyVerseApp : Application(), SingletonImageLoader.Factory {
             com.embyverse.app.data.prefs.LiteDefault.value = phone || am.isLowRamDevice || am.memoryClass <= 128 || mi.totalMem < 1_700L * 1024 * 1024
         }
         container = AppContainer(this)
+        runCatching { container.stats.sendPendingCrash() }
         com.embyverse.app.data.prefs.UiPrefs.init(this)
         com.embyverse.app.ui.components.Connectivity.start(this)
         appScope.launch { com.embyverse.app.data.repo.NewBadge.refresh(container.database) }

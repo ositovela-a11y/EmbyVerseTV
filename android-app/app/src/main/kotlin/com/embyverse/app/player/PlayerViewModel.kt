@@ -962,7 +962,7 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
             if (isLive && prefs.autoReconnect && cur != null) {
                 originalUrl?.let { nowPlaying.value = cur.copy(url = it) }
                 originalUrl = null; altIndex = -1; forcedMime = null
-                if (attempts >= 3) { PlaybackProbe.lastError = e.errorCodeName; error.value = PlayerUiError.Message(messageFor(e), e.errorCodeName) }
+                if (attempts >= 3) { PlaybackProbe.lastError = e.errorCodeName; error.value = PlayerUiError.Message(messageFor(e), e.errorCodeName); reportPlayProblem(e) }
                 else buffering.value = true
                 reconnect("error ${e.errorCodeName}")
                 return
@@ -977,6 +977,25 @@ class PlayerViewModel(private val c: AppContainer, startRef: ItemRef, private va
             }
             PlaybackProbe.lastError = e.errorCodeName
             error.value = PlayerUiError.Message(messageFor(e), e.errorCodeName)
+            reportPlayProblem(e)
+        }
+    }
+
+    /**
+     * Reporte al dueño cuando un video no se puede reproducir por el formato o el decodificador (no por la red o el
+     * servidor del proveedor, que no dependen de la app). Va el error y el formato del video, nunca la dirección.
+     */
+    private fun reportPlayProblem(e: PlaybackException) {
+        val decodeOrFormat = e.errorCode in 3000..3999 || e.errorCode in 4000..4999
+        if (!decodeOrFormat) return
+        runCatching {
+            val p = player.value
+            val v = p?.videoFormat ?: (e as? androidx.media3.exoplayer.ExoPlaybackException)?.rendererFormat
+            val a = p?.audioFormat
+            val fmt = listOfNotNull(v?.sampleMimeType, v?.codecs, v?.takeIf { it.width > 0 }?.let { "${it.width}x${it.height}" }, a?.sampleMimeType).joinToString(" ")
+            val kindTxt = if (isLive) "en vivo" else "video"
+            c.stats.reportProblem("play", "${e.errorCodeName} · ${fmt.ifBlank { "formato desconocido" }}",
+                "Tipo: $kindTxt\nCausa: ${com.embyverse.core.net.UrlSafety.redact(generateSequence<Throwable>(e) { it.cause }.joinToString(" → ") { "${it.javaClass.simpleName}: ${it.message.orEmpty().take(160)}" })}")
         }
     }
 

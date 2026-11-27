@@ -22,7 +22,17 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
       - run: node --no-warnings site-worker/test/site.test.mjs
+      - name: Copia del sitio (por si GitHub falla)
+        run: |
+          mkdir -p site-worker/copia
+          if git fetch -q --depth 1 https://github.com/ositovela-a11y/EmbyVerseTV.git gh-pages 2>/dev/null; then
+            git archive FETCH_HEAD | tar -x -C site-worker/copia
+            rm -f site-worker/copia/apk/*.apk site-worker/copia/CNAME; find site-worker/copia -type f -size +24M -delete
+            echo "Copia: $(find site-worker/copia -type f | wc -l) archivos, $(du -sh site-worker/copia | cut -f1)"
+          else echo "::warning::No se pudo leer el sitio publicado: el Worker queda sin copia nueva"; echo ok > site-worker/copia/.vacia; fi
       - name: Publicar en Cloudflare
+        # Solo desde main: eversetv.com es lo que ven tus clientes (en beta solo se prueba).
+        if: github.ref_name == 'main'
         working-directory: site-worker
         run: |
           [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "::warning::Falta el secreto CLOUDFLARE_API_TOKEN"; exit 0; }
@@ -31,6 +41,7 @@ jobs:
           if [ $ok = 0 ]; then echo "::warning::No se pudo conectar el dominio con la llave actual; se publica sin él"; sed -i "/^routes/,/^]/d" wrangler.toml; wrangler deploy; fi
           sleep 60
       - name: ¿Ya responde tu dominio?
+        if: github.ref_name == 'main'
         run: |
           for u in https://eversetv.com/ https://eversetv.com/a/?v=planetatv https://eversetv.com/apk/EmbyVerse.apk https://www.eversetv.com/ https://eversetv-site.ositovela.workers.dev/; do
             printf '%s → ' "$u"; curl -s -o /dev/null -I -m 20 -w '%{http_code} %{content_type} %{redirect_url}\n' "$u" || echo "sin respuesta"

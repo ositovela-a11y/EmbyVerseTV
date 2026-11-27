@@ -74,8 +74,21 @@ function cleanHeaders(h) {
   return out;
 }
 
+// Copia propia del sitio (sin las APK) dentro del Worker: si GitHub falla o baja el sitio, eversetv.com sigue
+// entregando el diseño, las listas (bloqueos, activaciones), update.json y la app de TV. Se renueva cada vez que
+// se publica el sitio (flujo «Dominio propio»).
+async function backup(env, u, method) {
+  if (!env || !env.ASSETS) return null;
+  try {
+    const r = await env.ASSETS.fetch(new Request(`https://copia.local${u.pathname}`, { method }));
+    if (!r.ok) return null;
+    const h = new Headers(r.headers); h.set('x-eversetv-copia', '1'); h.set('cache-control', 'no-cache'); h.set('access-control-allow-origin', '*');
+    return new Response(r.body, { status: 200, headers: h });
+  } catch { return null; }
+}
+
 export default {
-  async fetch(req) {
+  async fetch(req, env) {
     const u = new URL(req.url);
     if (u.hostname.startsWith('www.')) return Response.redirect(`https://${u.hostname.slice(4)}${u.pathname}${u.search}`, 301);
     if (req.method !== 'GET' && req.method !== 'HEAD') return new Response('Método no permitido', { status: 405, headers: { allow: 'GET, HEAD' } });
@@ -96,10 +109,19 @@ export default {
       return new Response(req.method === 'HEAD' ? null : r.body, { status: 200, headers: h });
     }
 
-    const r = await fetch(ORIGIN + u.pathname + u.search, {
-      method: req.method, redirect: 'manual',
-      headers: { 'accept': req.headers.get('accept') || '*/*', 'accept-encoding': req.headers.get('accept-encoding') || '', ...(req.headers.get('if-none-match') ? { 'if-none-match': req.headers.get('if-none-match') } : {}), ...(req.headers.get('range') ? { range: req.headers.get('range') } : {}) },
-    });
+    let r;
+    try {
+      r = await fetch(ORIGIN + u.pathname + u.search, {
+        method: req.method, redirect: 'manual',
+        headers: { 'accept': req.headers.get('accept') || '*/*', 'accept-encoding': req.headers.get('accept-encoding') || '', ...(req.headers.get('if-none-match') ? { 'if-none-match': req.headers.get('if-none-match') } : {}), ...(req.headers.get('range') ? { range: req.headers.get('range') } : {}) },
+      });
+    } catch { r = null; }
+    // GitHub caído, con error o sin el archivo: se usa la copia propia.
+    if (!r || r.status >= 500 || r.status === 404) {
+      const c = await backup(env, u, req.method);
+      if (c) r = c;
+      else if (!r) return page(503, 'Volvemos en un momento', 'El sitio no responde ahora. Intenta de nuevo en unos minutos.');
+    }
     const h = cleanHeaders(r.headers);
     if (r.status >= 300 && r.status < 400) {
       const loc = h.get('location');

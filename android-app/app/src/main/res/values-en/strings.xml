@@ -294,12 +294,12 @@
     <string name="preview_fullscreen">OK: full screen</string>
     <string name="preview_hint">Press OK on a channel to preview it here. Press OK again for full screen.</string>
     <string name="preview_now">Previewing</string>
-    <string name="privacy_p1">EmbyVerse stores your sources, catalogs, favorites, history and preferences on this device. Your content, favorites and history are not sent to any EmbyVerse server.</string>
+    <string name="privacy_p1">The app stores your sources, catalogs, favorites, history and preferences on this device. So your profiles, favorites and "continue watching" match on all your devices, they are also stored on the app\'s server under a key computed on your device: the server never receives your username or password.</string>
     <string name="privacy_p2">Provider passwords are encrypted with Android Keystore and are never included in backups or logs.</string>
     <string name="privacy_p3">The app connects directly to the playlist and provider addresses you enter. Those services may log your IP address under their own policies.</string>
-    <string name="privacy_p4">For the visual design and usage statistics, the app sends its provider: a random code for this installation, the device type and model, the app version and your account username (never the password), to keep track of installations and support.</string>
+    <string name="privacy_p4">For statistics, support and to block unauthorized use, the app sends: a random code for this installation, the device type and model, the app version, your account username (never the password), the server you use and your country. If the app closes or a video cannot play because of its format, it sends the error and the device model, without your account data.</string>
     <string name="privacy_p5">No third-party ads or third-party trackers are used.</string>
-    <string name="privacy_p6">You can delete your data by removing sources and profiles, or from system settings (Clear data). Full policy: docs/PRIVACY.md.</string>
+    <string name="privacy_p6">You can delete your data by removing sources and profiles, or from system settings (Clear data). Full policy: eversetv.com/privacidad/?lang=en</string>
     <string name="privacy_title">Privacy</string>
     <string name="profile_active">Active profile</string>
     <string name="profile_avatar">Avatar</string>

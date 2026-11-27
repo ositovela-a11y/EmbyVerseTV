@@ -69,4 +69,30 @@ await t('enlace de PC del vendedor con su vista previa', async () => {
   assert.match(b, /<title>Planeta &lt;TV&gt; — App para PC<\/title>/); assert.match(b, /og:image" content="https:\/\/eversetv\.com\/config\/assets\/logo-p\.png"/);
 });
 await t('vendedor inexistente: no se rompe', async () => { const b = await html('/?v=noexiste'); assert.ok(b.includes('<h1 id="name">')); });
+// Copia propia: si GitHub falla, se entrega la copia guardada en el Worker.
+const ASSETS = { fetch: async (r) => { const p = new URL(r.url).pathname;
+  if (p === '/config/app.json') return new Response('{"version":7,"copia":true}', { headers: { 'content-type': 'application/json' } });
+  if (p === '/update.json') return new Response('{"apps":{}}', { headers: { 'content-type': 'application/json' } });
+  return new Response('no', { status: 404 }); } };
+const realFetch = globalThis.fetch;
+await t('GitHub caído: diseño desde la copia', async () => {
+  globalThis.fetch = async () => { throw new Error('sin red'); };
+  const r = await worker.fetch(new Request('https://eversetv.com/config/app.json'), { ASSETS });
+  assert.equal(r.status, 200); assert.equal(r.headers.get('x-eversetv-copia'), '1'); assert.equal((await r.json()).copia, true);
+  const r2 = await worker.fetch(new Request('https://eversetv.com/nada.txt'), { ASSETS });
+  assert.equal(r2.status, 503);
+  globalThis.fetch = realFetch;
+});
+await t('GitHub con error 503 o sitio dado de baja (404): copia', async () => {
+  globalThis.fetch = async () => new Response('caído', { status: 503 });
+  assert.equal((await worker.fetch(new Request('https://eversetv.com/update.json'), { ASSETS })).headers.get('x-eversetv-copia'), '1');
+  globalThis.fetch = async () => new Response('404', { status: 404 });
+  assert.equal((await worker.fetch(new Request('https://eversetv.com/config/app.json'), { ASSETS })).status, 200);
+  assert.equal((await worker.fetch(new Request('https://eversetv.com/otra.html'), { ASSETS })).status, 404);
+  globalThis.fetch = realFetch;
+});
+await t('GitHub bien: no se usa la copia', async () => {
+  const r = await worker.fetch(new Request('https://eversetv.com/config/app.json'), { ASSETS });
+  assert.equal(r.headers.get('x-eversetv-copia'), null); assert.match(await r.text(), /EmbyVerse/);
+});
 console.log(`${n} pruebas OK`);

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { reportProblem, statsPlatform } from '../stats';
 import { Clock, Fx, Img, useApp } from '../ui';
 import type { PlayRequest } from '../ui';
 import { getEngine, qualityLabel, type Track } from '../player';
@@ -53,6 +54,8 @@ export function Player({ req, onClose }: { req: PlayRequest; onClose: () => void
       else if (e === 'error') {
         if (!triedAlt.current) { start(it, true); return; } // otro formato (HLS ↔ .ts) antes de rendirse
         setState('error'); setErr(d ?? '');
+        // Formato o decodificador (no la red): se avisa al dueño en Estadísticas → Fallos.
+        if (/video [34]\b|mediaError|NOT_SUPPORTED|UNSUPPORTED|codec|decode/i.test(d ?? '')) void reportProblem('play', `${d} · ${it.kind === 'live' ? 'en vivo' : 'video'}`, `Plataforma: ${statsPlatform()}`);
       }
     });
     const u = url(it, alt);

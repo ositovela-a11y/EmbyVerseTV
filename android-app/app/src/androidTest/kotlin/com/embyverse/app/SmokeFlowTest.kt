@@ -1646,4 +1646,25 @@ class SmokeFlowTest {
             log("Autorización: iniciar sesión con otro servidor → «$err»")
         } finally { InstrumentationRegistry.getInstrumentation().runOnMainSync { c.config.overrideForTest(cfg0) } }
     }
+
+    /** Aviso de vencimiento de la cuenta del proveedor: días configurables desde el panel y mensaje de soporte. */
+    @Test fun zm_aviso_vencimiento() {
+        val c = app.container
+        val cfg0 = c.config.config.value
+        val support = "Renueva con Juan: 55 1234 5678"
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use {
+                waitTag("nav_settings", 30_000)
+                // El proveedor de prueba vence en 90 días: con «avisar 120 días antes» aparece el aviso.
+                InstrumentationRegistry.getInstrumentation().runOnMainSync { c.config.overrideForTest(cfg0.copy(texts = cfg0.texts + ("expiry.days" to "120") + ("support.message" to support))) }
+                waitTag("expiry", 15_000); waitText(support, 5_000)
+                Thread.sleep(600); shot("60-aviso-vencimiento")
+                log("Vencimiento: aviso visible con «avisar 120 días antes» y el mensaje de soporte del vendedor")
+                // Con «0 días» (no avisar) desaparece.
+                InstrumentationRegistry.getInstrumentation().runOnMainSync { c.config.overrideForTest(cfg0.copy(texts = cfg0.texts + ("expiry.days" to "0") + ("expiry.off" to "1"))) }
+                waitFor("sin aviso", 10_000) { compose.onAllNodesWithTag("expiry", useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
+                log("Vencimiento: con «no avisar» el aviso desaparece")
+            }
+        } finally { InstrumentationRegistry.getInstrumentation().runOnMainSync { c.config.overrideForTest(cfg0) } }
+    }
 }

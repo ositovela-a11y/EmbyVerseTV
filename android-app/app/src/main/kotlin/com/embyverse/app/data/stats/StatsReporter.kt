@@ -7,6 +7,7 @@ import android.util.Log
 import com.embyverse.app.BuildConfig
 import com.embyverse.app.data.db.SourceEntity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -52,6 +53,42 @@ class StatsReporter(private val context: Context, http: OkHttpClient, private va
 
     /** Dirección del servidor (también la usa la sincronización de perfiles de la cuenta). Llamar fuera del hilo principal. */
     fun serviceUrl(): String? = endpoint()
+
+    private val bg = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * Reporte de fallos al dueño (Estadísticas → Fallos): cierres inesperados y videos que no se pueden reproducir.
+     * Sin usuario, contraseña ni dirección del canal. El mismo fallo se manda como máximo una vez al día por equipo.
+     */
+    fun reportProblem(kind: String, message: String, detail: String = "") {
+        bg.launch {
+            runCatching {
+                val key = "p:" + (kind + "|" + message).hashCode()
+                val now = System.currentTimeMillis()
+                if (now - sp.getLong(key, 0) < 86_400_000L) return@runCatching
+                val base = endpoint() ?: return@runCatching
+                val body = JSONObject().put("id", installId).put("app", BuildConfig.VENDOR).put("platform", platform())
+                    .put("version", BuildConfig.VERSION_NAME).put("kind", kind).put("message", message.take(300)).put("detail", detail.take(4000))
+                    .put("model", "${Build.MANUFACTURER} ${Build.MODEL}".trim().take(80)).put("os", "Android ${Build.VERSION.RELEASE} (${Build.VERSION.SDK_INT})")
+                client.newCall(Request.Builder().url("$base/v1/crash").post(body.toString().toRequestBody("application/json".toMediaType())).build()).execute().use { r ->
+                    if (r.isSuccessful) sp.edit().putLong(key, now).apply()
+                    lastProblem = "$kind ${r.code}: $message"
+                }
+            }.onFailure { Log.d("EmbyVerseStats", "sin reporte: ${it.message}") }
+        }
+    }
+
+    /** Si la app se cerró la vez anterior, manda ese reporte. */
+    fun sendPendingCrash() {
+        val f = java.io.File(context.filesDir, com.embyverse.app.CrashReport.PENDING)
+        if (!f.exists()) return
+        val j = runCatching { JSONObject(f.readText()) }.getOrNull()
+        f.delete()
+        if (j != null) reportProblem("crash", j.optString("message").ifBlank { "Cierre inesperado" }, j.optString("detail"))
+    }
+
+    /** Último reporte enviado (para las pruebas). */
+    @Volatile var lastProblem: String? = null
 
     /** Avisa al abrir y cada vez que cambia la cuenta del cliente. */
     suspend fun reportOn(flow: kotlinx.coroutines.flow.Flow<List<SourceEntity>>) =

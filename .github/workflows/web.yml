@@ -8,16 +8,54 @@ on:
     paths: ['web-player/**', '.github/workflows/web.yml']
   # Cada vez que se publica una APK nueva, el sitio se actualiza con ella (descarga y update.json).
   workflow_run:
-    workflows: ["APK Android", "App TV (Samsung y LG)"]
+    workflows: ["APK Android", "App TV (Samsung y LG)", "App PC (Windows)"]
     types: [completed]
   workflow_dispatch:
 permissions:
   contents: write
+  actions: write
+# Una publicación a la vez (dos al mismo tiempo chocaban al subir gh-pages).
+concurrency:
+  group: sitio
+  cancel-in-progress: false
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Las versiones nuevas NO llegan solas a los clientes: se compilan a «apk-nueva», «tv-nueva» y «pc-nueva»
+      # (repositorio del código) y pasan a «apk-latest», «tv-latest» y «pc-latest» (las que reciben los clientes)
+      # solo cuando el dueño pulsa «Actualizar versión» en el panel → web-player/config/aprobadas.json.
+      # Además se publica config/versiones.json (qué versión tienen los clientes y cuál está esperando) para el panel.
+      - name: Versiones aprobadas por el dueño
+        env:
+          REPO_TOKEN: ${{ github.token }}
+          PUB_TOKEN: ${{ secrets.SITE_TOKEN || github.token }}
+          REPO: ${{ github.repository }}
+          PUB: ositovela-a11y/EmbyVerseTV
+        run: |
+          AAPT=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1)
+          W=$RUNNER_TEMP/v; mkdir -p $W/an $W/al $W/tn $W/tl $W/pn $W/pl
+          GH_TOKEN=$REPO_TOKEN gh release download apk-nueva -R "$REPO" -p '*.apk' -D $W/an --clobber 2>/dev/null || true
+          GH_TOKEN=$PUB_TOKEN gh release download apk-latest -R "$PUB" -p '*.apk' -D $W/al --clobber 2>/dev/null || true
+          GH_TOKEN=$REPO_TOKEN gh release download tv-nueva -R "$REPO" -p 'EmbyVerse-TV-web.zip' -D $W/tn --clobber 2>/dev/null || true
+          GH_TOKEN=$PUB_TOKEN gh release download tv-latest -R "$PUB" -p 'EmbyVerse-TV-web.zip' -D $W/tl --clobber 2>/dev/null || true
+          GH_TOKEN=$REPO_TOKEN gh release download pc-nueva -R "$REPO" -p 'pc-version.json' -D $W/pn --clobber 2>/dev/null || true
+          GH_TOKEN=$PUB_TOKEN gh release download pc-latest -R "$PUB" -p 'pc-version.json' -D $W/pl --clobber 2>/dev/null || true
+          python3 .github/scripts/versiones.py "$AAPT" "$W" web-player/config/aprobadas.json web-player/config/vendors/index.json > $W/plan.txt
+          cat $W/plan.txt
+          while read -r kind what; do
+            case "$kind" in
+              apk) GH_TOKEN=$PUB_TOKEN gh release view apk-latest -R "$PUB" >/dev/null 2>&1 || GH_TOKEN=$PUB_TOKEN gh release create apk-latest -R "$PUB" --title "EmbyVerse (versión publicada)" --notes "APK que reciben los clientes (aprobada en el panel)." --latest
+                   GH_TOKEN=$PUB_TOKEN gh release upload apk-latest -R "$PUB" "$W/an/$what" --clobber && cp "$W/an/$what" "$W/al/$what" && echo "::notice::Android: se publicó $what" ;;
+              tv|pc) mkdir -p $W/$kind-all && GH_TOKEN=$REPO_TOKEN gh release download $kind-nueva -R "$REPO" -D $W/$kind-all --clobber
+                   GH_TOKEN=$PUB_TOKEN gh release view $kind-latest -R "$PUB" >/dev/null 2>&1 || GH_TOKEN=$PUB_TOKEN gh release create $kind-latest -R "$PUB" --title "App $kind (versión publicada)" --notes "Versión que reciben los clientes (aprobada en el panel)."
+                   GH_TOKEN=$PUB_TOKEN gh release upload $kind-latest -R "$PUB" $W/$kind-all/* --clobber && cp $W/$kind-all/* $W/${kind:0:1}l/ && echo "::notice::$kind: se publicó la versión $what" ;;
+            esac
+          done < <(grep -E '^(apk|tv|pc) ' $W/plan.txt || true)
+          # Estado final para el panel (después de publicar lo aprobado).
+          python3 .github/scripts/versiones.py "$AAPT" "$W" web-player/config/aprobadas.json web-player/config/vendors/index.json --estado > web-player/config/versiones.json
+          cat web-player/config/versiones.json
       - name: APK en el sitio y update.json (actualización dentro de la app)
         env: { GH_TOKEN: '${{ secrets.SITE_TOKEN || github.token }}', PUB: ositovela-a11y/EmbyVerseTV }
         run: |
@@ -61,3 +99,7 @@ jobs:
           git push -f "https://x-access-token:${GH_TOKEN}@github.com/${PUB}.git" gh-pages
           # Repositorio público recién creado: activar GitHub Pages sobre gh-pages (si ya está, no pasa nada).
           gh api -X POST "repos/$PUB/pages" -f "source[branch]=gh-pages" -f "source[path]=/" >/dev/null 2>&1 && echo "::notice::GitHub Pages activado en $PUB" || true
+      - name: Renovar la copia de eversetv.com
+        if: github.ref_name == 'main'
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: gh workflow run site-worker.yml --ref main -R "${{ github.repository }}" || echo "::warning::No se pudo renovar la copia de eversetv.com"

@@ -45,6 +45,34 @@ export default {
       return json({ ok: true });
     }
 
+    // Reporte de fallos de las apps (cierres y videos que no reproducen). Se agrupan por firma.
+    if (url.pathname === '/v1/crash' && req.method === 'POST') {
+      let b;
+      try { b = await req.json(); } catch { return json({ ok: false, error: 'json' }, 400); }
+      const id = clip(b.id, 64);
+      if (id && !/^[A-Za-z0-9-]{8,64}$/.test(id)) return json({ ok: false, error: 'id' }, 400);
+      const app = clip(b.app, 31).toLowerCase();
+      if (app && !SLUG.test(app)) return json({ ok: false, error: 'app' }, 400);
+      const kind = ['crash', 'play', 'js'].includes(b.kind) ? b.kind : null;
+      const message = clip(b.message, 300);
+      if (!kind || !message) return json({ ok: false, error: 'datos' }, 400);
+      const platform = PLATFORMS.has(b.platform) ? b.platform : 'otro';
+      const version = clip(b.version, 20);
+      const sig = (await sha256(['crash', app, platform, version, kind, message].join('|'))).slice(0, 32);
+      const row = await env.DB.prepare('SELECT devices FROM crashes WHERE sig = ?1').bind(sig).first();
+      const list = (row?.devices || '').split(',').filter(Boolean);
+      if (id && !list.includes(id) && list.length < 50) list.push(id);
+      await env.DB.prepare(
+        `INSERT INTO crashes (sig, app, platform, version, kind, message, detail, model, os, last_id, devices, n, first_seen, last_seen)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 1, ?12, ?12)
+         ON CONFLICT(sig) DO UPDATE SET detail = excluded.detail, model = excluded.model, os = excluded.os,
+           last_id = excluded.last_id, devices = excluded.devices, n = crashes.n + 1, last_seen = excluded.last_seen`,
+      ).bind(sig, app, platform, version, kind, message, clip(b.detail, 4000), clip(b.model, 80), clip(b.os, 40), id, list.join(','), now).run();
+      // Los fallos viejos (más de 90 días sin repetirse) se borran solos.
+      if (Math.random() < 0.05) await env.DB.prepare('DELETE FROM crashes WHERE last_seen < ?1').bind(now - 90 * 86400_000).run();
+      return json({ ok: true });
+    }
+
     // Conteo de descargas desde las páginas de descarga (sin datos personales).
     if (url.pathname === '/v1/dl' && req.method === 'GET') {
       const app = clip(url.searchParams.get('app') || '', 31).toLowerCase();
@@ -66,7 +94,18 @@ export default {
         `SELECT id, app, platform, model, version, xuser, host, country, first_seen, last_seen, opens
          FROM devices ORDER BY last_seen DESC LIMIT 50000`).all();
       const downloads = await env.DB.prepare(`SELECT day, app, platform, country, n FROM downloads ORDER BY day DESC LIMIT 20000`).all();
-      return json({ ok: true, now, devices: devices.results, downloads: downloads.results });
+      const crashes = await env.DB.prepare(
+        `SELECT sig, app, platform, version, kind, message, detail, model, os, last_id, devices, n, first_seen, last_seen
+         FROM crashes WHERE last_seen > ?1 ORDER BY last_seen DESC LIMIT 500`).bind(now - 60 * 86400_000).all().catch(() => ({ results: [] }));
+      return json({ ok: true, now, devices: devices.results, downloads: downloads.results,
+        crashes: crashes.results.map((c) => ({ ...c, devices: c.devices ? c.devices.split(',').length : 0 })) });
+    }
+
+    // Panel: quitar un fallo ya resuelto de la lista.
+    if (url.pathname.startsWith('/v1/crashes/') && req.method === 'DELETE') {
+      if (!authorized(req, env)) return json({ ok: false, error: 'clave' }, 401);
+      await env.DB.prepare('DELETE FROM crashes WHERE sig = ?1').bind(decodeURIComponent(url.pathname.slice(12))).run();
+      return json({ ok: true });
     }
 
     // Panel: borrar un equipo del registro (pruebas o equipos que ya no existen).

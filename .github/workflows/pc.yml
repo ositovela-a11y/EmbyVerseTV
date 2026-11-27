@@ -60,11 +60,12 @@ jobs:
           ls -la desktop/dist
       - name: Publicar
         shell: bash
-        # Versión final → repositorio PÚBLICO (descargas); beta → repositorio del código.
+        # main → «pc-nueva» (espera a que el dueño pulse «Actualizar versión» en el panel); beta → «pc-beta».
         env:
-          GH_TOKEN: ${{ github.ref_name == 'main' && (secrets.SITE_TOKEN || github.token) || github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          TAG=$([ "$GITHUB_REF_NAME" = main ] && echo pc-latest || echo pc-beta)
-          DEST=$([ "$GITHUB_REF_NAME" = main ] && echo ositovela-a11y/EmbyVerseTV || echo "$GITHUB_REPOSITORY")
+          TAG=$([ "$GITHUB_REF_NAME" = main ] && echo pc-nueva || echo pc-beta)
+          DEST="$GITHUB_REPOSITORY"
+          echo "{\"version\": \"$(node -p "require('./tv-app/package.json').version")\", \"build\": \"${GITHUB_SHA::7}-${GITHUB_RUN_ID}\"}" > desktop/dist/pc-version.json
           gh release view "$TAG" -R "$DEST" >/dev/null 2>&1 || gh release create "$TAG" -R "$DEST" --title "App PC ($TAG)" --notes "EmbyVerse para Windows: instalador y versión portátil."
-          gh release upload "$TAG" -R "$DEST" desktop/dist/*-PC-Instalador.exe desktop/dist/*-PC-Portable.exe --clobber
+          gh release upload "$TAG" -R "$DEST" desktop/dist/*-PC-Instalador.exe desktop/dist/*-PC-Portable.exe desktop/dist/pc-version.json --clobber

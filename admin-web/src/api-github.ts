@@ -62,6 +62,16 @@ async function resolveRepo() {
 }
 const LICENSES = 'web-player/config/licenses.json';
 const BLOCKED = 'web-player/config/blocked.json';
+const APPROVALS = 'web-player/config/aprobadas.json';
+/** Versiones aprobadas por el dueño: Android por archivo de cada marca (versionCode), TV y PC por versión. */
+export type Approvals = { android: Record<string, number>; tv?: string; pc?: string; updated?: string };
+export type Ver = { code?: number; name: string } | null;
+export type VersionStatus = {
+  updated: string;
+  android: { asset: string; slug: string; name: string; live: Ver; nueva: Ver; pendiente: boolean; aprobada?: number | null }[];
+  tv: { live: Ver; nueva: Ver; pendiente: boolean; aprobada?: string | null };
+  pc: { live: Ver; nueva: Ver; pendiente: boolean; aprobada?: string | null };
+};
 /**
  * Equipos y usuarios bloqueados (config/blocked.json). Es público (las apps lo leen cada 2 min), por eso solo
  * guarda huellas: nadie puede ver qué equipo o usuario es.
@@ -289,7 +299,7 @@ export const githubApi = {
   },
   /** Cómo se ve hoy una app (para el editor rápido de tema y logotipo). */
   async appLook(slug: string): Promise<{ logo: string | null; style: string; colors: { primary: string; accent: string; background: string }; themeId: string | null; otherServer: boolean; m3u: boolean;
-    authOnly: boolean; authHosts: string; disabled: boolean; providerHost: string }> {
+    authOnly: boolean; authHosts: string; disabled: boolean; providerHost: string; expiryDays: string }> {
     const r = await readConfig(GH.branch, cfgPath(slug));
     if (!r) throw new ApiError(404, 'github', 'No se encontró el diseño de esa app.');
     const c = r.config; const p = c.theme.palette as unknown as Record<string, string>;
@@ -299,9 +309,10 @@ export const githubApi = {
     const th = VENDOR_THEMES.find((t) => t.name === themeName) ?? VENDOR_THEMES.find((t) => t.style === style && t.palette.primary === p.primary) ?? VENDOR_THEMES.find((t) => t.style === style) ?? null;
     return { logo, style, colors: { primary: p.primary!, accent: p.accent!, background: p.background! }, themeId: th?.id ?? null,
       otherServer: c.texts?.['login.otherServer'] === '1', m3u: c.texts?.['login.m3u'] !== '0',
-      // Autorización: solo servidores autorizados (encendido salvo "0"), otros servidores permitidos y apagado a distancia.
+      // Autorización: solo servidores autorizados (apagado salvo "1"), otros servidores permitidos y apagado a distancia.
       authOnly: c.texts?.['auth.only'] === '1', authHosts: (c.texts?.['auth.hosts'] ?? '').split(/[\s,;]+/).filter(Boolean).join('\n'),
-      disabled: c.texts?.['app.disabled'] === '1', providerHost: c.texts?.['provider.host'] ?? '' };
+      disabled: c.texts?.['app.disabled'] === '1', providerHost: c.texts?.['provider.host'] ?? '',
+      expiryDays: c.texts?.['expiry.off'] === '1' ? '0' : (c.texts?.['expiry.days'] ?? '7') };
   },
   /**
    * Cambia el tema (colores, fondo, letra, bordes, botones y distribución), los colores y/o el logotipo de
@@ -367,6 +378,21 @@ export const githubApi = {
     const cur = await githubApi.blocked(); // se relee justo antes para no pisar otro cambio
     change(cur.data); cur.data.updated = new Date().toISOString();
     await gh('PUT', `/contents/${BLOCKED}`, { message: `Bloqueos: ${message}`, content: utf8b64(JSON.stringify(cur.data, null, 1) + '\n'), branch: GH.branch, ...(cur.sha ? { sha: cur.sha } : {}) });
+    return cur.data;
+  },
+  /** Versiones: cuál tienen los clientes y cuál espera aprobación (lo publica el flujo del sitio). */
+  async versionStatus(): Promise<VersionStatus | null> {
+    try { const r = await fetch(`${GH.pagesBase}/versiones.json?t=${Date.now()}`, { cache: 'no-store' }); return r.ok ? await r.json() as VersionStatus : null; } catch { return null; }
+  },
+  async approvals(): Promise<{ data: Approvals; sha: string | null }> {
+    const f = await readJsonFile<Approvals>(APPROVALS);
+    return f ? { data: { android: {}, ...f.data }, sha: f.sha } : { data: { android: {} }, sha: null };
+  },
+  /** «Actualizar versión»: el sitio publica lo aprobado a los clientes en unos minutos. */
+  async approveRelease(change: (d: Approvals) => void, message: string): Promise<Approvals> {
+    const cur = await githubApi.approvals(); // se relee justo antes para no pisar otro cambio
+    change(cur.data); cur.data.updated = new Date().toISOString();
+    await gh('PUT', `/contents/${APPROVALS}`, { message: `Actualizaciones: ${message}`, content: utf8b64(JSON.stringify(cur.data, null, 1) + '\n'), branch: GH.branch, ...(cur.sha ? { sha: cur.sha } : {}) });
     return cur.data;
   },
   /** Códigos numéricos de Downloader (AFTVnews) de cada app: '' = principal, si no el vendedor. Son públicos. */

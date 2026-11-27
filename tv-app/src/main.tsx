@@ -1,4 +1,7 @@
-import { reportStats, installId } from './stats';
+import { reportStats, installId, installCrashReport } from './stats';
+import { installMirror } from './mirror';
+installMirror();
+installCrashReport();
 import { checkDeviceBlock, shortCode, storedBlocked } from './device-block';
 import { syncAccount } from './account-sync';
 import { clientFor } from './m3u';
@@ -24,6 +27,7 @@ import { Activation } from './screens/Activation';
 import { checkLicense, deviceCode, expiryWarning, licenseRequired, markWarned, type LicState } from './license';
 import { Season, seasonFor } from './season';
 import { lgDevDue, renewLgDevMode } from './lgdev';
+import { accountExpiry, expiryCheckDue, markExpiryWarned } from './expiry';
 
 const MENU: { r: Route['name']; icon: string; label: string }[] = [
   { r: 'home', icon: '⌂', label: 'Inicio' }, { r: 'live', icon: '📺', label: 'TV en vivo' }, { r: 'movies', icon: '🎬', label: 'Películas' },
@@ -61,6 +65,7 @@ function App() {
   const [notice, setNotice] = useState<{ id: string; title: string; body: string } | null>(null);
   const [saver, setSaver] = useState(false);
   const [licWarn, setLicWarn] = useState<{ days: number; exp: string } | null>(null);
+  const [accExp, setAccExp] = useState<{ days: number; date: string } | null>(null);
   // Equipo bloqueado desde el panel: tapa toda la app (aunque esté viendo algo) hasta que lo desbloqueen.
   const [devBlocked, setDevBlocked] = useState(storedBlocked);
   useEffect(() => {
@@ -152,6 +157,21 @@ function App() {
 
   // Aviso los últimos días antes de vencer (una vez al día, al entrar).
   useEffect(() => { if (phase === 'app') setLicWarn(expiryWarning(lic, config.texts)); }, [phase, lic, config]);
+
+  // Vencimiento de la cuenta del proveedor: se vuelve a preguntar la fecha cada 12 h (por si ya renovó).
+  useEffect(() => {
+    if (phase !== 'app') return;
+    const acc = store.account();
+    setAccExp(accountExpiry(acc, config.texts));
+    if (acc?.host && !acc.m3u && expiryCheckDue()) {
+      clientFor(acc).login().then((r) => {
+        const cur = store.account();
+        if (r.expiresAt && cur && cur.username === acc.username && cur.host === acc.host && r.expiresAt !== cur.expiresAt) {
+          store.setAccount({ ...cur, expiresAt: r.expiresAt }); setAccExp(accountExpiry(store.account(), config.texts));
+        }
+      }).catch(() => { /* sin conexión: se usa la fecha guardada */ });
+    }
+  }, [phase, config]);
 
   useEffect(() => {
     if (phase !== 'app') return;
@@ -266,6 +286,11 @@ function App() {
           <div className="act-code">{deviceCode()}</div>
           {(() => { const wa = (config.texts['license.whatsapp'] || config.texts['support.whatsapp'] || '').replace(/\D/g, ''); return wa ? <p className="act-wa">WhatsApp: <b>+{wa}</b></p> : null; })()}
           <Fx className="btn primary" def onClick={() => { markWarned(); setLicWarn(null); }}>Entendido</Fx></div></div>}
+        {accExp && !licWarn && !playing && phase === 'app' && <div className="dialog" data-fx-layer=""><div className="dialog-box" id="acc-exp"><h2>{accExp.days < 0 ? '⛔ Tu servicio venció' : '⏳ Tu servicio está por vencer'}</h2>
+          <p>{accExp.days < 0 ? `Venció el ${accExp.date}.` : accExp.days === 0 ? 'Vence hoy.' : accExp.days === 1 ? `Vence mañana (${accExp.date}).` : `Vence en ${accExp.days} días (${accExp.date}).`} Renueva con tu proveedor o vendedor para no perder la señal.</p>
+          <p className="muted">{config.texts['support.message']?.trim() || '¿Necesitas ayuda? Contacta a tu vendedor.'}</p>
+          {(() => { const wa = (config.texts['support.whatsapp'] || '').replace(/\D/g, ''); return wa ? <p className="act-wa">WhatsApp: <b>+{wa}</b></p> : null; })()}
+          <Fx className="btn primary" def onClick={() => { markExpiryWarned(); setAccExp(null); }}>Entendido</Fx></div></div>}
         {saver && <Screensaver />}
         {toast && <div className="toast">{toast}</div>}
         <NetBanner />

@@ -141,6 +141,7 @@ export function Settings() {
           <p className="muted">{deviceInfo()}</p>
           {acc && <p className="muted">Cuenta: {acc.username}{acc.expiresAt ? ` · vence ${new Date(acc.expiresAt).toLocaleDateString('es-MX')}` : ''}</p>}
           <p className="muted">Diseño v{app.config.version}</p>
+          <p className="muted">Privacidad: tu contraseña se queda en este equipo. Aviso completo en eversetv.com/privacidad</p>
         </div>
       </div>
     </div>

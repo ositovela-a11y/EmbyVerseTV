@@ -139,9 +139,11 @@ fun HomeScreen(nav: Navigator) {
         }
         // Estilo «tablero» (sin barras): las secciones son mosaicos grandes.
         if (t.navVariant == com.embyverse.core.config.NavVariant.HUB) item(key = "hub") { HubTiles(nav) }
-        s.expiresAt?.let { exp ->
-            val days = ((exp - System.currentTimeMillis() / 1000) / 86_400).toInt()
-            if (days <= 10) item(key = "expiry") { ExpiryNotice(exp, days) }
+        // Aviso de vencimiento de la cuenta del proveedor: «expiry.days» días antes (7 si no se pone en el panel).
+        s.expiresAt?.takeIf { s.config.texts["expiry.off"] != "1" }?.let { exp ->
+            val days = Math.floorDiv(exp - System.currentTimeMillis() / 1000, 86_400L).toInt()
+            val limit = s.config.texts["expiry.days"]?.trim()?.toIntOrNull()?.takeIf { it in 0..60 } ?: 7
+            if (days <= limit) item(key = "expiry") { ExpiryNotice(exp, days, s.config.texts["support.message"]?.trim().orEmpty()) }
         }
         if (!s.hasSources) item(key = "empty") {
             MessageState(Icons.Rounded.SatelliteAlt, stringResource(R.string.home_no_sources_title),
@@ -448,7 +450,7 @@ private fun EventsRow(events: List<com.embyverse.app.data.repo.LiveEvent>, nav: 
 
 /** Aviso de vencimiento de la cuenta: con tiempo para renovar con el proveedor o vendedor. */
 @Composable
-private fun ExpiryNotice(exp: Long, days: Int) {
+private fun ExpiryNotice(exp: Long, days: Int, support: String = "") {
     val t = LocalEmby.current
     val urgent = days <= 3
     val date = java.text.DateFormat.getDateInstance(java.text.DateFormat.LONG).format(java.util.Date(exp * 1000))
@@ -465,6 +467,7 @@ private fun ExpiryNotice(exp: Long, days: Int) {
                 else -> stringResource(R.string.expiry_in_days, days, date)
             }, style = MaterialTheme.typography.titleSmall, color = t.onBackground)
             Text(stringResource(R.string.expiry_renew), style = MaterialTheme.typography.bodySmall, color = t.textSecondary)
+            if (support.isNotEmpty()) Text(support, style = MaterialTheme.typography.bodySmall, color = t.onBackground, modifier = Modifier.testTag("expiry_support"))
         }
     }
 }

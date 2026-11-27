@@ -276,12 +276,12 @@ function AppLookEditor({ slug, name, onClose }: { slug: string; name: string; on
   const [curLogo, setCurLogo] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [saved, setSaved] = useState('');
-  const [login, setLogin] = useState({ otherServer: false, m3u: true, authOnly: false, authHosts: '', disabled: false }); // formas de entrar y autorización
+  const [login, setLogin] = useState({ otherServer: false, m3u: true, authOnly: false, authHosts: '', disabled: false, expiryDays: '7' }); // formas de entrar y autorización
   const [provHost, setProvHost] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   useEffect(() => {
-    void githubApi.appLook(slug).then((l) => { look.load(l.themeId, l.colors); setCurLogo(l.logo); const lg = { otherServer: l.otherServer, m3u: l.m3u, authOnly: l.authOnly, authHosts: l.authHosts, disabled: l.disabled }; setLogin(lg); setProvHost(l.providerHost); setSaved(JSON.stringify([l.themeId, l.colors, lg])); setLoaded(true); })
+    void githubApi.appLook(slug).then((l) => { look.load(l.themeId, l.colors); setCurLogo(l.logo); const lg = { otherServer: l.otherServer, m3u: l.m3u, authOnly: l.authOnly, authHosts: l.authHosts, disabled: l.disabled, expiryDays: l.expiryDays }; setLogin(lg); setProvHost(l.providerHost); setSaved(JSON.stringify([l.themeId, l.colors, lg])); setLoaded(true); })
       .catch((e) => setMsg({ kind: 'error', text: e instanceof Error ? e.message : 'No se pudo leer la app.' }));
   }, [slug]); // eslint-disable-line
   const [newPrev, setNewPrev] = useState('');
@@ -293,7 +293,8 @@ function AppLookEditor({ slug, name, onClose }: { slug: string; name: string; on
       if (login.disabled && !confirm(`¿Apagar la app ${name}?\n\nEn 1–3 minutos deja de funcionar en TODOS sus equipos (celular, TV y PC) y muestra «Esta app no está disponible». Puedes volver a encenderla cuando quieras.`)) { setBusy(false); return; }
       const hosts = login.authHosts.split(/[\s,;]+/).map((h) => h.trim()).filter(Boolean).join(',');
       const r = await githubApi.restyleApp(slug, { themeId: look.themeId, colors: look.colors, logo: logoFile, texts: { 'login.otherServer': login.otherServer ? '1' : '0', 'login.m3u': login.m3u ? '1' : '0',
-        'auth.only': login.authOnly ? '1' : '0', 'auth.hosts': hosts, 'app.disabled': login.disabled ? '1' : '0' } });
+        'auth.only': login.authOnly ? '1' : '0', 'auth.hosts': hosts, 'app.disabled': login.disabled ? '1' : '0',
+        'expiry.days': String(Math.min(60, Math.max(0, parseInt(login.expiryDays, 10) || 0)) || 7), 'expiry.off': login.expiryDays.trim() === '0' ? '1' : '0' } });
       setMsg({ kind: 'ok', text: `✓ Publicado (versión ${r.version}). En 1–2 minutos lo ven sus clientes al abrir la app o volver a ella.${slug && logoFile ? ' El ícono de su APK se actualiza en unos 10 minutos.' : ''}` });
       setSaved(JSON.stringify([look.themeId, look.colors, login]));
       if (currentTarget() === slug) setTimeout(() => location.reload(), 1500); // el estudio estaba abierto en esta app
@@ -315,6 +316,8 @@ function AppLookEditor({ slug, name, onClose }: { slug: string; name: string; on
           <label><input type="checkbox" checked disabled /> Usuario y contraseña (con tu servidor)</label>
           <label><input type="checkbox" checked={login.otherServer} onChange={(e) => setLogin((l) => ({ ...l, otherServer: e.target.checked }))} aria-label="Otro servidor (Xtream)" /> Otro servidor (Xtream): el cliente escribe la dirección de otro servidor</label>
           <label><input type="checkbox" checked={login.m3u} onChange={(e) => setLogin((l) => ({ ...l, m3u: e.target.checked }))} aria-label="Lista M3U" /> Lista M3U</label>
+          <label>Avisar al cliente que su servicio vence <input className="input" type="number" min={0} max={60} id="expiry-days" style={{ width: 70, display: 'inline-block' }}
+            value={login.expiryDays} onChange={(e) => setLogin((l) => ({ ...l, expiryDays: e.target.value }))} /> días antes <span className="hint">(0 = no avisar)</span></label>
         </fieldset>
         <fieldset className="login-opts auth-opts">
           <legend><b>Autorización (que nadie use la app sin permiso)</b></legend>

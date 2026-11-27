@@ -31,6 +31,17 @@ object Network {
             if (req.header("User-Agent") == null) chain.proceed(req.newBuilder().header("User-Agent", USER_AGENT).build())
             else chain.proceed(req)
         }
+        // Si GitHub no responde o ya no tiene el archivo (diseño, listas, update.json), se pide a eversetv.com.
+        .addInterceptor { chain ->
+            val req = chain.request()
+            val alt = if (req.method == "GET") com.embyverse.core.config.SiteMirror.alternate(req.url.toString()) else null
+            if (alt == null) return@addInterceptor chain.proceed(req)
+            val first = runCatching { chain.proceed(req) }
+            val code = first.getOrNull()?.code
+            if (!com.embyverse.core.config.SiteMirror.shouldRetry(code)) return@addInterceptor first.getOrThrow()
+            first.getOrNull()?.close()
+            runCatching { chain.proceed(req.newBuilder().url(alt).build()) }.getOrElse { e -> first.getOrNull()?.let { throw e } ?: throw first.exceptionOrNull()!! }
+        }
         // Intencionadamente SIN HttpLoggingInterceptor: las URLs Xtream contienen credenciales.
         .build()
 }

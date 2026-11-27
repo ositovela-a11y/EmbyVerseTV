@@ -11,12 +11,22 @@ import java.io.File
  */
 object CrashReport {
     private const val FILE = "last_crash.txt"
+    /** Copia para el reporte automático al dueño (se manda al abrir la app otra vez). */
+    const val PENDING = "crash_pending.json"
 
     fun install(context: Context) {
         val appCtx = context.applicationContext
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, e ->
             runCatching { File(appCtx.filesDir, FILE).writeText(format(thread, e)) }
+            runCatching {
+                val root = generateSequence(e) { it.cause }.last()
+                val where = (root.stackTrace.firstOrNull { it.className.startsWith("com.embyverse") } ?: root.stackTrace.firstOrNull())
+                    ?.let { "${it.className.substringAfterLast('.')}.${it.methodName}:${it.lineNumber}" }.orEmpty()
+                val msg = UrlSafety.redact("${root.javaClass.simpleName}: ${root.message.orEmpty().take(120)}").trim() + (if (where.isNotEmpty()) " @ $where" else "")
+                val detail = UrlSafety.redact(e.stackTraceToString().lineSequence().take(40).joinToString("\n")).take(4000)
+                File(appCtx.filesDir, PENDING).writeText(org.json.JSONObject().put("message", msg).put("detail", "Hilo ${thread.name}\n$detail").toString())
+            }
             previous?.uncaughtException(thread, e)
         }
     }

@@ -101,6 +101,24 @@ const fail = (m) => { console.error('FALLA: ' + m); process.exitCode = 1; };
     }
     await ctx.close();
   }
+  // Aviso de vencimiento de la cuenta del proveedor (faltan 2 días; el panel dice avisar 5 días antes).
+  {
+    const ctx = await b.newContext({ viewport: { width: 1920, height: 1080 } });
+    await ctx.route('**/none.json*', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ version: 9, texts: { 'expiry.days': '5', 'support.message': 'Renueva con tu vendedor: 55 1234 5678' } }) }));
+    await ctx.addInitScript(() => {
+      localStorage.setItem('ev.account', JSON.stringify({ host: 'http://127.0.0.1:8800', username: 'user', password: 'pass', expiresAt: Date.now() + 2.5 * 86400000 }));
+      localStorage.setItem('ev.expcheck', String(Date.now())); // sin volver a preguntar al servidor en la prueba
+    });
+    const ap = await ctx.newPage();
+    await ap.goto('http://localhost:8090/index.html');
+    const ok = await ap.waitForSelector('#acc-exp', { timeout: 25000 }).then(() => true).catch(() => false);
+    const txt = ok ? await ap.textContent('#acc-exp') : '';
+    await ap.waitForTimeout(600); await ap.screenshot({ path: `${out}/17-aviso-vencimiento.png` });
+    if (!ok || !/Vence en 2 días/.test(txt) || !txt.includes('55 1234 5678')) fail(`vencimiento: aviso incorrecto («${txt}»)`); else console.log('Vencimiento: «Vence en 2 días» con el mensaje del vendedor (bien)');
+    await ap.keyboard.press('Enter'); await ap.waitForTimeout(500);
+    if (await ap.$('#acc-exp')) fail('vencimiento: el aviso no se cerró'); else console.log('Vencimiento: «Entendido» lo cierra (bien)');
+    await ctx.close();
+  }
   if (errs.length) { console.log('Errores de JavaScript:\n' + errs.slice(0, 10).join('\n')); fail('hubo errores de JavaScript'); }
   await b.close();
   console.log(process.exitCode ? 'RESULTADO: con fallas' : 'RESULTADO: todo bien');

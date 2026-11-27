@@ -1,8 +1,8 @@
 {
   "_info": "Notas de cada versión. Se muestran al ofrecer la actualización (update.json) y en «Novedades» después de actualizar. Escribir SIN el nombre de la app (las ven también las apps de vendedores). Agregar una entrada en cada versión nueva.",
   "1.15.18": {
-    "es": ["Más seguridad: la app solo funciona con los servidores autorizados por tu proveedor.", "Mejoras de estabilidad."],
-    "en": ["More security: the app only works with servers authorized by your provider.", "Stability improvements."]
+    "es": ["Más seguridad: la app solo funciona con los servidores autorizados por tu proveedor.", "Aviso unos días antes de que venza tu servicio.", "La app sigue funcionando aunque el sitio principal esté caído.", "Mejoras de estabilidad."],
+    "en": ["More security: the app only works with servers authorized by your provider.", "A notice a few days before your service expires.", "The app keeps working even if the main site is down.", "Stability improvements."]
   },
   "1.15.17": {
     "es": ["Botones ⏮ ⏭ en el reproductor para ir al capítulo anterior o siguiente (también con las teclas ⏮ ⏭ del control).", "Al salir y volver a la app, las listas se actualizan solas: lo nuevo aparece sin pulsar «Actualizar»."],

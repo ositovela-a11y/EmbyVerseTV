@@ -9,3 +9,10 @@ routes = [
   { pattern = "eversetv.com", custom_domain = true },
   { pattern = "www.eversetv.com", custom_domain = true },
 ]
+
+# Copia del sitio publicado (sin las APK), por si GitHub falla. La arma el flujo «Dominio propio» en ./copia.
+# run_worker_first: el Worker decide; la copia solo se usa cuando GitHub no responde o ya no tiene el archivo.
+[assets]
+directory = "./copia"
+binding = "ASSETS"
+run_worker_first = true

@@ -14,6 +14,8 @@ const ago = (t: number, now: number) => { const m = Math.round((now - t) / 60_00
 const date = (t: number) => new Date(t).toISOString().slice(0, 10);
 
 type Scope = 'mine' | 'vendors' | 'all';
+type CrashRow = { sig: string; app: string; platform: string; version: string; kind: 'crash' | 'play' | 'js'; message: string; detail: string; model: string; os: string; last_id: string; devices: number; n: number; first_seen: number; last_seen: number };
+const KIND: Record<string, string> = { crash: 'Se cerró la app', js: 'Error en la app', play: 'No reprodujo' };
 
 /** Barras simples (SVG) de los últimos 30 días. */
 function Bars({ days, values, color }: { days: string[]; values: number[]; color: string }) {
@@ -30,7 +32,8 @@ export function StatsPanel() {
   const [url, setUrl] = useState<string | null | undefined>(undefined);
   const [key, setKey] = useState(() => { try { return localStorage.getItem(KEY) || ''; } catch { return ''; } });
   const [draft, setDraft] = useState('');
-  const [data, setData] = useState<{ now: number; devices: DeviceRow[]; downloads: DlRow[] } | null>(null);
+  const [data, setData] = useState<{ now: number; devices: DeviceRow[]; downloads: DlRow[]; crashes?: CrashRow[] } | null>(null);
+  const [openCrash, setOpenCrash] = useState('');
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const [scope, setScope] = useState<Scope>('mine'); const [vendor, setVendor] = useState('*');
@@ -108,6 +111,12 @@ export function StatsPanel() {
     a.download = `instalaciones-${scope === 'mine' ? 'mis-clientes' : scope === 'vendors' ? 'vendedores' : 'todas'}-${date(Date.now())}.csv`; a.click();
   };
 
+  const resolveCrash = async (c: CrashRow) => {
+    if (!url || !window.confirm('¿Quitar este fallo de la lista? Si vuelve a pasar, aparece otra vez.')) return;
+    setBusy(true);
+    try { await fetch(`${url}/v1/crashes/${encodeURIComponent(c.sig)}`, { method: 'DELETE', headers: { authorization: `Bearer ${key}` } });
+      setData((x) => x ? { ...x, crashes: (x.crashes ?? []).filter((y) => y.sig !== c.sig) } : x); } finally { setBusy(false); }
+  };
   const remove = async (d: DeviceRow) => {
     if (!url || !confirm(`¿Eliminar el equipo ${deviceShortCode(d.id)} del registro?\n\nSolo se borra de esta lista: si vuelve a abrir la app, aparece de nuevo. Para que ya no pueda usarla, usa «Bloquear».`)) return;
     await fetch(`${url}/v1/devices/${encodeURIComponent(d.id)}`, { method: 'DELETE', headers: { authorization: `Bearer ${key}` } });
@@ -200,6 +209,32 @@ export function StatsPanel() {
             </div>
           </Group>
         )}
+        {(() => {
+          const cr = (data.crashes ?? []).filter((c) => inScope(c.app));
+          return (
+            <Group title={`Fallos (${cr.length})`} hint="Cierres inesperados de la app y videos que no se pudieron reproducir por su formato, en los últimos 60 días. Se agrupan: «Veces» y «Equipos» dicen a cuántos clientes les pasa. Cuando lo arreglemos, márcalo como resuelto.">
+              {cr.length === 0 ? <p className="hint" id="no-crashes">Sin fallos reportados. 👍</p> : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="act-table" id="crash-table">
+                    <thead><tr><th>Qué pasó</th>{scope !== 'mine' && <th>App</th>}<th>Equipo</th><th>Versión</th><th>Veces</th><th>Equipos</th><th>Último</th><th></th></tr></thead>
+                    <tbody>{cr.map((c) => (
+                      <tr key={c.sig} data-crash={c.sig}>
+                        <td><b className={c.kind === 'play' ? 'upd-wait' : 'danger-text'}>{KIND[c.kind] ?? c.kind}</b><div className="mono crash-msg">{c.message}</div>
+                          {openCrash === c.sig && c.detail && <pre className="crash-detail">{c.detail}</pre>}</td>
+                        {scope !== 'mine' && <td>{vName(c.app)}</td>}
+                        <td>{PLAT[c.platform] ?? c.platform}<div className="hint">{c.model}</div><div className="hint">{c.os}</div></td>
+                        <td>{c.version}</td><td>{c.n}</td><td>{c.devices}</td><td>{ago(c.last_seen, view.now)}</td>
+                        <td><div className="row-actions">
+                          {c.detail && <button className="link" onClick={() => setOpenCrash(openCrash === c.sig ? '' : c.sig)}>{openCrash === c.sig ? 'Ocultar' : 'Detalle'}</button>}
+                          <button className="link" onClick={() => void navigator.clipboard?.writeText(`${KIND[c.kind]} · ${c.message}\n${PLAT[c.platform] ?? c.platform} ${c.model} ${c.os} · versión ${c.version} · ${c.n} veces en ${c.devices} equipos\n\n${c.detail}`)}>Copiar</button>
+                          <button className="link" disabled={busy} onClick={() => void resolveCrash(c)}>Resuelto</button>
+                        </div></td>
+                      </tr>))}
+                    </tbody>
+                  </table>
+                </div>)}
+            </Group>);
+        })()}
         <Group title={`Equipos (${view.rows.length})`} hint="Ordenados por último uso. Un mismo usuario puede tener varios equipos. «Bloquear» cierra la app en ese equipo (o en todos los del usuario) en 1–3 minutos; «Eliminar» solo lo borra de la lista."
           actions={<button className="btn" onClick={csv} disabled={!view.rows.length}>Descargar Excel (CSV)</button>}>
           <div className="act-filters">

@@ -62,3 +62,36 @@ export async function reportStats(acc: Account | null, force = false): Promise<v
 
 /** Dirección del servidor (la usa también la sincronización de perfiles). */
 export async function serviceUrl(): Promise<string | null> { return endpoint(read()); }
+
+/**
+ * Reporte de fallos al dueño (Estadísticas → Fallos): errores de la app y videos que no se pueden reproducir
+ * por el formato. Sin usuario, contraseña ni dirección del canal. El mismo fallo, máximo una vez al día.
+ */
+export async function reportProblem(kind: 'js' | 'play', message: string, detail = ''): Promise<void> {
+  try {
+    const st = read(); installId();
+    const msg = message.replace(/https?:\/\/\S+/g, '[dirección]').slice(0, 300);
+    const key = 'p:' + kind + '|' + msg; const now = Date.now();
+    st.p = st.p || {}; if (now - (st.p[key] || 0) < 86_400_000) return;
+    const url = await endpoint(st); if (!url) return;
+    const os = (window as any).evDesktop ? 'Windows' : isTizen ? 'Tizen' : isWebOS ? 'webOS' : (navigator.userAgent || '').slice(0, 40);
+    const model = (window as any).evDesktop ? 'Windows' : isTizen ? 'Samsung Smart TV' : isWebOS ? 'LG Smart TV' : navigator.platform || 'Navegador';
+    const r = await fetch(`${url}/v1/crash`, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: read().id, app: appSlug(), platform: statsPlatform(), version: __VERSION__, kind, message: msg,
+        detail: detail.replace(/https?:\/\/[^\s)]+/g, '[dirección]').slice(0, 4000), model, os }) });
+    if (r.ok) { const s2 = read(); s2.p = { ...(s2.p || {}), [key]: now }; for (const k of Object.keys(s2.p)) if (now - s2.p[k] > 86_400_000) delete s2.p[k]; write(s2); }
+  } catch { /* sin reporte */ }
+}
+
+/** Errores inesperados de la app (TV/PC). */
+export function installCrashReport(): void {
+  const seen = new Set<string>();
+  const send = (m: string, d: string) => { if (seen.has(m) || seen.size > 20) return; seen.add(m); void reportProblem('js', m, d); };
+  window.addEventListener('error', (e) => {
+    const where = e.filename ? ` @ ${String(e.filename).split('/').pop()}:${e.lineno}` : '';
+    send(`${e.message || 'Error'}${where}`, (e.error && e.error.stack) || '');
+  });
+  window.addEventListener('unhandledrejection', (e: any) => {
+    const r = e?.reason; send(`Promesa sin atender: ${(r && (r.message || String(r))) || 'error'}`.slice(0, 200), (r && r.stack) || '');
+  });
+}
