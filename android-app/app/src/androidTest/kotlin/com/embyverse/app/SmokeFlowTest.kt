@@ -1661,7 +1661,12 @@ class SmokeFlowTest {
                 waitTag("nav_settings", 30_000)
                 // El proveedor de prueba vence en 90 días: con «avisar 120 días antes» aparece el aviso.
                 InstrumentationRegistry.getInstrumentation().runOnMainSync { c.config.overrideForTest(cfg0.copy(texts = cfg0.texts + ("expiry.days" to "120") + ("support.message" to support))) }
-                waitTag("expiry", 15_000); waitText(support, 5_000)
+                runCatching { waitTag("expiry", 15_000) }.onFailure {
+                    shot("60-aviso-vencimiento-fallo")
+                    log("Vencimiento (fallo): fechas=${runBlocking { c.prefs.sourceExpiries.first() }} fuente=${src.id} textos=${c.config.config.value.texts["expiry.days"]}")
+                    throw it
+                }
+                waitText(support, 5_000)
                 Thread.sleep(600); shot("60-aviso-vencimiento")
                 log("Vencimiento: aviso visible con «avisar 120 días antes» y el mensaje de soporte del vendedor")
                 // Con «0 días» (no avisar) desaparece.
