@@ -41,7 +41,9 @@ const pkgFile = join(here, 'package.json');
 const pkg = JSON.parse(readFileSync(pkgFile, 'utf8'));
 const file = slug ? slug : 'EmbyVerse'; // los archivos del vendedor no dicen «EmbyVerse»
 pkg.productName = name;
-pkg.description = `${name} para PC (Windows): TV en vivo, películas y series con tu cuenta Xtream o lista M3U.`;
+pkg.description = store
+  ? `${name}: reproductor de video para la cuenta de tu proveedor. No incluye canales ni contenido.`
+  : `${name} para PC (Windows): TV en vivo, películas y series con tu cuenta Xtream o lista M3U.`;
 pkg.author = slug ? name : 'EmbyVerse';
 pkg.build.appId = slug ? `com.embyverse.pc.${slug}` : 'com.embyverse.pc';
 pkg.build.productName = name;

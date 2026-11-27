@@ -74,13 +74,15 @@ jobs:
           rm -rf desktop/app && cp -r tv-app/dist desktop/app
           node desktop/brand.mjs --store
           node desktop/tienda.mjs
-          V=$(node -p "require('./tv-app/package.json').version").0
+          V=$(node -p "require('./tv-app/package.json').version")
+          # La tienda exige un número de versión mayor en cada envío: el de la app de PC/TV (1.2.10 → 1.2.10.0).
+          node -e "const f='desktop/package.json',p=require('./'+f);p.version='$V';require('fs').writeFileSync(f,JSON.stringify(p,null,2))"
           if [ -n "$ID_NAME" ] && [ -n "$PUBLISHER" ]; then REAL=1; else REAL=0; ID_NAME=EverseTV.Prueba; PUBLISHER='CN=00000000-0000-0000-0000-000000000000'; PUB_NAME=Prueba; echo "::notice::Sin datos de Partner Center: paquete de PRUEBA"; fi
           NAME=${DISPLAY:-$(node -p "require('./desktop/package.json').productName")}
           (cd desktop && npx electron-builder --win appx --x64 --publish never \
             -c.appx.identityName="$ID_NAME" -c.appx.publisher="$PUBLISHER" -c.appx.publisherDisplayName="$PUB_NAME" \
             -c.appx.displayName="$NAME" -c.appx.applicationId=EverseTV -c.appx.backgroundColor="#03070F" \
-            -c.appx.languages=es-MX -c.appx.languages=en-US -c.buildVersion="$V" \
+            -c.appx.languages=es-MX -c.appx.languages=en-US \
             -c.appx.artifactName="Tienda-Microsoft$([ $REAL = 1 ] || echo -PRUEBA).\${ext}")
           git checkout -- desktop/package.json desktop/icon.png
           ls -la desktop/dist/*.appx
