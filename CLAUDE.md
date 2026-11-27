@@ -75,7 +75,7 @@ No incluye contenido: cada cliente entra con su usuario/contraseña del proveedo
 | `android-apk.yml` | APK Android | En `main`: compila las 4 APK (una por marca) y las deja en `apk-nueva` (esperando aprobación); luego dispara el sitio |
 | `web.yml` | Sitio (descarga y panel) | Pasa a `*-latest` lo aprobado en `config/aprobadas.json` (`.github/scripts/versiones.py`), escribe `config/versiones.json` y publica `gh-pages` (página, panel, configs, APK, `update.json`). Luego renueva la copia de eversetv.com |
 | `pc.yml` / `tv.yml` | App PC / App TV | Compilan, prueban (Electron/Chromium) y suben a `pc-nueva`/`tv-nueva` en main (`*-beta` en beta) |
-| `site-worker.yml` | Dominio propio | Prueba siempre; despliega el Worker de eversetv.com SOLO en `main`, con copia del sitio (sin APK) en `copia/` |
+| `site-worker.yml` | Dominio propio | Prueba siempre; despliega el Worker de eversetv.com SOLO en `main`, con copia de TODO el sitio + instaladores de PC en `copia/` (archivos >24 MB en partes `.parteNNN` + `.partes.json`) |
 | `stats-worker.yml` | Servidor de estadísticas | Despliega el Worker + D1 y aplica `schema.sql` (en `main`) |
 | `ffmpeg-audio.yml` / `ffmpeg-video.yml` | Decodificadores FFmpeg | AAR LGPL para Media3 1.11.1 (`ffmpeg-media3-1.11.1[-video]`): audio AC3/DTS… y video MPEG-2, Xvid/DivX, DivX 3, VC-1 |
 | `respaldo.yml` | Respaldo | Cada semana (y a mano): copia código + apps + datos cifrados a la release `respaldo-AAAA-MM-DD` |
@@ -97,7 +97,7 @@ Ver capturas/registros de CI: `gh api -H "Accept: application/octet-stream" repo
 - Fallos: `StatsReporter.reportProblem` (Android: cierres por `CrashReport` + errores de formato/decodificador) y
   `stats.ts reportProblem` (TV/PC) → `stats-worker /v1/crash` (tabla `crashes`) → panel Estadísticas › Fallos.
 - Vencimiento del proveedor (`exp_date`): Android banner en Inicio, TV/PC diálogo diario (`expiry.ts`).
-  Textos `expiry.days` (7) y `expiry.off`; se edita en el panel (editor de la app).
+  2 días antes (`expiry.days`=2); interruptor por app en el panel (`expiry.off`).
 - Si GitHub falla: Android (`SiteMirror` en core + interceptor en `Network`) y TV/PC (`mirror.ts`) piden lo mismo
   a eversetv.com; el Worker sirve su copia (`env.ASSETS`) si GitHub no responde o da 404.
 - Aviso de privacidad: `web-player/privacidad/` (eversetv.com/privacidad, es/en).
@@ -129,5 +129,5 @@ Ver capturas/registros de CI: `gh api -H "Accept: application/octet-stream" repo
 
 - Microsoft Store: falta que el dueño reserve el nombre y pase los 3 datos de identidad para armar el MSIX.
 - Recomendaciones en espera: guía de TV (EPG), PIN parental, firma nueva con rotación (después de separar repos),
-  nombre final para tiendas, contacto público (correo) en el aviso de privacidad.
+  nombre final para tiendas. Correo público `soporte@eversetv.com` (falta que el dueño active Email Routing en Cloudflare).
 - Separar repositorios (código privado). Hasta hacerlo, la clave de firma sigue en un repo público.
