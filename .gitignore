@@ -28,3 +28,4 @@ captures/
 !android-app/app/embyverse-debug.keystore
 android-app/app/libs/*.aar
 site-worker/copia/
+desktop/build/

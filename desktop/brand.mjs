@@ -23,11 +23,13 @@ const configUrl = arg('config-url', `${site}/config/${slug ? `vendors/${slug}.js
 const licenseUrl = arg('license-url', `${site}/config/licenses.json`);
 const name = (String(cfg.brand?.appName ?? '').trim() || (slug ? slug : 'EmbyVerse')).slice(0, 40);
 const askHost = cfg.texts?.['provider.askHost'] === '1';
+// --store: paquete para Microsoft Store (no se actualiza desde el sitio; lo hace la tienda).
+const store = process.argv.includes('--store');
 
 // ---------- index.html: datos de esta instalación ----------
 const idx = join(here, 'app/index.html');
 if (!existsSync(idx)) { console.error('Falta desktop/app (compila primero tv-app y cópiala).'); process.exit(1); }
-const ev = { config: configUrl, edition: 'pc', license: licenseUrl, name, ...(askHost ? { host: '' } : {}) };
+const ev = { config: configUrl, edition: 'pc', license: licenseUrl, name, ...(askHost ? { host: '' } : {}), ...(store ? { store: true } : {}) };
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let html = readFileSync(idx, 'utf8').replace(/<script>window\.__EV__=[^<]*<\/script>\n?/, '');
 html = html.replace(/<title>[^<]*<\/title>/, `<title>${esc(name)}</title>`)

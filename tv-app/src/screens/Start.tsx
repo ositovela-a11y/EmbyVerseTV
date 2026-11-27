@@ -99,6 +99,7 @@ export function Login({ onLogged }: { onLogged: () => void }) {
         </div>
       )}
       {err && <div className="error-box">{err}</div>}
+      <p className="muted player-only" id="player-only">{config.brand.appName} es solo un reproductor: no incluye canales, películas ni ningún contenido. Entra con la cuenta que te dio tu proveedor.</p>
     </div>
   );
 }

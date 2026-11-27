@@ -25,6 +25,8 @@
     document.body.appendChild(s);
   }
   if (location.protocol === 'http:' && location.hostname === 'localhost') return boot('');
+  // Versión de Microsoft Store: solo el código que revisó Microsoft (las actualizaciones llegan por la tienda).
+  if (window.__EV__ && window.__EV__.store) return boot('');
   try {
     var x = new XMLHttpRequest(); x.timeout = 3500; x.open('GET', REMOTE + 'version.json?t=' + Date.now());
     x.onload = function () { try { if (cmp(JSON.parse(x.responseText).version, LOCAL) > 0) return boot(REMOTE); } catch (e) {} boot(''); };

@@ -58,6 +58,32 @@ jobs:
           done
           git checkout -- desktop/package.json desktop/icon.png
           ls -la desktop/dist
+      # Paquete para Microsoft Store (solo tu app; Microsoft lo firma al publicarlo). Los 3 datos de identidad salen
+      # de Partner Center → Identidad del producto, y se guardan como VARIABLES del repositorio (no son secretos):
+      # MS_IDENTITY_NAME, MS_PUBLISHER (CN=…) y MS_PUBLISHER_NAME. Opcional: MS_DISPLAY_NAME (nombre reservado).
+      # Sin esas variables se arma un paquete de PRUEBA (no sirve para subirlo) solo para comprobar que compila.
+      - name: Paquete para Microsoft Store (MSIX)
+        shell: bash
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          ID_NAME: ${{ vars.MS_IDENTITY_NAME }}
+          PUBLISHER: ${{ vars.MS_PUBLISHER }}
+          PUB_NAME: ${{ vars.MS_PUBLISHER_NAME }}
+          DISPLAY: ${{ vars.MS_DISPLAY_NAME }}
+        run: |
+          rm -rf desktop/app && cp -r tv-app/dist desktop/app
+          node desktop/brand.mjs --store
+          node desktop/tienda.mjs
+          V=$(node -p "require('./tv-app/package.json').version").0
+          if [ -n "$ID_NAME" ] && [ -n "$PUBLISHER" ]; then REAL=1; else REAL=0; ID_NAME=EverseTV.Prueba; PUBLISHER='CN=00000000-0000-0000-0000-000000000000'; PUB_NAME=Prueba; echo "::notice::Sin datos de Partner Center: paquete de PRUEBA"; fi
+          NAME=${DISPLAY:-$(node -p "require('./desktop/package.json').productName")}
+          (cd desktop && npx electron-builder --win appx --x64 --publish never \
+            -c.appx.identityName="$ID_NAME" -c.appx.publisher="$PUBLISHER" -c.appx.publisherDisplayName="$PUB_NAME" \
+            -c.appx.displayName="$NAME" -c.appx.applicationId=EverseTV -c.appx.backgroundColor="#03070F" \
+            -c.appx.languages=es-MX -c.appx.languages=en-US -c.buildVersion="$V" \
+            -c.appx.artifactName="Tienda-Microsoft$([ $REAL = 1 ] || echo -PRUEBA).\${ext}")
+          git checkout -- desktop/package.json desktop/icon.png
+          ls -la desktop/dist/*.appx
       - name: Publicar
         shell: bash
         # main → «pc-nueva» (espera a que el dueño pulse «Actualizar versión» en el panel); beta → «pc-beta».
@@ -69,3 +95,6 @@ jobs:
           echo "{\"version\": \"$(node -p "require('./tv-app/package.json').version")\", \"build\": \"${GITHUB_SHA::7}-${GITHUB_RUN_ID}\"}" > desktop/dist/pc-version.json
           gh release view "$TAG" -R "$DEST" >/dev/null 2>&1 || gh release create "$TAG" -R "$DEST" --title "App PC ($TAG)" --notes "EmbyVerse para Windows: instalador y versión portátil."
           gh release upload "$TAG" -R "$DEST" desktop/dist/*-PC-Instalador.exe desktop/dist/*-PC-Portable.exe desktop/dist/pc-version.json --clobber
+          # El paquete de la tienda va aparte (repositorio del código): lo subes tú en Partner Center.
+          gh release view tienda-microsoft -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create tienda-microsoft -R "$GITHUB_REPOSITORY" --prerelease --title "Paquete para Microsoft Store" --notes "Descarga el .appx y súbelo en Partner Center → Paquetes."
+          gh release upload tienda-microsoft -R "$GITHUB_REPOSITORY" desktop/dist/*.appx --clobber
