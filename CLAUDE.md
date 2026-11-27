@@ -72,10 +72,10 @@ No incluye contenido: cada cliente entra con su usuario/contraseña del proveedo
 | Archivo | Nombre en Actions | Qué hace |
 |---|---|---|
 | `android-emulator.yml` | Prueba en emulador Android | `SmokeFlowTest` (~37 pruebas, ~30 min) con `tests/android/mock-xtream.mjs`. En `beta` deja APK de revisión (`apk-beta`). Capturas y `resumen.txt` en la release `ci-logs` |
-| `android-apk.yml` | APK Android | En `main`: compila las 4 APK (una por marca) y sube a `apk-latest`; luego dispara el sitio |
-| `web.yml` | Sitio (descarga y panel) | Publica `gh-pages`: página, panel, configs, APK y `update.json` |
-| `pc.yml` / `tv.yml` | App PC / App TV | Compilan, prueban (Electron/Chromium) y suben a `pc-latest`/`tv-latest` (`*-beta` en beta) |
-| `site-worker.yml` | Dominio propio | Despliega el Worker de eversetv.com (en `main` y `beta`) |
+| `android-apk.yml` | APK Android | En `main`: compila las 4 APK (una por marca) y las deja en `apk-nueva` (esperando aprobación); luego dispara el sitio |
+| `web.yml` | Sitio (descarga y panel) | Pasa a `*-latest` lo aprobado en `config/aprobadas.json` (`.github/scripts/versiones.py`), escribe `config/versiones.json` y publica `gh-pages` (página, panel, configs, APK, `update.json`). Luego renueva la copia de eversetv.com |
+| `pc.yml` / `tv.yml` | App PC / App TV | Compilan, prueban (Electron/Chromium) y suben a `pc-nueva`/`tv-nueva` en main (`*-beta` en beta) |
+| `site-worker.yml` | Dominio propio | Prueba siempre; despliega el Worker de eversetv.com SOLO en `main`, con copia del sitio (sin APK) en `copia/` |
 | `stats-worker.yml` | Servidor de estadísticas | Despliega el Worker + D1 y aplica `schema.sql` (en `main`) |
 | `ffmpeg-audio.yml` / `ffmpeg-video.yml` | Decodificadores FFmpeg | AAR LGPL para Media3 1.11.1 (`ffmpeg-media3-1.11.1[-video]`): audio AC3/DTS… y video MPEG-2, Xvid/DivX, DivX 3, VC-1 |
 | `respaldo.yml` | Respaldo | Cada semana (y a mano): copia código + apps + datos cifrados a la release `respaldo-AAAA-MM-DD` |
@@ -84,6 +84,24 @@ Secretos del repositorio del código (los pone el dueño): `CLOUDFLARE_API_TOKEN
 `SITE_TOKEN` (publicar en el repositorio público) y `BACKUP_PASSWORD` (cifra las claves del respaldo).
 `copiar-descargas.yml`: copia única de las descargas al repositorio público después de separar.
 Ver capturas/registros de CI: `gh api -H "Accept: application/octet-stream" repos/ositovela-a11y/EmbyVerseTV/releases/assets/<id>`.
+
+## Actualizaciones con aprobación (botón del dueño)
+
+- Nada compilado en `main` llega solo a los clientes: queda en `apk-nueva`/`tv-nueva`/`pc-nueva` (repo del código).
+- Panel → **Actualizaciones**: «Actualizar versión» por marca (Android) o para todas (TV y PC) escribe
+  `web-player/config/aprobadas.json` (`{android: {"EmbyVerse-<slug>.apk": versionCode}, tv: "1.2.x", pc: "1.2.x"}`);
+  `web.yml` copia lo aprobado a `*-latest` y regenera `update.json`. Así "publica" (merge a main) ≠ llegar a clientes.
+
+## Fallos, vencimiento, respaldo de eversetv.com y privacidad
+
+- Fallos: `StatsReporter.reportProblem` (Android: cierres por `CrashReport` + errores de formato/decodificador) y
+  `stats.ts reportProblem` (TV/PC) → `stats-worker /v1/crash` (tabla `crashes`) → panel Estadísticas › Fallos.
+- Vencimiento del proveedor (`exp_date`): Android banner en Inicio, TV/PC diálogo diario (`expiry.ts`).
+  Textos `expiry.days` (7) y `expiry.off`; se edita en el panel (editor de la app).
+- Si GitHub falla: Android (`SiteMirror` en core + interceptor en `Network`) y TV/PC (`mirror.ts`) piden lo mismo
+  a eversetv.com; el Worker sirve su copia (`env.ASSETS`) si GitHub no responde o da 404.
+- Aviso de privacidad: `web-player/privacidad/` (eversetv.com/privacidad, es/en).
+- LG: la app ya extiende sola el modo desarrollador (`lgdev.ts`).
 
 ## Detalles técnicos que importan
 
@@ -110,6 +128,6 @@ Ver capturas/registros de CI: `gh api -H "Accept: application/octet-stream" repo
 ## Pendientes conocidos
 
 - Microsoft Store: falta que el dueño reserve el nombre y pase los 3 datos de identidad para armar el MSIX.
-- Recomendaciones en espera: aviso de vencimiento del proveedor, reporte de fallos, guía de TV (EPG), PIN parental,
-  página de privacidad, nombre final para tiendas.
+- Recomendaciones en espera: guía de TV (EPG), PIN parental, firma nueva con rotación (después de separar repos),
+  nombre final para tiendas, contacto público (correo) en el aviso de privacidad.
 - Separar repositorios (código privado). Hasta hacerlo, la clave de firma sigue en un repo público.
