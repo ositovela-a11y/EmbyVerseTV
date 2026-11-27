@@ -28,11 +28,14 @@ const KEY = 'ev.config';
  * su servidor, edición y activaciones). Tienen prioridad sobre los de app.js para que, cuando la app
  * se actualiza sola desde el sitio, siga siendo la del vendedor.
  */
-export const EV: { config?: string; host?: string; edition?: string; license?: string; name?: string } = (() => { try { return (window as any).__EV__ || {}; } catch { return {}; } })();
+export const EV: { config?: string; host?: string; edition?: string; license?: string; name?: string; forceName?: string; otherServer?: boolean; store?: boolean } = (() => { try { return (window as any).__EV__ || {}; } catch { return {}; } })();
 const CONFIG_URL = EV.config || __CONFIG_URL__;
 
+/** App con nombre propio (la principal en PC se llama «Everse»): el diseño publicado no cambia su nombre ni su logotipo. */
+const brandFor = (b: RemoteConfig['brand']): RemoteConfig['brand'] => EV.forceName ? { ...b, appName: EV.forceName, logo: { variant: 'bundled_full' } } : b;
+
 export function cachedConfig(): RemoteConfig {
-  try { const v = localStorage.getItem(KEY); if (v) return { ...FALLBACK, ...JSON.parse(v) }; } catch { /* */ }
+  try { const v = localStorage.getItem(KEY); if (v) { const c = { ...FALLBACK, ...JSON.parse(v) }; return { ...c, brand: brandFor(c.brand) }; } } catch { /* */ }
   return FALLBACK;
 }
 
@@ -43,7 +46,7 @@ export async function fetchConfig(): Promise<RemoteConfig | null> {
     const j = await r.json();
     const cfg: RemoteConfig = {
       version: j.version ?? 0,
-      brand: j.brand ?? FALLBACK.brand,
+      brand: brandFor(j.brand ?? FALLBACK.brand),
       theme: { palette: { ...FALLBACK.theme.palette, ...(j.theme?.palette ?? {}) }, shape: j.theme?.shape, background: j.theme?.background },
       texts: j.texts ?? {}, messages: Array.isArray(j.messages) ? j.messages : [], banners: Array.isArray(j.banners) ? j.banners : [],
     };
@@ -140,4 +143,4 @@ function sha256Hex(bytes: Uint8Array): string {
 }
 
 /** ¿Es la app de un vendedor? (otro nombre que EmbyVerse): se muestra el crédito «Diseñada por EmbyVerse». */
-export const isVendorApp = (cfg: RemoteConfig) => /\/vendors\//.test(EV.config ?? '') || !/embyverse/i.test(cfg.brand.appName || 'EmbyVerse');
+export const isVendorApp = (cfg: RemoteConfig) => /\/vendors\//.test(EV.config ?? '') || (!EV.forceName && !/embyverse/i.test(cfg.brand.appName || 'EmbyVerse'));

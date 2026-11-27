@@ -5,6 +5,8 @@ const { app, BrowserWindow, ipcMain, dialog, session, shell } = require('electro
 const path = require('node:path');
 const fs = require('node:fs');
 
+// Los datos (sesión, activación, código del equipo) se quedan en la misma carpeta aunque cambie el nombre de la app.
+try { const dir = require('./package.json').evDataDir; if (dir) app.setPath('userData', path.join(app.getPath('appData'), dir)); } catch { /* */ }
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36 EmbyVersePC/' + app.getVersion();
 

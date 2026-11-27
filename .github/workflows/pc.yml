@@ -30,6 +30,10 @@ jobs:
           (cd tests/android && node mock-xtream.mjs > /tmp/mock.log 2>&1 &)
           sleep 3
           cd desktop && xvfb-run -a -s "-screen 0 1920x1080x24" node tests/e2e.cjs /tmp/pcshots
+          # App principal («Everse»): nombre, logotipo, 7 días de prueba y «otro servidor».
+          git checkout -- package.json icon.png && rm -rf app && cp -r ../tv-app/dist app
+          node brand.mjs --config-url http://127.0.0.1:8800/cfg/principal.json --license-url http://127.0.0.1:8800/licenses.json
+          xvfb-run -a -s "-screen 0 1920x1080x24" node tests/principal.cjs /tmp/pcshots
       - name: Capturas
         if: always()
         uses: actions/upload-artifact@v4

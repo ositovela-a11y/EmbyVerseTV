@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Fx, Logo, useApp } from '../ui';
 import { isVendorApp, providerHost, authAllowed } from '../config';
+import { EV } from '../config';
 import { clientFor, xtreamFromM3uUrl } from '../m3u';
 import { store, type Account } from '../store';
 
@@ -31,8 +32,11 @@ export function Splash({ onDone }: { onDone: () => void }) {
 /** Iniciar sesión: con el servidor ya puesto (solo usuario y contraseña) o pidiendo la URL. */
 export function Login({ onLogged }: { onLogged: () => void }) {
   const { config } = useApp();
-  const fixed = providerHost(config);
-  const [host, setHost] = useState(fixed ?? '');
+  // «Otro servidor»: además del servidor de la app, cada quien puede escribir el de su propio servicio.
+  const canOther = !!providerHost(config) && (EV.otherServer === true || config.texts['login.otherServer'] === '1');
+  const [other, setOther] = useState(false);
+  const fixed = other ? null : providerHost(config);
+  const [host, setHost] = useState('');
   const [user, setUser] = useState(''); const [pass, setPass] = useState('');
   const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   // Dos formas de entrar: cuenta (usuario y contraseña) o lista M3U (enlace o, en la PC, archivo).
@@ -87,6 +91,7 @@ export function Login({ onLogged }: { onLogged: () => void }) {
       {mode === 'account' ? (
         <div className="login-form" data-fx-group="">
           {!fixed && field('f-host', 'Servidor (URL)', host, setHost, 'url', true)}
+          {canOther && <Fx className="btn small" id="other-server" onClick={() => { setOther((o) => !o); setHost(''); }}>{other ? 'Usar el servidor de la app' : '¿Tienes otro servicio? Escribe tu servidor'}</Fx>}
           {field('f-user', 'Usuario', user, setUser, 'text', !!fixed)}
           {field('f-pass', 'Contraseña', pass, setPass, 'password')}
           <Fx className="btn primary big" onClick={submit}>{busy ? 'Conectando…' : 'Entrar'}</Fx>

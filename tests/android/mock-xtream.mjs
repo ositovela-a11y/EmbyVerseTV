@@ -108,6 +108,8 @@ createServer((req, res) => {
   const host = `http://${req.headers.host}`;
   const json = (s) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(s); };
   // App de PC de un vendedor (prueba): su diseño (pide la URL del servidor) y la lista de activaciones.
+  // App principal de PC («Everse»): el diseño dice otro nombre y trae servidor fijo; la app debe conservar su nombre.
+  if (u.pathname === '/cfg/principal.json') return json(JSON.stringify({ version: 1, brand: { appName: 'EmbyVerse', logo: { variant: 'asset', url: 'https://ejemplo.invalid/logo.png' } }, texts: { 'provider.host': 'http://127.0.0.1:8800' }, messages: [], banners: [] }));
   if (u.pathname === '/cfg/vendor.json') return json(JSON.stringify({ version: 1, brand: { appName: 'Prueba Vendedor TV' },
     theme: { palette: { primary: '#FF8A00', accent: '#FFD000', background: '#120A02' } }, texts: { 'provider.askHost': '1', 'license.whatsapp': '5215512345678' }, messages: [], banners: [] }));
   if (u.pathname === '/cfg/stats.json') return json(JSON.stringify({ url: 'http://10.0.2.2:8788' }));

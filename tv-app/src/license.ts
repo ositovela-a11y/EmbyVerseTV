@@ -72,8 +72,8 @@ export async function checkLicense(texts: Record<string, string>): Promise<LicSt
     if (!entry.exp || entry.exp >= today()) return { state: 'active', exp: entry.exp ?? null };
     return { state: 'expired', exp: entry.exp };
   }
-  // Prueba gratis: en la PC 2 días (texto «pc.trialDays»), en TV 7 (texto «license.trialDays»).
-  const trialDays = Math.max(0, Number(EDITION === 'pc' ? texts['pc.trialDays'] ?? 2 : texts['license.trialDays'] ?? 7) || 0);
+  // Prueba gratis: 7 días en PC (texto «pc.trialDays») y en TV (texto «license.trialDays»).
+  const trialDays = Math.max(0, Number(EDITION === 'pc' ? texts['pc.trialDays'] ?? 7 : texts['license.trialDays'] ?? 7) || 0);
   let first = Number(localStorage.getItem(K_FIRST) || 0);
   if (!first) { first = Date.now(); try { localStorage.setItem(K_FIRST, String(first)); } catch { /* */ } }
   const left = Math.ceil(trialDays - (Date.now() - first) / 86_400_000);

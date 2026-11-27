@@ -5,7 +5,7 @@
 // del vendedor o uno con sus iniciales) y app/index.html (diseño, servidor, edición de pago y
 // activaciones de ESTA app, que se conservan aunque la app se actualice sola desde el sitio).
 import { createRequire } from 'node:module';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -21,7 +21,9 @@ const cfg = existsSync(cfgFile) ? JSON.parse(readFileSync(cfgFile, 'utf8')) : {}
 const configUrl = arg('config-url', `${site}/config/${slug ? `vendors/${slug}.json` : 'app.json'}`);
 // Todas las apps de PC (la principal y las de vendedores) se activan desde TU panel: una sola lista.
 const licenseUrl = arg('license-url', `${site}/config/licenses.json`);
-const name = (String(cfg.brand?.appName ?? '').trim() || (slug ? slug : 'EmbyVerse')).slice(0, 40);
+// La app principal en PC se llama «Everse» (con su logotipo); la de Android sigue como está.
+const PC_NAME = 'Everse';
+const name = slug ? (String(cfg.brand?.appName ?? '').trim() || slug).slice(0, 40) : PC_NAME;
 const askHost = cfg.texts?.['provider.askHost'] === '1';
 // --store: paquete para Microsoft Store (no se actualiza desde el sitio; lo hace la tienda).
 const store = process.argv.includes('--store');
@@ -29,7 +31,10 @@ const store = process.argv.includes('--store');
 // ---------- index.html: datos de esta instalación ----------
 const idx = join(here, 'app/index.html');
 if (!existsSync(idx)) { console.error('Falta desktop/app (compila primero tv-app y cópiala).'); process.exit(1); }
-const ev = { config: configUrl, edition: 'pc', license: licenseUrl, name, ...(askHost ? { host: '' } : {}), ...(store ? { store: true } : {}) };
+// Principal: nombre fijo aunque el diseño diga otro, y opción de «Otro servidor» para que cada quien use su servicio.
+const ev = { config: configUrl, edition: 'pc', license: licenseUrl, name, ...(slug ? {} : { forceName: PC_NAME, otherServer: true }),
+  ...(askHost ? { host: '' } : {}), ...(store ? { store: true } : {}) };
+if (!slug) copyFileSync(join(here, 'logo-everse.png'), join(here, 'app/logo.png'));
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let html = readFileSync(idx, 'utf8').replace(/<script>window\.__EV__=[^<]*<\/script>\n?/, '');
 html = html.replace(/<title>[^<]*<\/title>/, `<title>${esc(name)}</title>`)
@@ -41,6 +46,8 @@ const pkgFile = join(here, 'package.json');
 const pkg = JSON.parse(readFileSync(pkgFile, 'utf8'));
 const file = slug ? slug : 'EmbyVerse'; // los archivos del vendedor no dicen «EmbyVerse»
 pkg.productName = name;
+// Carpeta de datos fija: al cambiar el nombre no se pierden la sesión, la activación ni el código del equipo.
+pkg.evDataDir = slug ? name : 'EmbyVerse';
 pkg.description = store
   ? `${name}: reproductor de video para la cuenta de tu proveedor. No incluye canales ni contenido.`
   : `${name} para PC (Windows): TV en vivo, películas y series con tu cuenta Xtream o lista M3U.`;
