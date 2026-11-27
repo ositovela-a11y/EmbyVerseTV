@@ -1652,6 +1652,10 @@ class SmokeFlowTest {
         val c = app.container
         val cfg0 = c.config.config.value
         val support = "Renueva con Juan: 55 1234 5678"
+        // Fecha de vencimiento como la guarda la sincronización (el servidor de prueba no siempre sincroniza en el emulador).
+        val src = runBlocking { c.sources.sources.first() }.first()
+        val exp0 = runBlocking { c.prefs.sourceExpiries.first() }[src.id]
+        runBlocking { c.prefs.setSourceExpiry(src.id, System.currentTimeMillis() / 1000 + 90 * 86_400L) }
         try {
             ActivityScenario.launch(MainActivity::class.java).use {
                 waitTag("nav_settings", 30_000)
@@ -1665,6 +1669,9 @@ class SmokeFlowTest {
                 waitFor("sin aviso", 10_000) { compose.onAllNodesWithTag("expiry", useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
                 log("Vencimiento: con «no avisar» el aviso desaparece")
             }
-        } finally { InstrumentationRegistry.getInstrumentation().runOnMainSync { c.config.overrideForTest(cfg0) } }
+        } finally {
+            InstrumentationRegistry.getInstrumentation().runOnMainSync { c.config.overrideForTest(cfg0) }
+            runBlocking { c.prefs.setSourceExpiry(src.id, exp0) }
+        }
     }
 }
