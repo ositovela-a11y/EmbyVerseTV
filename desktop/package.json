@@ -2,7 +2,7 @@
   "name": "embyverse-pc",
   "productName": "EmbyVerse",
   "version": "1.0.0",
-  "description": "EmbyVerse para PC (Windows): TV en vivo, películas y series con tu cuenta o lista M3U.",
+  "description": "EmbyVerse para PC (Windows): TV en vivo, pel\u00edculas y series con tu cuenta o lista M3U.",
   "author": "EmbyVerse",
   "main": "main.js",
   "private": true,
@@ -17,10 +17,31 @@
   "build": {
     "appId": "com.embyverse.pc",
     "productName": "EmbyVerse",
-    "files": ["main.js", "preload.js", "app/**/*", "icon.png"],
-    "directories": { "output": "dist" },
-    "win": { "icon": "icon.png", "artifactName": "EmbyVerse-PC-${version}-${arch}.${ext}" },
-    "nsis": { "oneClick": true, "perMachine": false, "artifactName": "EmbyVerse-PC-Instalador.${ext}", "shortcutName": "EmbyVerse" },
-    "portable": { "artifactName": "EmbyVerse-PC-Portable.${ext}" }
+    "files": [
+      "main.js",
+      "preload.js",
+      "lg-installer.js",
+      "app/**/*",
+      "icon.png"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "icon.png",
+      "artifactName": "EmbyVerse-PC-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "EmbyVerse-PC-Instalador.${ext}",
+      "shortcutName": "EmbyVerse"
+    },
+    "portable": {
+      "artifactName": "EmbyVerse-PC-Portable.${ext}"
+    }
+  },
+  "dependencies": {
+    "ssh2": "1.16.0"
   }
 }

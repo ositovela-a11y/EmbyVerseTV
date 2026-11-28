@@ -1,4 +1,5 @@
 import { checkLicense, deviceCode, licenseRequired, type LicState } from '../license';
+import { TvInstall, tvInstallSupported } from './TvInstall';
 import { lgDevSupported, lgDevLast, lgDevError, renewLgDevMode } from '../lgdev';
 import { useEffect, useState } from 'react';
 import { Card, Fx, Img, Row, Spinner, useApp, useLoad } from '../ui';
@@ -98,6 +99,7 @@ export function Settings() {
   };
   const help = app.config.texts['support.message']?.trim() || '¿Necesitas ayuda? Contacta a tu vendedor.';
   const [pinFor, setPinFor] = useState(false);
+  const [tvInst, setTvInst] = useState(false);
   const saveProfile = (v: Partial<Profile>) => { store.setProfiles(store.profiles().map((x) => (x.id === app.profile.id ? { ...x, ...v } : x))); app.refreshProfile(); };
   const Toggle = ({ label, v, k }: { label: string; v: boolean; k: keyof typeof p }) => <Fx className="setting" onClick={() => upd({ [k]: !v } as any)}><span>{label}</span><b className={v ? 'on' : ''}>{v ? 'Sí' : 'No'}</b></Fx>;
   const Choice = ({ label, opts, v, k }: { label: string; opts: string[]; v: number; k: keyof typeof p }) => <Fx className="setting" onClick={() => upd({ [k]: (v + 1) % opts.length } as any)}><span>{label}</span><b>{opts[v] ?? opts[0]}</b></Fx>;
@@ -128,12 +130,14 @@ export function Settings() {
           {lgDevSupported() && <Fx className="setting" onClick={() => renewLgDevMode().then((ok) => { app.toast(ok ? 'Modo desarrollador renovado por 50 h' : `No se pudo renovar. ${lgDevError()}`); setP(store.prefs()); })}>
             <span>🛠 Modo desarrollador LG</span><b>{lgDevLast() ? `Renovado ${new Date(lgDevLast()).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} · Renovar` : 'Renovar ahora'}</b></Fx>}
           {licenseRequired(app.config.texts) && <LicenseRow />}
+          {tvInstallSupported() && <Fx className="setting" id="set-tvinstall" onClick={() => setTvInst(true)}><span>📺 Instalar en mi Smart TV (LG o Samsung)</span><b>Abrir</b></Fx>}
           <Fx className="setting" onClick={measure}><span>📶 Prueba de velocidad</span><b>{speed || 'Medir'}</b></Fx>
           <Fx className="setting" onClick={() => app.toast(`${help}\nVersión: ${app.config.brand.appName} ${__VERSION__} · ${deviceInfo()} · usuario ${acc?.username ?? '-'}`)}><span>💬 Ayuda</span><b>Contacta a tu vendedor</b></Fx>
           <Fx className="setting danger" onClick={() => { getEngine().stop(); store.setAccount(null); clearCache(); location.reload(); }}><span>⎋ Cerrar sesión</span><b /></Fx>
         </div>
         {pinFor && <PinPad title={app.profile.pin ? 'Nuevo PIN (4 dígitos). Escribe el mismo de antes para quitarlo' : 'Crea un PIN de 4 dígitos'}
           onCancel={() => setPinFor(false)} onDone={(v) => { saveProfile({ pin: app.profile.pin === v ? null : v }); setPinFor(false); app.toast(app.profile.pin === v ? 'PIN quitado' : 'PIN guardado'); }} />}
+        {tvInst && <TvInstall onClose={() => setTvInst(false)} />}
         <div className="about">
           <h3>Acerca de</h3>
           <p>{app.config.brand.appName} {__VERSION__} · {platformName}</p>

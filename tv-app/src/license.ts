@@ -3,6 +3,7 @@
 // …/config/licenses.json → { devices: { "<sha256('lic:'+CÓDIGO) 16 hex>": { exp: "AAAA-MM-DD" | null } } }
 // Se guarda el resumen (hash), no el código: nadie puede copiar un código activo de ese archivo.
 import { EV, hash16 } from './config';
+import { isTizen, isWebOS } from './platform';
 
 declare const __EDITION__: string;
 declare const __LICENSE_URL__: string;
@@ -25,8 +26,12 @@ export function deviceCode(): string {
 
 export type LicState = { state: 'active'; exp: string | null } | { state: 'trial'; daysLeft: number } | { state: 'expired'; exp: string } | { state: 'none' };
 
-/** ¿Se exige activación? Edición de tienda, app de PC (de pago), o el panel lo pide (texto «license.required» = 1). */
-export const licenseRequired = (texts: Record<string, string>) => EDITION === 'store' || EDITION === 'pc' || texts['license.required'] === '1';
+/**
+ * ¿Se exige activación? Edición de tienda y PC siempre. Samsung y LG también (de cobro, igual que la PC), salvo que el
+ * panel la apague para esa app (texto «license.required» = 0). En otros equipos, solo si el panel la pide (= 1).
+ */
+export const licenseRequired = (texts: Record<string, string>) => EDITION === 'store' || EDITION === 'pc' || texts['license.required'] === '1'
+  || ((isTizen || isWebOS) && texts['license.required'] !== '0');
 
 const realToday = () => new Date().toISOString().slice(0, 10);
 /** Fecha de hoy que no retrocede: si alguien atrasa el reloj de la PC, se usa el día más reciente ya visto. */

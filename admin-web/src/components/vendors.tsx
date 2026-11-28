@@ -276,12 +276,12 @@ function AppLookEditor({ slug, name, onClose }: { slug: string; name: string; on
   const [curLogo, setCurLogo] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [saved, setSaved] = useState('');
-  const [login, setLogin] = useState({ otherServer: false, m3u: true, authOnly: false, authHosts: '', disabled: false, expiryOn: true }); // formas de entrar y autorización
+  const [login, setLogin] = useState({ otherServer: false, m3u: true, authOnly: false, authHosts: '', disabled: false, expiryOn: true, tvPaid: true }); // formas de entrar y autorización
   const [provHost, setProvHost] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   useEffect(() => {
-    void githubApi.appLook(slug).then((l) => { look.load(l.themeId, l.colors); setCurLogo(l.logo); const lg = { otherServer: l.otherServer, m3u: l.m3u, authOnly: l.authOnly, authHosts: l.authHosts, disabled: l.disabled, expiryOn: l.expiryOn }; setLogin(lg); setProvHost(l.providerHost); setSaved(JSON.stringify([l.themeId, l.colors, lg])); setLoaded(true); })
+    void githubApi.appLook(slug).then((l) => { look.load(l.themeId, l.colors); setCurLogo(l.logo); const lg = { otherServer: l.otherServer, m3u: l.m3u, authOnly: l.authOnly, authHosts: l.authHosts, disabled: l.disabled, expiryOn: l.expiryOn, tvPaid: l.tvPaid }; setLogin(lg); setProvHost(l.providerHost); setSaved(JSON.stringify([l.themeId, l.colors, lg])); setLoaded(true); })
       .catch((e) => setMsg({ kind: 'error', text: e instanceof Error ? e.message : 'No se pudo leer la app.' }));
   }, [slug]); // eslint-disable-line
   const [newPrev, setNewPrev] = useState('');
@@ -294,7 +294,7 @@ function AppLookEditor({ slug, name, onClose }: { slug: string; name: string; on
       const hosts = login.authHosts.split(/[\s,;]+/).map((h) => h.trim()).filter(Boolean).join(',');
       const r = await githubApi.restyleApp(slug, { themeId: look.themeId, colors: look.colors, logo: logoFile, texts: { 'login.otherServer': login.otherServer ? '1' : '0', 'login.m3u': login.m3u ? '1' : '0',
         'auth.only': login.authOnly ? '1' : '0', 'auth.hosts': hosts, 'app.disabled': login.disabled ? '1' : '0',
-        'expiry.days': '2', 'expiry.off': login.expiryOn ? '0' : '1' } });
+        'expiry.days': '2', 'expiry.off': login.expiryOn ? '0' : '1', 'license.required': login.tvPaid ? '1' : '0' } });
       setMsg({ kind: 'ok', text: `✓ Publicado (versión ${r.version}). En 1–2 minutos lo ven sus clientes al abrir la app o volver a ella.${slug && logoFile ? ' El ícono de su APK se actualiza en unos 10 minutos.' : ''}` });
       setSaved(JSON.stringify([look.themeId, look.colors, login]));
       if (currentTarget() === slug) setTimeout(() => location.reload(), 1500); // el estudio estaba abierto en esta app
@@ -318,6 +318,8 @@ function AppLookEditor({ slug, name, onClose }: { slug: string; name: string; on
           <label><input type="checkbox" checked={login.m3u} onChange={(e) => setLogin((l) => ({ ...l, m3u: e.target.checked }))} aria-label="Lista M3U" /> Lista M3U</label>
           <label><input type="checkbox" id="expiry-on" checked={login.expiryOn} onChange={(e) => setLogin((l) => ({ ...l, expiryOn: e.target.checked }))} />
             Avisar al cliente 2 días antes de que venza su servicio</label>
+          <label><input type="checkbox" id="tv-paid" checked={login.tvPaid} onChange={(e) => setLogin((l) => ({ ...l, tvPaid: e.target.checked }))} />
+            Smart TV (Samsung y LG) de cobro: activación por equipo, con 7 días de prueba (igual que la PC)</label>
         </fieldset>
         <fieldset className="login-opts auth-opts">
           <legend><b>Autorización (que nadie use la app sin permiso)</b></legend>

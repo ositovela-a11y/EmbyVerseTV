@@ -228,3 +228,9 @@ body.nav-top .live-body { height:820px; } body.nav-top .grid { height:760px; }
 .ep-btn { background:rgba(255,255,255,.16); color:#fff; border:0; border-radius:999px; padding:8px 16px; font:inherit; font-weight:700; cursor:pointer; white-space:nowrap; }
 .ep-btn:hover { background:var(--primary, #e50914); }
 .player-only { font-size: .8em; max-width: 720px; margin: 18px auto 0; text-align: center; opacity: .8; }
+
+.tv-install { max-width: 1100px; text-align: left; }
+.tv-install .ti-steps { margin: 12px 0 16px 1.2em; line-height: 1.5; font-size: .95em; }
+.tv-install .ti-steps li { margin: 6px 0; }
+.tv-install .ti-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.ok-box { color: #7BE52F; font-weight: 600; }

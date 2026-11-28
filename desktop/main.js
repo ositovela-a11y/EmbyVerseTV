@@ -59,6 +59,14 @@ app.whenReady().then(() => {
   });
   ipcMain.on('set-stream-headers', (_e, url, ua, ref) => { const p = prefixOf(url); if (p) streamHeaders.set(p, { ua: ua || undefined, ref: ref || undefined }); });
   ipcMain.on('toggle-fullscreen', () => win && win.setFullScreen(!win.isFullScreen()));
+  // Instalador para TVs LG (ver lg-installer.js). Solo descarga de direcciones https conocidas.
+  const { LgInstaller } = require('./lg-installer');
+  const lg = new LgInstaller(app.getPath('userData'));
+  const okUrl = (u) => /^https:\/\/(eversetv\.com|ositovela-a11y\.github\.io|github\.com\/ositovela-a11y)\//.test(u);
+  ipcMain.handle('lg-saved', () => { const s = lg.saved(); return { ip: s.ip || '', pass: s.pass || '', renew: s.renew || 0 }; });
+  ipcMain.handle('lg-install', (e, ip, pass, urls) => lg.install(ip, pass, urls.filter(okUrl), (m) => e.sender.send('lg-progress', m)));
+  ipcMain.handle('lg-renew', (_e, ip, pass) => lg.renew(ip, pass));
+  ipcMain.on('open-external', (_e, url) => { if (/^https:\/\//.test(url)) shell.openExternal(url); });
   ipcMain.handle('pick-list-file', async () => {
     const r = await dialog.showOpenDialog(win, { title: 'Abrir lista M3U', properties: ['openFile'], filters: [{ name: 'Listas M3U', extensions: ['m3u', 'm3u8', 'txt'] }] });
     return r.canceled || !r.filePaths[0] ? null : r.filePaths[0];

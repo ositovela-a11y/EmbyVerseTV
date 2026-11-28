@@ -31,6 +31,19 @@ const fail = (m) => { console.error('FALLA: ' + m); process.exitCode = 1; };
   await p.evaluate(() => [...document.querySelectorAll('.login-form .btn')].find((b) => b.textContent.includes('Entrar'))?.click());
   await p.waitForSelector('.content', { timeout: 40000 }).then(() => console.log('Entró con otro servidor (bien)')).catch(() => fail('no entró con otro servidor'));
   await p.waitForTimeout(1500); await p.screenshot({ path: `${out}/13-everse-inicio.png` });
+  // Instalar en la Smart TV desde Ajustes.
+  const hasBridge = await p.evaluate(() => typeof window.evDesktop?.lgInstall === 'function');
+  if (!hasBridge) fail('falta el instalador de TV en la PC');
+  await p.evaluate(() => { const items = [...document.querySelectorAll('.menu-item')]; (items.find((i) => /Ajustes/.test(i.textContent)) || items[items.length - 1])?.click(); });
+  await p.waitForSelector('#set-tvinstall', { timeout: 15000 }).catch(() => fail('Ajustes sin «Instalar en mi Smart TV»'));
+  await p.click('#set-tvinstall').catch(() => {});
+  await p.waitForSelector('#tv-install', { timeout: 5000 }).then(() => console.log('Ajustes → Instalar en mi Smart TV: abre (bien)')).catch(() => fail('no abrió el instalador de TV'));
+  await p.fill('#ti-ip', '127.0.0.9'); await p.fill('#ti-pass', 'abc123');
+  await p.click('#ti-install');
+  await p.waitForFunction(() => /No se pudo|Passphrase|Error/.test(document.querySelector('#ti-msg')?.textContent || ''), null, { timeout: 40000 })
+    .then(async () => console.log('Sin TV en esa IP → aviso:', (await p.textContent('#ti-msg')).slice(0, 90))).catch(() => fail('el instalador no avisó que no encontró la TV'));
+  await p.screenshot({ path: `${out}/14-everse-instalar-tv.png` });
+  await p.click('#ti-samsung'); await p.waitForTimeout(400); await p.screenshot({ path: `${out}/15-everse-instalar-samsung.png` });
   if (errs.length) { console.log('Errores JS:', errs); fail('errores de JavaScript'); }
   await app.close();
 })();
