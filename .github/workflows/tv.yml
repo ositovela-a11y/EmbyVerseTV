@@ -23,6 +23,8 @@ jobs:
           node build.mjs --package
           ls -la dist-pkg
           for t in tests/*.test.mjs; do node "$t" || exit 1; done
+          # La versión para TVs viejas debe ser ES5 puro (si no, esas TVs no la pueden leer).
+          node -e "require('acorn').parse(require('fs').readFileSync('dist/app.legacy.js','utf8'),{ecmaVersion:5});require('acorn').parse(require('fs').readFileSync('dist/app.js','utf8'),{ecmaVersion:5});console.log('app.legacy.js y app.js son ES5 ✔')"
       - name: Prueba en navegador (proveedor simulado)
         run: |
           npm i --no-save --prefix /tmp/pw playwright@1.48.2 >/dev/null && (cd /tmp/pw && npx playwright install --with-deps chrome >/dev/null)
@@ -31,6 +33,7 @@ jobs:
           (cd dist && python3 -m http.server 8090 >/dev/null 2>&1 &)
           sleep 3
           NODE_PATH=/tmp/pw/node_modules node tests/e2e.cjs /tmp/tvshots
+          NODE_PATH=/tmp/pw/node_modules node tests/legacy.cjs /tmp/tvshots
       - name: Capturas de la prueba
         if: always()
         uses: actions/upload-artifact@v4

@@ -29,10 +29,17 @@ mkdirSync('dist', { recursive: true });
 cpSync('public', 'dist', { recursive: true });
 writeFileSync('dist/index.html', readFileSync('index.html', 'utf8').replaceAll('__VERSION__', VERSION));
 
-await esbuild.build({
+// Dos versiones de la app y un cargador:
+//  - app.modern.js: TVs 2018+ (Chromium 53 o más nuevo) y PC.
+//  - app.legacy.js: TVs viejas (LG webOS 1–3, Samsung 2015–2017…): el mismo código traducido a ES5 con Babel y con
+//    los complementos que les faltan (Promise, fetch, Map, Symbol…). Solo se arma si están instaladas las
+//    herramientas (en CI sí; en local puede faltar y entonces todas usan la moderna).
+//  - app.js: cargador pequeño en ES5 que revisa el navegador y carga la que sirve (también para las TVs que ya
+//    tienen instalada una versión anterior, porque su index.html siempre pide «app.js»).
+const buildOpts = {
   entryPoints: ['src/main.tsx'],
   bundle: true,
-  outfile: 'dist/app.js',
+  outfile: 'dist/app.modern.js',
   format: 'iife',
   jsx: 'automatic',
   minify: true,
@@ -50,7 +57,60 @@ await esbuild.build({
     __VERSION__: JSON.stringify(VERSION),
   },
   logLevel: 'info',
-});
+};
+await esbuild.build(buildOpts);
+if (existsSync('dist/app.modern.css')) cpSync('dist/app.modern.css', 'dist/app.css');
+
+// Cargador (ES5 puro: lo entienden hasta las TVs más viejas).
+writeFileSync('dist/app.js', `(function () {
+  var cur = document.currentScript, base = '';
+  if (cur && cur.src) base = cur.src.replace(/app\\.js(\\?.*)?$/, '');
+  function modern() {
+    if (/[?&]legacy=1/.test(location.search)) return false;
+    try {
+      new Function('"use strict"; let a = 1; const f = (x) => x; class C {} return \`\${f(a)}\`;')();
+      return !!(window.fetch && window.Promise && window.Symbol && window.CSS && CSS.supports && CSS.supports('(--a: 0)'));
+    } catch (e) { return false; }
+  }
+  var useModern = modern();
+  var legacy = ${existsSync('dist/app.legacy.js') ? 'true' : 'false'};
+  var name = useModern || !legacy ? 'app.modern' : 'app.legacy';
+  window.__EV_BUNDLE__ = name;
+  if (name === 'app.legacy') {
+    var links = document.getElementsByTagName('link');
+    for (var i = 0; i < links.length; i++) if (/app\\.css(\\?|$)/.test(links[i].href)) links[i].href = base + 'app.legacy.css';
+  }
+  var s = document.createElement('script'); s.src = base + name + '.js';
+  document.body.appendChild(s);
+})();
+`);
+
+// ---------- Versión para TVs viejas (ES5) ----------
+await (async () => {
+  if ((process.env.EMBYVERSE_EDITION || '') === 'pc') return; // la PC usa siempre la moderna
+  let babel, postcss, customProps;
+  try { babel = require('@babel/core'); require.resolve('core-js/stable'); require.resolve('regenerator-runtime/runtime');
+        require.resolve('whatwg-fetch'); postcss = require('postcss'); customProps = require('postcss-custom-properties'); }
+  catch { console.log('Sin herramientas para la versión de TVs viejas: solo se arma la moderna.'); return; }
+  writeFileSync('src/.legacy-entry.ts', "import 'core-js/stable';\nimport 'regenerator-runtime/runtime';\nimport 'whatwg-fetch';\nimport 'abortcontroller-polyfill/dist/polyfill-patch-fetch';\nimport './main';\n");
+  try {
+    await esbuild.build({ ...buildOpts, entryPoints: ['src/.legacy-entry.ts'], outfile: 'dist-legacy/app.js', target: ['es2015'], minify: false, logLevel: 'warning' });
+  } finally { rmSync('src/.legacy-entry.ts', { force: true }); }
+  const out = await babel.transformAsync(readFileSync('dist-legacy/app.js', 'utf8'), {
+    babelrc: false, configFile: false, compact: true, comments: false, sourceType: 'script',
+    presets: [[require.resolve('@babel/preset-env'), { targets: { chrome: '34', safari: '7' }, modules: false, useBuiltIns: false, loose: true }]],
+  });
+  writeFileSync('dist/app.legacy.js', out.code);
+  const css = await postcss([customProps({ preserve: true })]).process(readFileSync('dist/app.css', 'utf8'), { from: undefined });
+  writeFileSync('dist/app.legacy.css', css.css);
+  rmSync('dist-legacy', { recursive: true, force: true });
+  console.log(`Versión para TVs viejas: app.legacy.js (${Math.round(out.code.length / 1024)} KB)`);
+})();
+// El cargador ya se escribió antes: se reescribe sabiendo si hay versión vieja.
+{
+  const loader = readFileSync('dist/app.js', 'utf8').replace(/var legacy = (true|false);/, `var legacy = ${existsSync('dist/app.legacy.js')};`);
+  writeFileSync('dist/app.js', loader);
+}
 
 if (!process.argv.includes('--package')) process.exit(0);
 
