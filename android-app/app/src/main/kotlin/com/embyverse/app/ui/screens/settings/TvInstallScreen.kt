@@ -151,7 +151,7 @@ fun TvInstallScreen(nav: Navigator) {
                 item { Step(1, "Instala en este celular el instalador gratuito «Apps2Samsung» (botón de abajo).") }
                 item { Step(2, "En la TV entra a Apps, con el control escribe 1 2 3 4 5, pon Developer mode en ON y escribe la IP de este celular: ${phoneIp ?: "(Ajustes del celular → Wi-Fi → tu red)"}. Apaga y prende la TV.") }
                 item { Step(3, "Toca «3 · Agregar a Apps2Samsung». Se abre Apps2Samsung: toca «Añadir» y regresa aquí.") }
-                item { Step(4, "Toca «4 · Instalar en la TV», elige tu TV e instala. Si dice «Not in the catalog», falta el paso 3. La primera vez pide una cuenta Samsung (gratis).") }
+                item { Step(4, "Toca «4 · Instalar en la TV», elige tu TV e instala. Si dice «Not in the catalog», espera a que Apps2Samsung termine de cargar la lista y vuelve a tocar 4, o busca «EmbyVerse» en Apps2Samsung. La primera vez pide una cuenta Samsung (gratis).") }
                 item { Step(5, "Listo: aparece en Apps de la TV. En Samsung no caduca y se actualiza sola.") }
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
