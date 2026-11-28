@@ -1,0 +1,83 @@
+{
+ "updated": "2026-11-28T21:40:50Z",
+ "android": [
+  {
+   "asset": "EmbyVerse.apk",
+   "slug": "",
+   "name": "Tu app (EmbyVerse)",
+   "live": {
+    "code": 46,
+    "name": "1.15.19"
+   },
+   "nueva": {
+    "code": 48,
+    "name": "1.15.21"
+   },
+   "pendiente": true,
+   "aprobada": 46
+  },
+  {
+   "asset": "EmbyVerse-allinone.apk",
+   "slug": "allinone",
+   "name": "All IN ONE",
+   "live": {
+    "code": 44,
+    "name": "1.15.17"
+   },
+   "nueva": {
+    "code": 48,
+    "name": "1.15.21"
+   },
+   "pendiente": true,
+   "aprobada": null
+  },
+  {
+   "asset": "EmbyVerse-planetatv.apk",
+   "slug": "planetatv",
+   "name": "Planetatv",
+   "live": {
+    "code": 44,
+    "name": "1.15.17"
+   },
+   "nueva": {
+    "code": 48,
+    "name": "1.15.21"
+   },
+   "pendiente": true,
+   "aprobada": null
+  },
+  {
+   "asset": "EmbyVerse-streampro.apk",
+   "slug": "streampro",
+   "name": "stream PRO ⭐️",
+   "live": {
+    "code": 44,
+    "name": "1.15.17"
+   },
+   "nueva": {
+    "code": 48,
+    "name": "1.15.21"
+   },
+   "pendiente": true,
+   "aprobada": null
+  }
+ ],
+ "tv": {
+  "live": {
+   "name": "1.2.13"
+  },
+  "nueva": {
+   "name": "1.2.13"
+  },
+  "pendiente": false,
+  "aprobada": "1.2.13"
+ },
+ "pc": {
+  "live": null,
+  "nueva": {
+   "name": "1.2.13"
+  },
+  "pendiente": true,
+  "aprobada": null
+ }
+}

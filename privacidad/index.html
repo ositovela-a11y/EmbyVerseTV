@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aviso de privacidad</title>
+<meta name="description" content="Qué datos usan las apps de EverseTV, para qué y cómo pedir que se borren.">
+<link rel="icon" href="../icon-192.png">
+<style>
+  :root { --bg: #02050C; --text: #EEF4FF; --muted: #A9B8CC; --green: #7BE52F; --line: rgba(143,163,191,.2); --card: rgba(143,163,191,.06); }
+  :root[data-theme="light"] { --bg: #F7F9FC; --text: #0B1220; --muted: #475467; --green: #2E7D0B; --line: #E4E7EC; --card: #fff; }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #F7F9FC; --text: #0B1220; --muted: #475467; --green: #2E7D0B; --line: #E4E7EC; --card: #fff; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.65 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  h1 { font-size: clamp(1.6rem, 5vw, 2.2rem); margin: 0; line-height: 1.2; }
+  h2 { font-size: 1.15rem; margin: 32px 0 8px; }
+  p, li { color: var(--muted); }
+  b, strong { color: var(--text); }
+  ul { padding-left: 20px; }
+  .meta { color: var(--muted); font-size: 14px; margin: 4px 0 24px; }
+  .lang { display: inline-flex; border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
+  .lang button { background: none; border: 0; color: var(--muted); padding: 6px 14px; font: inherit; font-size: 14px; cursor: pointer; }
+  .lang button[aria-pressed="true"] { background: var(--green); color: #04110A; font-weight: 700; }
+  .box { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 18px; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--text); font-weight: 600; width: 34%; }
+  td { color: var(--muted); }
+  a { color: var(--green); }
+  [lang="en"] { display: none; }
+  html.en [lang="es"] { display: none; } html.en [lang="en"] { display: block; }
+  html.en table[lang="en"] { display: table; }
+  @media (max-width: 560px) { th, td { display: block; width: 100%; border: 0; padding: 4px 0; } tr { display: block; padding: 10px 0; border-bottom: 1px solid var(--line); } }
+</style>
+<script>
+  (function () { var en = /^en/i.test(new URLSearchParams(location.search).get('lang') || navigator.language || ''); if (en) document.documentElement.className = 'en'; })();
+</script>
+</head>
+<body>
+<main>
+  <header>
+    <h1><span lang="es">Aviso de privacidad</span><span lang="en">Privacy policy</span></h1>
+    <div class="lang" role="group" aria-label="Idioma / Language">
+      <button type="button" data-l="es">Español</button><button type="button" data-l="en">English</button>
+    </div>
+  </header>
+
+  <section lang="es">
+    <p class="meta">Última actualización: 27 de noviembre de 2026 · Aplica a la app EmbyVerse y a las apps de marca de sus vendedores
+      (Android, Android TV, Fire TV, Samsung, LG y PC), y a este sitio.</p>
+    <div class="box"><p><b>En resumen:</b> la app no trae contenido ni vende tus datos. Tu contraseña se queda en tu equipo y solo
+      se usa con el servidor de tu proveedor. Para dar soporte y evitar abusos se guardan algunos datos técnicos del equipo,
+      que puedes pedir que se borren.</p></div>
+
+    <h2>Quién es responsable</h2>
+    <p>EverseTV (eversetv.com), quien desarrolla y publica las apps. Contacto: <a href="mailto:soporte@eversetv.com">soporte@eversetv.com</a>. Si tu app tiene la marca de un vendedor, EverseTV puede
+      compartir con ese vendedor los datos de sus propios clientes para darles soporte.</p>
+
+    <h2>Qué datos se usan y para qué</h2>
+    <table>
+      <tr><th>Tu cuenta del proveedor (servidor, usuario y contraseña, o tu lista M3U)</th>
+        <td>Se guardan solo en tu equipo (en Android, la contraseña va cifrada) y se envían únicamente al servidor de tu
+          proveedor para ver tus canales y películas. Nunca se mandan a EverseTV.</td></tr>
+      <tr><th>Datos del equipo para estadísticas y soporte</th>
+        <td>Un código al azar de la instalación, la app (o marca), el tipo y modelo de equipo, la versión de la app, tu
+          nombre de usuario del proveedor (no la contraseña), el servidor que usas, el país (calculado por la conexión),
+          y cuándo la usaste por primera y última vez. Sirve para dar soporte, saber cuántos equipos usan la app y
+          bloquear equipos o cuentas que la usen sin permiso.</td></tr>
+      <tr><th>Perfiles, favoritos y «seguir viendo»</th>
+        <td>Para que sean iguales en todos tus equipos se guardan en nuestro servidor con una llave que se calcula en tu
+          equipo a partir de tu cuenta. El servidor no recibe tu usuario ni tu contraseña, y solo quien tiene la cuenta
+          puede leerlos.</td></tr>
+      <tr><th>Reportes de fallos</th>
+        <td>Si la app se cierra de forma inesperada o un video no se puede reproducir por su formato, se manda el error, el
+          modelo y sistema del equipo, la versión de la app y el código al azar de la instalación. No lleva tu cuenta ni
+          la dirección de los canales. Sirve para corregir errores. Se borran a los 90 días sin repetirse.</td></tr>
+      <tr><th>Activación de PC y TV</th>
+        <td>Si tu app pide activación, se guarda una huella del código de tu equipo y la fecha de vencimiento.</td></tr>
+      <tr><th>Descargas desde este sitio</th>
+        <td>Se cuentan por día, app, tipo de equipo y país, sin datos de quién descarga.</td></tr>
+    </table>
+
+    <h2>Lo que no hacemos</h2>
+    <ul>
+      <li>No vendemos ni rentamos tus datos, y no mostramos publicidad.</li>
+      <li>No usamos rastreadores de publicidad ni de terceros dentro de la app.</li>
+      <li>No damos contenido: los canales y películas son de tu proveedor, con sus propias reglas y su propio aviso de privacidad.</li>
+    </ul>
+
+    <h2>Con quién se comparte</h2>
+    <p>Solo con quien hace funcionar el servicio: Cloudflare (servidores de estadísticas, perfiles y el dominio eversetv.com)
+      y GitHub (sitio de descarga y diseño de la app). El vendedor de tu app puede recibir los datos de sus propios clientes. No se comparte con
+      nadie más, salvo que la ley lo exija.</p>
+
+    <h2>Cuánto tiempo se guardan</h2>
+    <p>Los datos del equipo se guardan mientras uses la app y se pueden borrar a petición. Los perfiles se guardan mientras
+      exista tu cuenta. Los reportes de fallos se borran a los 90 días sin repetirse.</p>
+
+    <h2>Tus derechos</h2>
+    <p>Puedes pedir ver, corregir o borrar los datos de tu equipo y de tu cuenta, u oponerte a su uso (derechos ARCO).
+      Escríbenos a <a href="mailto:soporte@eversetv.com">soporte@eversetv.com</a> (o pídelo a tu vendedor) e indica tu nombre de usuario del proveedor y el modelo de
+      tu equipo. Si desinstalas la app, se borran los datos guardados en tu equipo.</p>
+
+    <h2>Menores de edad</h2>
+    <p>La app no está dirigida a menores de 13 años. El contenido depende de tu proveedor.</p>
+
+    <h2>Cambios</h2>
+    <p>Si cambia este aviso, lo publicaremos aquí con la nueva fecha.</p>
+  </section>
+
+  <section lang="en">
+    <p class="meta">Last updated: November 27, 2026 · Applies to the EmbyVerse app, its resellers' branded apps (Android,
+      Android TV, Fire TV, Samsung, LG and PC) and this website.</p>
+    <div class="box"><p><b>In short:</b> the app includes no content and does not sell your data. Your password stays on
+      your device and is only used with your provider's server. Some technical device data is kept for support and to
+      prevent abuse, and you can ask for it to be deleted.</p></div>
+
+    <h2>Who is responsible</h2>
+    <p>EverseTV (eversetv.com), which develops and publishes the apps. Contact: <a href="mailto:soporte@eversetv.com">soporte@eversetv.com</a>. If your app carries a reseller's brand, EverseTV may share
+      their own customers' data with that reseller so they can support them.</p>
+
+    <h2>What data is used and why</h2>
+    <table lang="en">
+      <tr><th>Your provider account (server, username and password, or your M3U list)</th>
+        <td>Stored only on your device (on Android the password is encrypted) and sent only to your provider's server to
+          show your channels and movies. It is never sent to EverseTV.</td></tr>
+      <tr><th>Device data for statistics and support</th>
+        <td>A random install code, the app (or brand), device type and model, app version, your provider username (not the
+          password), the server you use, your country (from the connection), and when you first and last used the app.
+          Used for support, to know how many devices use the app, and to block devices or accounts using it without
+          permission.</td></tr>
+      <tr><th>Profiles, favorites and "continue watching"</th>
+        <td>Stored on our server so they match on all your devices, under a key computed on your device from your account.
+          The server never receives your username or password, and only the account holder can read them.</td></tr>
+      <tr><th>Crash reports</th>
+        <td>If the app closes unexpectedly or a video cannot play because of its format, the error, device model and system,
+          app version and random install code are sent. No account data or channel addresses. Used to fix bugs. Deleted
+          after 90 days without repeating.</td></tr>
+      <tr><th>PC and TV activation</th>
+        <td>If your app requires activation, a fingerprint of your device code and the expiry date are stored.</td></tr>
+      <tr><th>Downloads from this site</th>
+        <td>Counted per day, app, device type and country, with no data about who downloads.</td></tr>
+    </table>
+
+    <h2>What we don't do</h2>
+    <ul>
+      <li>We don't sell or rent your data, and we don't show ads.</li>
+      <li>We don't use advertising or third-party trackers inside the app.</li>
+      <li>We don't provide content: channels and movies come from your provider, under their own terms and privacy policy.</li>
+    </ul>
+
+    <h2>Who it is shared with</h2>
+    <p>Only the services that make it work: Cloudflare (statistics and profile servers, and the eversetv.com domain) and
+      GitHub (download site and app design). Your app's reseller may receive their own customers' data. Nobody else, unless required by law.</p>
+
+    <h2>How long it is kept</h2>
+    <p>Device data is kept while you use the app and can be deleted on request. Profiles are kept while your account exists.
+      Crash reports are deleted after 90 days without repeating.</p>
+
+    <h2>Your rights</h2>
+    <p>You can ask to access, correct or delete your device and account data, or object to its use. Email <a href="mailto:soporte@eversetv.com">soporte@eversetv.com</a> (or ask your reseller) and include your provider username and your device model. Uninstalling the app
+      deletes the data stored on your device.</p>
+
+    <h2>Children</h2>
+    <p>The app is not directed to children under 13. Content depends on your provider.</p>
+
+    <h2>Changes</h2>
+    <p>If this policy changes, we will publish it here with the new date.</p>
+  </section>
+</main>
+<script>
+  (function () {
+    var btns = document.querySelectorAll('.lang button');
+    function set(l) { document.documentElement.className = l === 'en' ? 'en' : ''; document.documentElement.lang = l;
+      btns.forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-l') === l)); }); }
+    btns.forEach(function (b) { b.addEventListener('click', function () { set(b.getAttribute('data-l')); }); });
+    set(document.documentElement.className === 'en' ? 'en' : 'es');
+  })();
+</script>
+</body>
+</html>
