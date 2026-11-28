@@ -67,7 +67,16 @@ fun TvInstallScreen(nav: Navigator) {
     var lastRenew by remember { mutableStateOf(installer.lastRenew) }
     val ipkUrls = listOfNotNull(cfg.texts["tv.lgUrl"]?.takeIf { it.startsWith("https://") },
         "$SITE_TV/EmbyVerse-LG.ipk", "$RELEASES/tv-latest/EmbyVerse-LG.ipk", "$RELEASES/tv-beta/EmbyVerse-LG.ipk")
-    val wgtUrl = cfg.texts["tv.samsungUrl"]?.takeIf { it.startsWith("https://") } ?: "$SITE_TV/EmbyVerse-Samsung.wgt"
+    // Enlace directo al .wgt (termina en .wgt para que Apps2Samsung lo reconozca como app).
+    val wgtUrl = cfg.texts["tv.samsungUrl"]?.takeIf { it.startsWith("https://") } ?: "$RELEASES/tv-latest/EmbyVerse-Samsung.wgt"
+    val phoneIp = remember { localIp() }
+    // Apps2Samsung abre enlaces apps2samsung://: «source» agrega nuestra app (el usuario confirma) e «install» abre su
+    // pantalla de instalación. Así el cliente no descarga ni busca archivos.
+    val a2s = { link: String ->
+        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            .onFailure { android.widget.Toast.makeText(context, "Primero instala Apps2Samsung (paso 1)", android.widget.Toast.LENGTH_LONG).show() }
+    }
+    val wgtName = wgtUrl.substringAfterLast('/').substringBefore('?').removeSuffix(".wgt")
     val open = { u: String -> runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
 
     @Composable fun Step(n: Int, text: String) {
@@ -131,24 +140,32 @@ fun TvInstallScreen(nav: Navigator) {
                         color = t.textSecondary, style = MaterialTheme.typography.bodySmall)
                 }
             } else {
-                item { Step(1, "Instala en este celular el instalador gratuito «Apps2Samsung» (botón de abajo) y ábrelo.") }
-                item { Step(2, "En la TV entra a Apps, con el control escribe 1 2 3 4 5, pon Developer mode en ON y escribe la IP de este celular (Ajustes del celular → Wi-Fi → tu red). Apaga y prende la TV.") }
-                item { Step(3, "Descarga EmbyVerse para Samsung (botón de abajo).") }
-                item { Step(4, "En Apps2Samsung elige tu TV, toca instalar un archivo .wgt propio y elige EmbyVerse-Samsung.wgt de Descargas. La primera vez te pide entrar con una cuenta Samsung (gratis) para firmar.") }
-                item { Step(5, "Listo: EmbyVerse aparece en Apps de la TV. En Samsung no caduca y se actualiza sola.") }
+                item { Step(1, "Instala en este celular el instalador gratuito «Apps2Samsung» (botón de abajo).") }
+                item { Step(2, "En la TV entra a Apps, con el control escribe 1 2 3 4 5, pon Developer mode en ON y escribe la IP de este celular: ${phoneIp ?: "(Ajustes del celular → Wi-Fi → tu red)"}. Apaga y prende la TV.") }
+                item { Step(3, "Toca «Agregar a Apps2Samsung» y confirma.") }
+                item { Step(4, "Toca «Instalar en la TV», elige tu TV e instala. La primera vez te pide entrar con una cuenta Samsung (gratis) para firmar.") }
+                item { Step(5, "Listo: aparece en Apps de la TV. En Samsung no caduca y se actualiza sola.") }
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        EmbyButton("Descargar Apps2Samsung", { open(APPS2SAMSUNG) }, icon = Icons.Rounded.Download)
-                        EmbyButton("Descargar EmbyVerse para Samsung", { open(wgtUrl) }, icon = Icons.Rounded.Download, secondary = true)
-                        EmbyButton("Copiar enlace de EmbyVerse Samsung", {
+                        EmbyButton("1 · Descargar Apps2Samsung", { open(APPS2SAMSUNG) }, icon = Icons.Rounded.Download, modifier = Modifier.testTag("a2s_download"))
+                        EmbyButton("3 · Agregar a Apps2Samsung", { a2s("apps2samsung://source?url=" + Uri.encode(wgtUrl)) }, icon = Icons.Rounded.Download, secondary = true, modifier = Modifier.testTag("a2s_source"))
+                        EmbyButton("4 · Instalar en la TV", { a2s("apps2samsung://install?app=" + Uri.encode(wgtName)) }, icon = Icons.Rounded.Download, secondary = true, modifier = Modifier.testTag("a2s_install"))
+                        EmbyButton("Copiar enlace del archivo .wgt", {
                             val cm = context.getSystemService(android.content.ClipboardManager::class.java)
-                            cm.setPrimaryClip(android.content.ClipData.newPlainText("EmbyVerse Samsung", wgtUrl))
+                            cm.setPrimaryClip(android.content.ClipData.newPlainText("Samsung .wgt", wgtUrl))
                             android.widget.Toast.makeText(context, "Enlace copiado", android.widget.Toast.LENGTH_SHORT).show()
                         }, icon = Icons.Rounded.ContentCopy, secondary = true)
                     }
                 }
-                item { Text("Apps2Samsung es un instalador independiente de código abierto (licencia MIT); no es de Samsung ni de EmbyVerse.", color = t.textSecondary, style = MaterialTheme.typography.bodySmall) }
+                item { Text("Apps2Samsung es un instalador independiente de código abierto; no es de Samsung ni de esta app.", color = t.textSecondary, style = MaterialTheme.typography.bodySmall) }
             }
         }
     }
 }
+
+/** IP de este celular en el Wi-Fi (para escribirla en el modo desarrollador de la TV Samsung). */
+private fun localIp(): String? = runCatching {
+    java.net.NetworkInterface.getNetworkInterfaces().toList().filter { it.isUp && !it.isLoopback }
+        .flatMap { it.inetAddresses.toList() }.filterIsInstance<java.net.Inet4Address>()
+        .map { it.hostAddress.orEmpty() }.firstOrNull { it.startsWith("192.168.") || it.startsWith("10.") || it.matches(Regex("^172\\.(1[6-9]|2\\d|3[01])\\..*")) }
+}.getOrNull()

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Fx, useApp } from '../ui';
 
 const SITE_TV = 'https://ositovela-a11y.github.io/EmbyVerseTV/tv';
+// Apps2Samsung abre enlaces apps2samsung://: «source» agrega la app (el usuario confirma) e «install» abre su instalación.
 const RELEASES = 'https://github.com/ositovela-a11y/EmbyVerseTV/releases/download';
 const APPS2SAMSUNG = 'https://github.com/Apps2Samsung/Apps2Samsung/releases/latest';
 const HELP = 'https://eversetv.com/instalar/';
@@ -24,7 +25,8 @@ export function TvInstall({ onClose }: { onClose: () => void }) {
   useEffect(() => { d?.lgSaved().then((s) => { setIp(s.ip); setPass(s.pass); setRenewed(s.renew); }); return d?.onLgProgress((m) => setMsg({ text: m })); }, []);
   const t = app.config.texts;
   const ipk = [t['tv.lgUrl'], `${SITE_TV}/EmbyVerse-LG.ipk`, `${RELEASES}/tv-latest/EmbyVerse-LG.ipk`].filter((u): u is string => !!u && u.startsWith('https://'));
-  const wgt = (t['tv.samsungUrl']?.startsWith('https://') && t['tv.samsungUrl']) || `${SITE_TV}/EmbyVerse-Samsung.wgt`;
+  const wgt = (t['tv.samsungUrl']?.startsWith('https://') && t['tv.samsungUrl']) || `${RELEASES}/tv-latest/EmbyVerse-Samsung.wgt`;
+  const wgtName = wgt.split('/').pop()!.split('?')[0].replace(/\.wgt$/, '');
   const run = async (f: () => Promise<{ ok: boolean; message: string }>) => { setBusy(true); setMsg(null); try { const r = await f(); setMsg({ ok: r.ok, text: r.message }); } finally { setBusy(false); } };
   const field = (id: string, label: string, v: string, set: (s: string) => void, ph: string) => (
     <Fx className="field" onClick={() => (document.getElementById(id) as HTMLInputElement)?.focus()}>
@@ -63,13 +65,14 @@ export function TvInstall({ onClose }: { onClose: () => void }) {
           <>
             <ol className="ti-steps">
               <li>Descarga e instala <b>Apps2Samsung</b> para Windows (gratis, botón de abajo).</li>
-              <li>Descarga <b>{name} para Samsung</b> (archivo .wgt).</li>
               <li>En la TV: <b>Apps</b> → con el control escribe <b>1 2 3 4 5</b> → Developer mode <b>ON</b> → escribe la <b>IP de esta PC</b> → apaga y prende la TV.</li>
-              <li>En Apps2Samsung elige tu TV → <b>archivo .wgt propio</b> → el archivo que bajaste. La primera vez pide tu cuenta Samsung (gratis).</li>
+              <li>Pulsa <b>Agregar a Apps2Samsung</b> y confirma.</li>
+              <li>Pulsa <b>Instalar en la TV</b>, elige tu TV e instala. La primera vez pide tu cuenta Samsung (gratis).</li>
             </ol>
             <div className="row-btns" data-fx-group="">
               <Fx className="btn primary" id="ti-a2s" onClick={() => d?.openExternal(APPS2SAMSUNG)}>Descargar Apps2Samsung</Fx>
-              <Fx className="btn" id="ti-wgt" onClick={() => d?.openExternal(wgt)}>Descargar {name} para Samsung</Fx>
+              <Fx className="btn" id="ti-a2s-source" onClick={() => d?.openExternal('apps2samsung://source?url=' + encodeURIComponent(wgt))}>Agregar a Apps2Samsung</Fx>
+              <Fx className="btn" id="ti-a2s-install" onClick={() => d?.openExternal('apps2samsung://install?app=' + encodeURIComponent(wgtName))}>Instalar en la TV</Fx>
             </div>
           </>
         )}

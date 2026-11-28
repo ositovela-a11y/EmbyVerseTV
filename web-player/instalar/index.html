@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Instalar en tu Smart TV</title>
+<meta name="description" content="Guía rápida para instalar la app en televisiones Samsung y LG desde tu celular Android o tu PC.">
+<link rel="icon" href="../icon-192.png">
+<style>
+  :root { --bg: #02050C; --card: #0A1322; --line: rgba(143,163,191,.18); --text: #EEF4FF; --muted: #A9B8CC; --green: #7BE52F; --cyan: #22D3EE; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.55 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 28px 16px 64px; }
+  h1 { font-size: clamp(1.7rem, 6vw, 2.5rem); line-height: 1.15; margin: 0 0 6px; }
+  h2 { font-size: 1.2rem; margin: 0 0 12px; }
+  p { color: var(--muted); margin: 6px 0; }
+  b { color: var(--text); }
+  .lead { font-size: 1.05rem; }
+  .pick { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 22px 0 8px; }
+  .pick button { all: unset; cursor: pointer; text-align: center; background: var(--card); border: 2px solid var(--line); border-radius: 16px; padding: 16px 10px; font-weight: 700; font-size: 1.1rem; }
+  .pick button small { display: block; font-weight: 400; color: var(--muted); font-size: .85rem; margin-top: 2px; }
+  .pick button[aria-pressed="true"] { border-color: var(--green); box-shadow: 0 0 0 3px rgba(123,229,47,.15); }
+  .pick button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
+  .label { font-size: .85rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-top: 18px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px; margin-top: 16px; }
+  ol.steps { list-style: none; counter-reset: s; padding: 0; margin: 0; }
+  ol.steps > li { counter-increment: s; position: relative; padding: 10px 0 10px 46px; border-bottom: 1px solid var(--line); }
+  ol.steps > li:last-child { border-bottom: 0; }
+  ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 8px; width: 32px; height: 32px; border-radius: 50%; background: var(--green); color: #04110A; font-weight: 800; display: grid; place-items: center; }
+  .where { display: inline-block; font-size: .75rem; font-weight: 700; padding: 1px 8px; border-radius: 99px; margin-right: 6px; vertical-align: 1px; }
+  .tv { background: rgba(34,211,238,.15); color: var(--cyan); } .ph { background: rgba(123,229,47,.15); color: var(--green); }
+  .btns { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; background: var(--green); color: #04110A; font-weight: 800; border-radius: 12px; padding: 11px 16px; }
+  .btn.alt { background: transparent; color: var(--text); border: 1px solid var(--line); font-weight: 600; }
+  .note { border-left: 3px solid var(--cyan); padding: 4px 0 4px 12px; margin-top: 14px; }
+  .qr { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  .qr canvas, .qr img { background: #fff; padding: 10px; border-radius: 12px; width: 160px; height: 160px; image-rendering: pixelated; }
+  .hide { display: none !important; }
+  footer { margin-top: 34px; font-size: .85rem; } footer a { color: var(--muted); }
+  @media (max-width: 520px) { .pick button { padding: 14px 6px; font-size: 1rem; } .card { padding: 16px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Instala la app en tu Smart TV</h1>
+  <p class="lead">Elige tu televisión y con qué la vas a instalar. Se hace una sola vez y después se actualiza sola.</p>
+
+  <div class="label">1. Tu televisión</div>
+  <div class="pick" id="pick-tv">
+    <button type="button" data-tv="lg" aria-pressed="true">LG<small>webOS · 2018 o más nueva</small></button>
+    <button type="button" data-tv="samsung" aria-pressed="false">Samsung<small>Tizen · 2018 o más nueva</small></button>
+  </div>
+  <div class="label">2. ¿Con qué la instalas?</div>
+  <div class="pick" id="pick-dev">
+    <button type="button" data-dev="android" aria-pressed="true">Celular Android<small>lo más fácil</small></button>
+    <button type="button" data-dev="pc" aria-pressed="false">PC con Windows<small>si no tienes Android</small></button>
+  </div>
+
+  <!-- LG + Android -->
+  <section class="card" data-show="lg android">
+    <h2>LG con tu celular Android · 5 minutos</h2>
+    <ol class="steps">
+      <li><span class="where ph">Celular</span>Instala la app en tu celular (botón de abajo). Conecta el celular al <b>mismo Wi-Fi</b> que la TV.
+        <div class="btns"><a class="btn" data-apk href="../a/">Descargar app para Android</a></div></li>
+      <li><span class="where tv">TV</span>Abre <b>LG Content Store</b>, busca e instala <b>Developer Mode</b>. Ábrela e inicia sesión con una cuenta <b>LG Developer</b> (gratis en <b>webostv.developer.lge.com</b>).</li>
+      <li><span class="where tv">TV</span>Pon <b>Dev Mode Status</b> en <b>ON</b>. La TV se reinicia. Vuelve a abrir Developer Mode y pon <b>Key Server</b> en <b>ON</b>. Deja esa pantalla abierta.</li>
+      <li><span class="where ph">Celular</span>En la app: <b>Ajustes → Instalar en TV Samsung o LG → TV LG</b>. Escribe la <b>IP</b> y la <b>Passphrase</b> que muestra la TV y toca <b>Instalar</b>.</li>
+      <li><span class="where tv">TV</span>¡Listo! La app se abre sola en la TV.</li>
+    </ol>
+    <p class="note">La app de la TV renueva sola el modo desarrollador cada vez que la abres. Ábrela al menos <b>una vez cada 2 días</b>: si pasan más de 50 horas sin abrirla, LG la borra y hay que repetir el paso 4 (un toque, los datos quedan guardados).</p>
+  </section>
+
+  <!-- LG + PC -->
+  <section class="card hide" data-show="lg pc">
+    <h2>LG con tu PC · 5 minutos</h2>
+    <ol class="steps">
+      <li><span class="where ph">PC</span>Instala la app para PC (botón de abajo). La PC debe estar en la <b>misma red</b> que la TV.
+        <div class="btns"><a class="btn" href="../pc/">Descargar app para PC</a></div></li>
+      <li><span class="where tv">TV</span>Abre <b>LG Content Store</b>, instala <b>Developer Mode</b> e inicia sesión con una cuenta <b>LG Developer</b> (gratis).</li>
+      <li><span class="where tv">TV</span>Pon <b>Dev Mode Status</b> en <b>ON</b> (se reinicia) y luego <b>Key Server</b> en <b>ON</b>.</li>
+      <li><span class="where ph">PC</span>En la app: <b>Ajustes → Instalar en mi Smart TV → TV LG</b>. Escribe la <b>IP</b> y la <b>Passphrase</b> de la TV y pulsa <b>Instalar</b>.</li>
+      <li><span class="where tv">TV</span>¡Listo! La app se abre sola en la TV.</li>
+    </ol>
+    <p class="note">Ábrela en la TV al menos una vez cada 2 días para que LG no la borre (se renueva sola al abrirla).</p>
+  </section>
+
+  <!-- Samsung + Android -->
+  <section class="card hide" data-show="samsung android">
+    <h2>Samsung con tu celular Android · 10 minutos</h2>
+    <ol class="steps">
+      <li><span class="where ph">Celular</span>Instala la app en tu celular y el instalador gratuito <b>Apps2Samsung</b>. Conecta el celular al <b>mismo Wi-Fi</b> que la TV.
+        <div class="btns"><a class="btn" data-apk href="../a/">Descargar app para Android</a><a class="btn alt" href="https://github.com/Apps2Samsung/Apps2Samsung/releases/latest" rel="noopener">Descargar Apps2Samsung</a></div></li>
+      <li><span class="where tv">TV</span>Entra a <b>Apps</b>. Con el control escribe <b>1 2 3 4 5</b>. Pon <b>Developer mode</b> en <b>ON</b> y escribe la <b>IP de tu celular</b> (la app te la muestra en el paso 3). <b>Apaga y prende la TV</b>.</li>
+      <li><span class="where ph">Celular</span>En la app: <b>Ajustes → Instalar en TV Samsung o LG → TV Samsung</b>. Toca <b>Agregar a Apps2Samsung</b> y confirma.</li>
+      <li><span class="where ph">Celular</span>Toca <b>Instalar en la TV</b>, elige tu TV e instala. La primera vez te pide entrar con una <b>cuenta Samsung</b> (gratis).</li>
+      <li><span class="where tv">TV</span>¡Listo! Aparece en <b>Apps</b>. En Samsung no caduca y se actualiza sola.</li>
+    </ol>
+  </section>
+
+  <!-- Samsung + PC -->
+  <section class="card hide" data-show="samsung pc">
+    <h2>Samsung con tu PC · 10 minutos</h2>
+    <ol class="steps">
+      <li><span class="where ph">PC</span>Instala la app para PC y <b>Apps2Samsung para Windows</b> (gratis). La PC debe estar en la misma red que la TV.
+        <div class="btns"><a class="btn" href="../pc/">Descargar app para PC</a><a class="btn alt" href="https://github.com/Apps2Samsung/Apps2Samsung/releases/latest" rel="noopener">Descargar Apps2Samsung</a></div></li>
+      <li><span class="where tv">TV</span>Entra a <b>Apps</b>, escribe <b>1 2 3 4 5</b> con el control, pon <b>Developer mode</b> en <b>ON</b> y escribe la <b>IP de tu PC</b>. <b>Apaga y prende la TV</b>.</li>
+      <li><span class="where ph">PC</span>En la app: <b>Ajustes → Instalar en mi Smart TV → TV Samsung → Agregar a Apps2Samsung</b> y confirma.</li>
+      <li><span class="where ph">PC</span>Pulsa <b>Instalar en la TV</b>, elige tu TV e instala. La primera vez pide tu <b>cuenta Samsung</b> (gratis).</li>
+      <li><span class="where tv">TV</span>¡Listo! Aparece en <b>Apps</b> y se actualiza sola.</li>
+    </ol>
+  </section>
+
+  <section class="card">
+    <h2>Activación</h2>
+    <p>La app de TV incluye <b>7 días de prueba</b>. Después aparece un <b>código del equipo</b> en pantalla: mándaselo a tu vendedor para activarla.</p>
+  </section>
+
+  <section class="card">
+    <h2>¿Tienes iPhone?</h2>
+    <p>Samsung y LG no permiten instalar apps desde un iPhone ni desde la TV sola. Pídele a alguien de casa con <b>celular Android</b> o usa una <b>PC con Windows</b>: se hace una sola vez.</p>
+  </section>
+
+  <section class="card qr" id="qr-box">
+    <div id="qr" aria-label="Código QR de esta página"></div>
+    <div><h2>Ábrela en tu celular</h2><p>Escanea el código con la cámara para seguir los pasos desde tu celular.</p><p id="qr-url" style="word-break:break-all"></p></div>
+  </section>
+
+  <footer><a href="../privacidad/">Aviso de privacidad</a> · ¿Dudas? Escribe a tu vendedor.</footer>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script>
+  (function () {
+    var q = new URLSearchParams(location.search);
+    var st = { tv: q.get('tv') === 'samsung' ? 'samsung' : 'lg', dev: q.get('con') === 'pc' ? 'pc' : 'android' };
+    // ?v=<vendedor>: el botón baja la app Android de ese vendedor.
+    var v = (q.get('v') || '').toLowerCase();
+    if (/^[a-z][a-z0-9]{1,30}$/.test(v)) document.querySelectorAll('[data-apk]').forEach(function (a) { a.href = '../a/?v=' + v; });
+    function render() {
+      document.querySelectorAll('#pick-tv button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.tv === st.tv)); });
+      document.querySelectorAll('#pick-dev button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.dev === st.dev)); });
+      document.querySelectorAll('[data-show]').forEach(function (s) { s.classList.toggle('hide', s.dataset.show !== st.tv + ' ' + st.dev); });
+    }
+    document.querySelectorAll('#pick-tv button').forEach(function (b) { b.addEventListener('click', function () { st.tv = b.dataset.tv; render(); }); });
+    document.querySelectorAll('#pick-dev button').forEach(function (b) { b.addEventListener('click', function () { st.dev = b.dataset.dev; render(); }); });
+    render();
+    var url = location.origin + location.pathname + (v ? '?v=' + v : '');
+    document.getElementById('qr-url').textContent = url;
+    try {
+      var qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+      document.getElementById('qr').innerHTML = qr.createImgTag(5, 0);
+    } catch (e) { document.getElementById('qr-box').classList.add('hide'); }
+  })();
+</script>
+</body>
+</html>
