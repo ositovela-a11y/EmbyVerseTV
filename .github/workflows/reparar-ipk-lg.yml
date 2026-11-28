@@ -1,0 +1,33 @@
+# Repara los paquetes de LG (.ipk) ya publicados: los rearma con el formato exacto de la herramienta oficial de LG
+# (packageinfo.json y encabezados como ares-package) sin cambiar la versión de la app. Luego vuelve a publicar el sitio.
+name: Reparar paquete LG
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/reparar-ipk-lg.yml', '.github/scripts/ipk-ares.py']
+permissions:
+  contents: write
+  actions: write
+jobs:
+  reparar:
+    runs-on: ubuntu-latest
+    env:
+      REPO: ${{ github.repository }}
+      PUB: ositovela-a11y/EmbyVerseTV
+      PUB_TOKEN: ${{ secrets.SITE_TOKEN || github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Rearmar y subir
+        run: |
+          for t in tv-latest tv-nueva tv-beta; do
+            R=$REPO; TK=${{ github.token }}; [ $t = tv-latest ] && { R=$PUB; TK=$PUB_TOKEN; }
+            rm -rf in && mkdir in
+            GH_TOKEN=$TK gh release download $t -R "$R" -p 'EmbyVerse-LG.ipk' -D in 2>/dev/null || { echo "sin $t"; continue; }
+            python3 .github/scripts/ipk-ares.py in/EmbyVerse-LG.ipk EmbyVerse-LG.ipk
+            ar t EmbyVerse-LG.ipk
+            GH_TOKEN=$TK gh release upload $t -R "$R" EmbyVerse-LG.ipk --clobber && echo "::notice::$t reparado"
+          done
+      - name: Publicar el sitio otra vez
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: gh workflow run web.yml --ref main -R "$REPO"

@@ -64,18 +64,33 @@ cpSync('dist', tz, { recursive: true });
 writeFileSync(`${tz}/config.xml`, readFileSync('platform/tizen/config.xml', 'utf8').replaceAll('__VERSION__', VERSION));
 execSync(`cd ${tz} && zip -qr ../EmbyVerse-Samsung.wgt .`);
 
-// LG (webOS): .ipk = paquete «ar» con control.tar.gz + data.tar.gz (como ares-package).
+// LG (webOS): .ipk = paquete «ar» con control.tar.gz + data.tar.gz, IGUAL que ares-package (herramienta oficial de LG):
+//  - data: usr/palm/applications/<id>/ (la app + appinfo.json) y usr/palm/packages/<id>/packageinfo.json,
+//  - rutas sin «./», encabezados «ar» sin «/» al final del nombre y modo 100644.
+// Sin packageinfo.json (o con el formato de GNU ar) algunas TVs responden «Failed to extract package» (errorCode -5).
 const appId = 'com.embyverse.tv';
 const wo = 'dist-pkg/webos';
+rmSync(wo, { recursive: true, force: true });
 const appDir = `${wo}/data/usr/palm/applications/${appId}`;
-mkdirSync(appDir, { recursive: true });
+const pkgDir = `${wo}/data/usr/palm/packages/${appId}`;
+mkdirSync(appDir, { recursive: true }); mkdirSync(pkgDir, { recursive: true });
 cpSync('dist', appDir, { recursive: true });
 writeFileSync(`${appDir}/appinfo.json`, readFileSync('platform/webos/appinfo.json', 'utf8').replaceAll('__VERSION__', VERSION));
+writeFileSync(`${pkgDir}/packageinfo.json`, JSON.stringify({ app: appId, id: appId, version: VERSION }, null, 2) + '\n');
 mkdirSync(`${wo}/control`, { recursive: true });
 const size = execSync(`du -sk ${wo}/data | cut -f1`).toString().trim();
-writeFileSync(`${wo}/control/control`, `Package: ${appId}\nVersion: ${VERSION}\nSection: misc\nPriority: optional\nArchitecture: all\nInstalled-Size: ${size}\nMaintainer: EmbyVerse\nDescription: EmbyVerse\nwebOS-Package-Format-Version: 2\nwebOS-Packager-Version: x.y.x\n`);
-writeFileSync(`${wo}/debian-binary`, '2.0\n');
-execSync(`cd ${wo}/control && tar --owner=0 --group=0 -czf ../control.tar.gz ./control`);
-execSync(`cd ${wo}/data && tar --owner=0 --group=0 -czf ../data.tar.gz ./usr`);
-execSync(`cd ${wo} && rm -f ../EmbyVerse-LG.ipk && ar -qc ../EmbyVerse-LG.ipk debian-binary control.tar.gz data.tar.gz`);
+writeFileSync(`${wo}/control/control`, `Package: ${appId}\nVersion: ${VERSION}\nSection: misc\nPriority: optional\nArchitecture: all\nInstalled-Size: ${size}\nMaintainer: N/A <nobody@example.com>\nDescription: This is a webOS application.\nwebOS-Package-Format-Version: 2\nwebOS-Packager-Version: x.y.x\n`);
+execSync(`cd ${wo}/control && tar --owner=0 --group=0 --numeric-owner -czf ../control.tar.gz control`);
+execSync(`cd ${wo}/data && tar --owner=0 --group=0 --numeric-owner -czf ../data.tar.gz usr`);
+{
+  const now = String(Math.floor(Date.now() / 1000));
+  const pad = (v, n) => String(v).padEnd(n, ' ');
+  const head = (name, len) => Buffer.from(pad(name, 16) + pad(now, 12) + '0     ' + '0     ' + '100644  ' + pad(len, 10) + '`\n', 'latin1');
+  const parts = [Buffer.from('!<arch>\n')];
+  for (const [name, data] of [['debian-binary', Buffer.from('2.0\n')], ['control.tar.gz', readFileSync(`${wo}/control.tar.gz`)], ['data.tar.gz', readFileSync(`${wo}/data.tar.gz`)]]) {
+    parts.push(head(name, data.length), data);
+    if (data.length % 2) parts.push(Buffer.from('\n'));
+  }
+  writeFileSync('dist-pkg/EmbyVerse-LG.ipk', Buffer.concat(parts));
+}
 console.log('Paquetes listos en dist-pkg/: EmbyVerse-Samsung.wgt (firmar), EmbyVerse-LG.ipk');
