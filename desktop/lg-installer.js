@@ -61,8 +61,11 @@ class LgInstaller {
     return new Promise((ok, bad) => {
       c.exec(`cat > '${dest}'`, (err, st) => {
         if (err) return bad(err);
-        let e = ''; st.stderr.on('data', (d) => { e += d; });
-        st.on('close', (code) => (code === 0 || code == null ? ok() : bad(new Error('No se pudo copiar a la TV: ' + e))));
+        let e = ''; let done = false;
+        const fin = (code) => { if (done) return; done = true; code === 0 || code == null ? ok() : bad(new Error('No se pudo copiar a la TV: ' + e)); };
+        st.stderr.on('data', (d) => { e += d; });
+        st.resume(); // hay que leer la salida para que el canal termine
+        st.on('exit', fin); st.on('close', fin);
         st.end(data);
       });
     });

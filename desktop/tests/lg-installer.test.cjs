@@ -3,28 +3,34 @@
 // apertura de la app y renovación de 50 h. Uso: node tests/lg-installer.test.cjs (necesita ssh-keygen).
 const { Server, utils } = require('ssh2');
 const http = require('http'); const fs = require('fs'); const os = require('os'); const path = require('path');
-const { execFileSync } = require('child_process');
 const { LgInstaller } = require('../lg-installer');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lg-'));
 const PASS = 'ABC123';
-execFileSync('ssh-keygen', ['-q', '-t', 'rsa', '-b', '2048', '-m', 'PEM', '-N', PASS, '-f', path.join(dir, 'webos_rsa')]);
-const priv = fs.readFileSync(path.join(dir, 'webos_rsa'));
-const pub = utils.parseKey(fs.readFileSync(path.join(dir, 'webos_rsa.pub')));
-execFileSync('ssh-keygen', ['-q', '-t', 'rsa', '-b', '2048', '-m', 'PEM', '-N', '', '-f', path.join(dir, 'host')]);
+const crypto = require('crypto');
+// Llave como la de la TV: RSA en PEM tradicional cifrada con la Passphrase.
+const priv = Buffer.from(crypto.generateKeyPairSync('rsa', { modulusLength: 2048, publicKeyEncoding: { type: 'pkcs1', format: 'pem' },
+  privateKeyEncoding: { type: 'pkcs1', format: 'pem', cipher: 'aes-128-cbc', passphrase: PASS } }).privateKey);
+const pub = utils.parseKey(priv, PASS);
+const hostKey = crypto.generateKeyPairSync('rsa', { modulusLength: 2048, publicKeyEncoding: { type: 'pkcs1', format: 'pem' }, privateKeyEncoding: { type: 'pkcs1', format: 'pem' } }).privateKey;
 const ipk = Buffer.concat([Buffer.from('!<arch>\n'), Buffer.alloc(20000, 7)]);
 const got = { file: null, cmds: [] };
 let fails = 0; const ok = (c, m) => { console.log(c ? '✔' : '✘', m); if (!c) fails++; };
 
 const keySrv = http.createServer((q, s) => { if (q.url === '/webos_rsa') { s.end(priv); } else if (q.url === '/app.ipk') { s.end(ipk); } else { s.statusCode = 404; s.end(); } }).listen(9991);
-const ssh = new Server({ hostKeys: [fs.readFileSync(path.join(dir, 'host'))] }, (c) => {
+const ssh = new Server({ hostKeys: [hostKey] }, (c) => {
   c.on('authentication', (ctx) => {
-    if (ctx.username === 'prisoner' && ctx.method === 'publickey' && ctx.key.algo === pub.type && ctx.key.data.equals(pub.getPublicSSH())) {
+    if (ctx.username === 'prisoner' && ctx.method === 'publickey' && ctx.key.algo === pub.type && Buffer.from(ctx.key.data).equals(pub.getPublicSSH())) {
       if (!ctx.signature || pub.verify(ctx.blob, ctx.signature, ctx.hashAlgo)) return ctx.accept();
     }
     ctx.reject(['publickey']);
   }).on('ready', () => c.on('session', (accept) => accept().on('exec', (acc, _r, info) => {
-    const st = acc(); got.cmds.push(info.command);
-    if (info.command.startsWith('cat > ')) { const parts = []; st.on('data', (d) => parts.push(d)); st.on('end', () => { got.file = Buffer.concat(parts); st.exit(0); st.end(); }); return; }
+    const st = acc(); got.cmds.push(info.command); 
+    if (info.command.startsWith('cat > ')) {
+      const parts = []; let done = false;
+      const fin = () => { if (done) return; done = true; got.file = Buffer.concat(parts); try { st.exit(0); st.end(); } catch { /* */ } };
+      st.on('data', (d) => parts.push(d)); st.on('end', fin); st.on('finish', fin);
+      return;
+    }
     if (info.command.includes('appInstallService/dev/install')) st.write('{"returnValue":true}\n{"details":{"state":"installing"}}\n{"details":{"state":"installed"}}\n');
     else if (info.command.includes('applicationManager/launch')) st.write('{"returnValue":true}\n');
     st.exit(0); st.end();

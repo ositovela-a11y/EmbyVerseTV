@@ -26,6 +26,7 @@ jobs:
           cd ../desktop && npm install --no-audit --no-fund && npm i --no-save playwright@1.48.2 sharp@0.33.5
           node brand.mjs --slug prueba --config ../tests/fixtures/pc-vendor.json --config-url http://127.0.0.1:8800/cfg/vendor.json --license-url http://127.0.0.1:8800/licenses.json
       - name: Probar
+        timeout-minutes: 25
         run: |
           (cd tests/android && node mock-xtream.mjs > /tmp/mock.log 2>&1 &)
           sleep 3
