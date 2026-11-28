@@ -66,7 +66,7 @@ export function TvInstall({ onClose }: { onClose: () => void }) {
             <ol className="ti-steps">
               <li>Descarga e instala <b>Apps2Samsung</b> para Windows (gratis, botón de abajo).</li>
               <li>En la TV: <b>Apps</b> → con el control escribe <b>1 2 3 4 5</b> → Developer mode <b>ON</b> → escribe la <b>IP de esta PC</b> → apaga y prende la TV.</li>
-              <li>Pulsa <b>Agregar a Apps2Samsung</b> y confirma.</li>
+              <li>Pulsa <b>Agregar a Apps2Samsung</b>. En Apps2Samsung pulsa <b>Añadir</b> (primero esto; si no, dice «Not in the catalog»).</li>
               <li>Pulsa <b>Instalar en la TV</b>, elige tu TV e instala. La primera vez pide tu cuenta Samsung (gratis).</li>
             </ol>
             <div className="row-btns" data-fx-group="">

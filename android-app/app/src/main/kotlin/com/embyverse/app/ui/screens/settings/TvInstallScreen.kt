@@ -77,6 +77,14 @@ fun TvInstallScreen(nav: Navigator) {
             .onFailure { android.widget.Toast.makeText(context, "Primero instala Apps2Samsung (paso 1)", android.widget.Toast.LENGTH_LONG).show() }
     }
     val wgtName = wgtUrl.substringAfterLast('/').substringBefore('?').removeSuffix(".wgt")
+    // Apps2Samsung solo encuentra la app después de «Añadir» la fuente: si tocan el 4 antes que el 3, se abre el 3.
+    val a2sPrefs = remember { context.getSharedPreferences("tv_install", android.content.Context.MODE_PRIVATE) }
+    var a2sAdded by remember { mutableStateOf(a2sPrefs.getBoolean("a2s_added", false)) }
+    val addSource = {
+        a2sPrefs.edit().putBoolean("a2s_added", true).apply(); a2sAdded = true
+        a2s("apps2samsung://source?url=" + Uri.encode(wgtUrl))
+        android.widget.Toast.makeText(context, "En Apps2Samsung toca «Añadir». Después regresa y toca 4 · Instalar en la TV", android.widget.Toast.LENGTH_LONG).show()
+    }
     val open = { u: String -> runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
 
     @Composable fun Step(n: Int, text: String) {
@@ -142,14 +150,14 @@ fun TvInstallScreen(nav: Navigator) {
             } else {
                 item { Step(1, "Instala en este celular el instalador gratuito «Apps2Samsung» (botón de abajo).") }
                 item { Step(2, "En la TV entra a Apps, con el control escribe 1 2 3 4 5, pon Developer mode en ON y escribe la IP de este celular: ${phoneIp ?: "(Ajustes del celular → Wi-Fi → tu red)"}. Apaga y prende la TV.") }
-                item { Step(3, "Toca «Agregar a Apps2Samsung» y confirma.") }
-                item { Step(4, "Toca «Instalar en la TV», elige tu TV e instala. La primera vez te pide entrar con una cuenta Samsung (gratis) para firmar.") }
+                item { Step(3, "Toca «3 · Agregar a Apps2Samsung». Se abre Apps2Samsung: toca «Añadir» y regresa aquí.") }
+                item { Step(4, "Toca «4 · Instalar en la TV», elige tu TV e instala. Si dice «Not in the catalog», falta el paso 3. La primera vez pide una cuenta Samsung (gratis).") }
                 item { Step(5, "Listo: aparece en Apps de la TV. En Samsung no caduca y se actualiza sola.") }
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         EmbyButton("1 · Descargar Apps2Samsung", { open(APPS2SAMSUNG) }, icon = Icons.Rounded.Download, modifier = Modifier.testTag("a2s_download"))
-                        EmbyButton("3 · Agregar a Apps2Samsung", { a2s("apps2samsung://source?url=" + Uri.encode(wgtUrl)) }, icon = Icons.Rounded.Download, secondary = true, modifier = Modifier.testTag("a2s_source"))
-                        EmbyButton("4 · Instalar en la TV", { a2s("apps2samsung://install?app=" + Uri.encode(wgtName)) }, icon = Icons.Rounded.Download, secondary = true, modifier = Modifier.testTag("a2s_install"))
+                        EmbyButton("3 · Agregar a Apps2Samsung", { addSource() }, icon = Icons.Rounded.Download, secondary = true, modifier = Modifier.testTag("a2s_source"))
+                        EmbyButton("4 · Instalar en la TV", { if (!a2sAdded) addSource() else a2s("apps2samsung://install?app=" + Uri.encode(wgtName)) }, icon = Icons.Rounded.Download, secondary = true, modifier = Modifier.testTag("a2s_install"))
                         EmbyButton("Copiar enlace del archivo .wgt", {
                             val cm = context.getSystemService(android.content.ClipboardManager::class.java)
                             cm.setPrimaryClip(android.content.ClipData.newPlainText("Samsung .wgt", wgtUrl))
