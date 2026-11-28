@@ -25,7 +25,7 @@ export function TvInstall({ onClose }: { onClose: () => void }) {
   useEffect(() => { d?.lgSaved().then((s) => { setIp(s.ip); setPass(s.pass); setRenewed(s.renew); }); return d?.onLgProgress((m) => setMsg({ text: m })); }, []);
   const t = app.config.texts;
   const ipk = [t['tv.lgUrl'], `${SITE_TV}/EmbyVerse-LG.ipk`, `${RELEASES}/tv-latest/EmbyVerse-LG.ipk`].filter((u): u is string => !!u && u.startsWith('https://'));
-  const wgt = (t['tv.samsungUrl']?.startsWith('https://') && t['tv.samsungUrl']) || `${RELEASES}/tv-latest/EmbyVerse-Samsung.wgt`;
+  const wgt = (t['tv.samsungUrl']?.startsWith('https://') && t['tv.samsungUrl']) || `${SITE_TV}/EmbyVerse-Samsung.wgt`;
   const wgtName = wgt.split('/').pop()!.split('?')[0].replace(/\.wgt$/, '');
   const run = async (f: () => Promise<{ ok: boolean; message: string }>) => { setBusy(true); setMsg(null); try { const r = await f(); setMsg({ ok: r.ok, text: r.message }); } finally { setBusy(false); } };
   const field = (id: string, label: string, v: string, set: (s: string) => void, ph: string) => (

@@ -68,7 +68,7 @@ fun TvInstallScreen(nav: Navigator) {
     val ipkUrls = listOfNotNull(cfg.texts["tv.lgUrl"]?.takeIf { it.startsWith("https://") },
         "$SITE_TV/EmbyVerse-LG.ipk", "$RELEASES/tv-latest/EmbyVerse-LG.ipk", "$RELEASES/tv-beta/EmbyVerse-LG.ipk")
     // Enlace directo al .wgt (termina en .wgt para que Apps2Samsung lo reconozca como app).
-    val wgtUrl = cfg.texts["tv.samsungUrl"]?.takeIf { it.startsWith("https://") } ?: "$RELEASES/tv-latest/EmbyVerse-Samsung.wgt"
+    val wgtUrl = cfg.texts["tv.samsungUrl"]?.takeIf { it.startsWith("https://") } ?: "$SITE_TV/EmbyVerse-Samsung.wgt" // el sitio responde rápido; el enlace de GitHub releases a veces no le contesta a Apps2Samsung
     val phoneIp = remember { localIp() }
     // Apps2Samsung abre enlaces apps2samsung://: «source» agrega nuestra app (el usuario confirma) e «install» abre su
     // pantalla de instalación. Así el cliente no descarga ni busca archivos.

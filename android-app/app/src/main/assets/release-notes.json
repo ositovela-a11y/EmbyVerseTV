@@ -1,5 +1,9 @@
 {
   "_info": "Notas de cada versión. Se muestran al ofrecer la actualización (update.json) y en «Novedades» después de actualizar. Escribir SIN el nombre de la app (las ven también las apps de vendedores). Agregar una entrada en cada versión nueva.",
+  "1.15.21": {
+    "es": ["Instalar en TV Samsung: enlace más rápido para que Apps2Samsung encuentre la app."],
+    "en": ["Samsung TV install: faster link so Apps2Samsung finds the app."]
+  },
   "1.15.20": {
     "es": ["Instalar en TV Samsung: guía más clara para agregar la app antes de instalar.", "Instalar en TV LG: paquete corregido."],
     "en": ["Samsung TV install: clearer steps to add the app before installing.", "LG TV install: fixed package."]
