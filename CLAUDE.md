@@ -102,6 +102,13 @@ Ver capturas/registros de CI: `gh api -H "Accept: application/octet-stream" repo
   a eversetv.com; el Worker sirve su copia (`env.ASSETS`) si GitHub no responde o da 404.
 - Aviso de privacidad: `web-player/privacidad/` (eversetv.com/privacidad, es/en).
 - LG: la app ya extiende sola el modo desarrollador (`lgdev.ts`).
+- Instalar en Smart TV: Android (`TvInstallScreen.kt`: LG directo con `LgTvInstaller`; Samsung con enlaces
+  `apps2samsung://source?url=…` e `install?app=…`), PC (`desktop/lg-installer.js` + `TvInstall.tsx`, prueba con TV
+  simulada `desktop/tests/lg-installer.test.cjs`) y guía eversetv.com/instalar (`web-player/instalar/`).
+  No se puede desde iPhone ni desde la TV sola. Instaladores Samsung libres son GPL: no copiar su código.
+- TV de cobro: Samsung/LG piden activación (7 días de prueba) salvo `license.required`="0" (interruptor en el panel).
+- PC principal = «Everse» (`desktop/brand.mjs`: nombre, `logo-everse.png`, `forceName`, `otherServer`; datos en la
+  carpeta `EmbyVerse` vía `evDataDir`). Paquete de Microsoft Store: release `tienda-microsoft` (variables MS_*).
 
 ## Detalles técnicos que importan
 
