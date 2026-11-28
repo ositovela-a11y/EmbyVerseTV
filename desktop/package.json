@@ -2,7 +2,7 @@
   "name": "embyverse-pc",
   "productName": "EmbyVerse",
   "version": "1.0.0",
-  "description": "EmbyVerse para PC (Windows): TV en vivo, pel\u00edculas y series con tu cuenta o lista M3U.",
+  "description": "EmbyVerse para PC (Windows): TV en vivo, películas y series con tu cuenta o lista M3U.",
   "author": "EmbyVerse",
   "main": "main.js",
   "private": true,
